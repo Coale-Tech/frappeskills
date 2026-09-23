@@ -347,8 +347,19 @@ pdf = get_pdf(html)  # wkhtmltopdf path directly
 - **Template syntax errors**: check `{{ }}` / `{% %}` delimiters and unclosed blocks; preview in Print View before exporting PDF.
 - **Standard format not picking up file changes**: confirm the module is not a "custom" module and the path matches `<module>/print_format/<scrubbed_name>/<scrubbed_name>.html` exactly.
 
-## References
+## Sources
 
-- `frappe/www/printview.py`, `frappe/utils/jinja.py`, `frappe/utils/jinja_globals.py`, `frappe/utils/safe_exec.py`, `frappe/utils/pdf.py`, `frappe/utils/print_utils.py`
+Verified against Frappe v16.35.0 (`apps/frappe/frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/printing/doctype/{print_format,print_settings,letter_head,print_style,print_format_field_template}/*.json` — doctype fields, `pdf_generator` options (`wkhtmltopdf`/`chrome`, default `wkhtmltopdf`)
+- `apps/frappe/frappe/www/printview.py` — `get_print_format` (standard format file lookup and fallback order), `get_rendered_template` (context dict: `doc`, `meta`, `layout`, `no_letterhead`, `trigger_print`, `letter_head`, `footer`, `print_settings`), `get_letter_head` (resolution order)
+- `apps/frappe/frappe/utils/jinja.py` — `_get_jenv`/`get_jenv` (`FrappeSandboxedEnvironment`, `DebugUndefined`, no `autoescape`), `get_email_from_template`, `set_filters`
+- `apps/frappe/frappe/utils/safe_exec.py` — `get_safe_globals` (alias of `exec_safe_globals`, l.1016), `render_safe_globals`, `VALID_UTILS`, `UNSAFE_ATTRIBUTES`, `RENDER_EXEC_CONFIG_KEY = "disable_render_safe_exec"`
+- `apps/frappe/frappe/utils/jinja_globals.py` — `include_script`, `include_style`, `include_icons`, `web_block`/`web_blocks`, `get_dom_id`, `is_rtl`, `resolve_class`
+- `apps/frappe/frappe/hooks.py:158-164` — core `jinja` hook registration (`global_date_format`, `markdown`, `abs_url` filters)
+- `apps/frappe/frappe/email/doctype/email_template/email_template.json`, `apps/frappe/frappe/email/doctype/email_template/email_template.py:70` — `get_email_template`
+- `apps/frappe/frappe/utils/print_utils.py:15` — `get_print` signature; `:80` — `pdf_generator` hook lookup for third-party engines
+- `apps/frappe/frappe/utils/pdf.py` — `get_pdf` (wraps `pdfkit`), `get_chrome_pdf`
+- `apps/frappe/frappe/utils/pdf_generator/` — `browser.py`, `cdp_connection.py`, `chrome_pdf_generator.py`, `page.py`, `pdf_merge.py`
 - https://frappeframework.com/docs/user/en/api/jinja
 - https://jinja.palletsprojects.com/en/3.1.x/templates/

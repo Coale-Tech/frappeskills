@@ -270,3 +270,20 @@ let route = frappe.get_route();
 | Using `cur_frm` instead of `frm` | Breaks in dialogs/multiple forms | Always use the `frm` parameter passed to handlers |
 | Not checking `frm.doc.docstatus` | Buttons appear on submitted docs | Check `frm.doc.docstatus == 0` before showing edit actions |
 | `console.log(frm.doc)` showing stale data | Debugging confusion | Use `frm.reload_doc()` or check network responses |
+
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/public/js/frappe/form/form.js:864-881` (`validate`/`before_save` both gate the same `frappe.validated` flag), `:2380` (`frappe.validated = 0` default), `:94-119,279-332` (`on_hide`, `watch_model_updates` — `frappe.model.on(doctype, "*", ...)` drives `frm.set_value` field refresh + triggers), `:582-659` (`before_load`, `onload`, `onload_post_render`), `:890-909` (`before_submit`), `:1045-1096` (`before_cancel`/`after_cancel`, `before_discard`/`after_discard`), `:1714` (`set_df_property`), `:1760` (`toggle_display`), `:2238-2253` (`on_tab_change`)
+- `apps/frappe/frappe/public/js/frappe/form/grid_row.js:91-114` (`before_<fieldname>_remove`/`<fieldname>_remove` triggers), `:1513-1515` (`<parentfield>_on_form_rendered`, `form_render`)
+- `apps/frappe/frappe/public/js/frappe/form/grid.js:1046` (`<fieldname>_add` trigger)
+- `apps/frappe/frappe/public/js/frappe/provide.js:7` (`frappe.provide`)
+- `apps/frappe/frappe/public/js/frappe/assets.js:8` (`frappe.require`)
+- `apps/frappe/frappe/desk/form/meta.py:111-137` (`add_code_via_hook` — `doctype_js`/`doctype_list_js`/`doctype_tree_js`/`doctype_calendar_js` all merge into the generated meta bundle)
+- `apps/frappe/frappe/boot.py:36` (`get_bootinfo`, backing `frappe.boot`)
+- `apps/frappe/frappe/public/js/frappe/list/list_view.js:484,1366-1367` (`hide_name_column`, `get_indicator_html` reading `frappe.listview_settings`)
+- `apps/frappe/frappe/public/js/frappe/ui/page.js:401` (`add_action_item`)
+- `apps/frappe/frappe/public/js/frappe/socketio_client.js:12-15` (`frappe.realtime.on` wraps `socket.on`)
+- `apps/frappe/frappe/public/js/frappe/request.js:13` (`frappe.xcall`)
+- `apps/frappe/frappe/public/js/frappe/model/model.js:477,506` (`frappe.model.get_value`/`.set_value`), `apps/frappe/frappe/public/js/frappe/model/create_new.js:9` (`get_new_doc`), `apps/frappe/frappe/public/js/frappe/model/meta.js:71` (`get_docfield`)

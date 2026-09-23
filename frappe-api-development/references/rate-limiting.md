@@ -104,8 +104,12 @@ A separate mechanism throttles **every** request to the site, configured in
 }
 ```
 
-`frappe.rate_limiter.apply()` runs before every request
-(`DEFAULT_AFTER_RESPONSE_CALLBACKS` / `frappe/app.py`), builds a
+`frappe.rate_limiter.apply()` runs before every request — it's registered
+in the `before_request` hook list in `hooks.py`
+(`before_request = ["frappe.recorder.record", "frappe.monitor.start",
+"frappe.rate_limiter.apply", ...]`), not in `DEFAULT_AFTER_RESPONSE_CALLBACKS`
+(that list in `frappe/app.py` registers `frappe.rate_limiter.update`, which
+increments the counter *after* the response instead). `apply()` builds a
 `RateLimiter(limit, window)` keyed on the current time window (not per-user
 or per-IP — the whole site shares one counter), and raises
 `frappe.TooManyRequestsError` (429) once the window's request count exceeds
@@ -280,3 +284,16 @@ def rate_limit_exceeded_response():
 | Cap total traffic to the whole site | `site_config.json` `rate_limit` |
 | Cap simultaneous heavy requests (exports, PDFs) | `@frappe.concurrent_limit()` (v16) |
 | Per-role or sliding-window logic `@rate_limit` can't express | Custom `frappe.cache()` counter |
+
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/rate_limiter.py` — `apply`/`update`/`respond` module functions, `RateLimiter` class (window-keyed counter, `headers()`, `reject()`), `rate_limit` decorator (identity/cache-key construction, `frappe.throw(..., frappe.RateLimitExceededError)`)
+- `apps/frappe/frappe/hooks.py:454-458` — `before_request` hook list registering `"frappe.rate_limiter.apply"`
+- `apps/frappe/frappe/app.py:76-80,293-295,436-437` — `DEFAULT_AFTER_RESPONSE_CALLBACKS` registers `frappe.rate_limiter.update` (not `apply`); rate-limiter response headers attached in `after_response`; `respond()` invoked on HTTP 429
+- `apps/frappe/frappe/exceptions.py:85-86,138-139` — `TooManyRequestsError` and `RateLimitExceededError`, both `http_status_code = 429`
+- `apps/frappe/frappe/concurrency_limiter.py` — `concurrent_limit` decorator, `web_tier_concurrency`/`_default_limit` (gunicorn CLI worker/thread detection), `ServiceUnavailableError` with `retry_after` attribute and `Retry-After` header, `get_stats` whitelisted method
+- `apps/frappe/frappe/utils/redis_semaphore.py` — `RedisSemaphore` (LIST + BLPOP backing for `concurrent_limit`)
+- `apps/frappe/frappe/utils/redis_wrapper.py:52-62` — `make_key` site `db_name` prefixing for `get_value`/`set_value`
+- `apps/frappe/frappe/tests/test_rate_limiter.py` — confirms `apply`/`update`/`respond` call sequence and header behavior used as the worked examples above

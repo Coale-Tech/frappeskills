@@ -409,3 +409,16 @@ function onVisible(visible, entry) {
 - https://ui.frappe.io/docs/other/utilities
 - https://ui.frappe.io/docs/other/directives
 - https://github.com/frappe/frappe-ui
+
+## Sources
+
+Verified against frappe-ui `1.0.0-beta.29` (`package.json`):
+
+- `apps/frappe-ui/src/resources/resources.js` — `createResource`, cache-key reuse, `handleError` re-throw, `previousData` rollback
+- `apps/frappe-ui/src/resources/listResource.js` — `createListResource`, `resourcesByDocType`, `updateRowInListResource`/`deleteRowInListResource`/`revertRowInListResource`
+- `apps/frappe-ui/src/resources/documentResource.js` — `createDocumentResource`, `getChangedFields` diffing, optimistic `setValue`/`save` mutation and rollback
+- `apps/frappe-ui/src/resources/plugin.js`, `apps/frappe-ui/src/resources/index.ts` (`resourcesPlugin` export) — Options API `$resources`/`$getResource`/`$getDocumentResource`/`$getListResource`/`$getDoc`
+- `apps/frappe-ui/src/index.ts:11` — legacy resources family "kept public until official apps finish the v3 migration"
+- `apps/frappe-ui/src/resources/resources.test.ts`, `apps/frappe-ui/src/resources/documentResource.test.ts`
+- `apps/frappe-ui/src/utils/debounce.ts`, `apps/frappe-ui/src/utils/file-to-base64.ts`, `apps/frappe-ui/src/utils/pageMeta.ts`
+- `apps/frappe-ui/src/directives/onOutsideClick.ts`, `apps/frappe-ui/src/directives/visibility.ts`

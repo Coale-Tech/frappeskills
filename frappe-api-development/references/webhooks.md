@@ -95,17 +95,34 @@ document:
   **last** queued document state per webhook+document pulled within one
   transaction, then calls
   `frappe.enqueue("frappe.integrations.doctype.webhook.webhook.enqueue_webhook", doc=..., webhook=..., queue=webhook.background_jobs_queue or "default", now=frappe.in_test)`.
-- `enqueue_webhook` retries up to 3 times with a `sleep(3 * i + 1)` back-off
-  (1s, 4s) between attempts on any exception (including
-  `requests.exceptions.ReadTimeout`). A `workflow_transition` webhook
-  re-raises the exception after the third failure (so the workflow action
-  itself fails); other doc-event webhooks swallow the final failure after
-  logging it.
+- `enqueue_webhook` makes up to 3 attempts (`for i in range(3)`), but the two
+  exception branches behave differently:
+  - A generic exception (HTTP error from `raise_for_status`, connection
+    error, etc.) logs the attempt, then sleeps `3 * i + 1` seconds (1s after
+    attempt 1, 4s after attempt 2) and retries — except on the third and
+    final attempt, where it re-raises **only** if
+    `webhook.webhook_docevent == "workflow_transition"` (so the workflow
+    action itself fails); other doc-event webhooks swallow the final
+    failure after logging it, with no re-raise and no further sleep.
+  - `requests.exceptions.ReadTimeout` is caught in its own `except` clause
+    *before* the generic one: it logs the attempt and falls through to the
+    next loop iteration with **no sleep and no re-raise on the third
+    attempt**, even for `workflow_transition` webhooks — a timeout is
+    always silently retried/swallowed, never surfaced to the caller.
 - Every attempt — success or failure — is logged via `log_request` into
   **Webhook Request Log** (not "Webhook Log"), with fields `webhook`,
   `reference_doctype`, `reference_document`, `headers`, `data`, `user`,
   `url`, `response`, `error`. Use this doctype for delivery debugging and
   auditing; it is linked from the Webhook form.
+- A `workflow_transition` webhook does **not** go through `run_webhooks` /
+  `_add_webhook_to_queue` at all — it is a "Webhook" `Workflow Transition
+  Task`, invoked from `apply_workflow` (`frappe/model/workflow.py`) as
+  `webhook.execute_for_doc(doc)` → `enqueue_webhook(doc, self)`. By default
+  the task runs synchronously, in the same DB transaction as the workflow
+  action (so it fires **before** commit, and a `workflow_transition`
+  webhook's final-attempt exception re-raise — see above — fails the
+  transition itself); marking the transition task `asynchronous` instead
+  runs it via `frappe.enqueue(..., enqueue_after_commit=True)`.
 
 ## Example use cases
 
@@ -120,3 +137,14 @@ document:
   logging for calls you make yourself.
 - [rate-limiting.md](rate-limiting.md) — throttling a webhook *receiver*
   endpoint you expose.
+
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/integrations/doctype/webhook/webhook.py` — `Webhook` doctype controller (`validate_docevent`, `validate_condition`, `validate_request_url`, `validate_request_body`, `validate_secret`, `preview_meets_condition`, `preview_request_body`), `enqueue_webhook` (retry/backoff/re-raise logic, lines 148-189), `log_request`, `get_webhook_headers` (HMAC signature, lines 219-239), `get_webhook_data`, `get_all_queues`
+- `apps/frappe/frappe/integrations/doctype/webhook/webhook.json` — field defaults: `enabled` (`1`), `request_method` (`POST`, options `POST\nPUT\nDELETE`), `timeout` (`5`), `is_dynamic_url` (`0`), `enable_security` (`0`); `webhook_doctype`/`webhook_docevent` `set_only_once`; `webhook_docevent` options list
+- `apps/frappe/frappe/integrations/doctype/webhook/__init__.py` — `run_webhooks`, `supported_events`, `_add_webhook_to_queue`, `flush_webhook_execution_queue` (dedup-by-last-instance, `frappe.db.after_commit.add`)
+- `apps/frappe/frappe/integrations/doctype/webhook_request_log/webhook_request_log.json` — Webhook Request Log fields
+- `apps/frappe/frappe/model/workflow.py:153-204` — `apply_workflow` Workflow Transition Task dispatch (`Webhook` → `execute_for_doc`, sync vs. `frappe.enqueue(..., enqueue_after_commit=True)` for `asynchronous` tasks)
+- `apps/frappe/frappe/model/document.py` — `run_method` invoking `run_webhooks`

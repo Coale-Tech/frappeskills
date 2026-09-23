@@ -343,3 +343,15 @@ built-in set), `starterkitOptions`, `mentions`, `tags`. Slots: `#top`,
 | Built-in image/video/attachment extensions imported top-level | Bundled into `CommentKit`/`RichTextKit`; configure via `.configure({ image, video, attachment })` |
 
 (`src/components/TextEditor/`)
+
+## Sources
+
+Verified against frappe-ui `1.0.0-beta.29` (`package.json`), cross-checked
+against the `0.1.261` baseline vendored at
+`apps/crm/frontend/node_modules/frappe-ui`:
+
+- `apps/frappe-ui/src/molecules/list/List.vue`, `ListRows.vue`, `ListRow.vue`/`ListRowBase.vue`, `ListCell.vue`, `ListHeader.vue`, `ListHeaderCell.vue`, `ListHeaderCellSort.vue`, `ListGroup.vue`, `useVirtualRows.ts`, `list-context.ts`, `types.ts`, `list.api.md`
+- `apps/frappe-ui/src/components/ListView/ListView.vue`, `ListEmptyState.vue`, `ListFooter.vue`, `ListGroupHeader.vue`, `ListGroupRows.vue`, `ListGroups.vue`, `ListHeader.vue`, `ListHeaderItem.vue`, `ListRow.vue`, `ListRowItem.vue`, `ListRows.vue`, `ListSelectBanner.vue`, `ListView.api.md`
+- `apps/frappe-ui/src/molecules/editor/Editor.vue`, `EditorContent.vue`, `EditorFixedMenu.vue`, `EditorBubbleMenu.vue`, `EditorFloatingMenu.vue`, `kits.ts`, `menu.ts`, `extensions.ts`
+- `apps/frappe-ui/src/components/TextEditor/TextEditor.vue`, `TextEditor.api.md`
+- `apps/frappe-ui/src/index.ts` — `TextEditor` re-exported with `@deprecated Use the 'frappe-ui/editor' subpath instead`

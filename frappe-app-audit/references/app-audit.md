@@ -97,3 +97,13 @@ Severity anchors, in order of consequence:
 See [semgrep-rules.md](semgrep-rules.md) for the mechanically checkable
 subset, and [permissions.md](../../frappe-doctype-development/references/permissions.md) / [database.md](../../frappe-api-development/references/database.md)
 for the rules behind the CRITICAL and HIGH anchors.
+
+## Sources
+
+Verified against Frappe v16.35.0 / ERPNext v16.6.1 (`apps/frappe/frappe/__init__.py`,
+`apps/erpnext/erpnext/__init__.py` `__version__`):
+
+- `sites/common_site_config.json` — `default_site` key confirmed present, used for bench/site recon
+- A representative installed custom app (`apps/coale_construction/`) confirmed the standard recon surface: `pyproject.toml` at the app root and `<app>/<app>/modules.txt`
+- CRITICAL/MEDIUM severity anchors correspond to rules already verified in [semgrep-rules.md](semgrep-rules.md)'s own `## Sources` section: `unchecked-frappe-permission-call` (`has_permission(..., throw=True)`), `frappe-sql-format-injection`/`frappe-codeinjection-eval` (string-formatted SQL, `eval`/`exec`), `frappe-manual-commit` (`frappe.db.commit()` outside try/except), `frappe-missing-translate-function-python`/`-js` (missing `_()`/`__()`)
+- HIGH/MEDIUM anchors without a mechanical rule (core files edited instead of extended, check-then-act races, N+1 queries, `get_doc().save()` vs `set_value`, untested business paths) are judgment calls documented in [permissions.md](../../frappe-doctype-development/references/permissions.md) and [database.md](../../frappe-api-development/references/database.md), not installed-source API claims

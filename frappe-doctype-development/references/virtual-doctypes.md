@@ -363,7 +363,13 @@ def invalidate_cache():
 5. **Log errors** — Use `frappe.log_error()` for debugging
 6. **Validate on write** — If supporting writes, validate before sending
 
-Sources: Virtual DocType, Custom Data Sources (official docs). `VirtualDoctype` protocol and
-`validate_controller` verified against `apps/frappe/frappe/model/virtual_doctype.py`; dispatch
-and call signatures against `apps/frappe/frappe/desk/reportview.py`, `apps/frappe/frappe/model/db_query.py`,
-and `apps/frappe/frappe/model/delete_doc.py` (Frappe v16.35.0).
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/model/virtual_doctype.py` — `VirtualDoctype` Protocol (`get_list`/`get_count`/`get_stats` `**kwargs`), `validate_controller` (msgprint warning, not a hard error, for missing static/instance methods)
+- `apps/frappe/frappe/model/db_query.py:209-225` — `is_virtual_doctype` dispatch, `frappe.call(controller.get_list, args=kwargs, **kwargs)`
+- `apps/frappe/frappe/desk/reportview.py:34-68,764-769` — `get_list`/`get_count`/`get_stats` dispatch (`get_stats` called with `{"stats": stats, "filters": filters}`)
+- `apps/frappe/frappe/model/document.py:342-343,438-502,648-651` — `insert()` skips the children `db_insert()` loop entirely for virtual doctypes; `db_insert` called as `self.db_insert(ignore_if_duplicate=...)`
+- `apps/frappe/frappe/model/delete_doc.py:86-106` — virtual-doctype delete path: `frappe.throw` if `delete()` isn't overridden, otherwise calls `doc.delete()` and `continue`s, skipping `on_trash`/`on_change`/`after_delete`
+- `apps/frappe/frappe/__init__.py:1140-1168` — `frappe.call`/`get_newargs` kwarg-matching used for the `**kwargs` vs. legacy positional `args` dict compatibility

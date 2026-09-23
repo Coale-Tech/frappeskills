@@ -352,4 +352,13 @@ self.assertLessEqual(a, b)
 self.assertEqual(len(collection), expected_length)
 ```
 
-Sources: `frappe/tests/classes/`, `frappe/tests/utils/generators.py`, `frappe/deprecation_dumpster.py`, Python `unittest` docs (Frappe 16.35.0).
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/tests/classes/unit_test_case.py`, `apps/frappe/frappe/tests/classes/integration_test_case.py` — `IntegrationTestCase`/`UnitTestCase`, Frappe-specific assertions
+- `apps/frappe/frappe/tests/classes/context_managers.py` — `set_user` restores the caller on exit
+- `apps/frappe/frappe/tests/utils/generators.py` — test record fixture loading
+- `apps/frappe/frappe/deprecation_dumpster.py` — `FrappeTestCase` deprecation shim
+- `apps/frappe/pyproject.toml` — dev dependencies (`hypothesis~=6.77.0`; no `parameterized`)
+- Python `unittest` docs — stdlib assertions reference

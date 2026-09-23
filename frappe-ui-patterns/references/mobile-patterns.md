@@ -269,3 +269,20 @@ than maintaining two markup trees. Component and prop reference:
 | A component named `ActionSheet` | Doesn't exist in frappe-ui at any version | Compose action lists from `BottomSheet`, or use `Dropdown` for a small anchored menu |
 | Hardcoding `MobileNav` to exactly 4 columns | `MobileNav`'s grid adapts to item count automatically | Just add/remove `MobileNavItem`s |
 | Wrapping `BottomSheet`'s content in another swipeable/scrollable region | Competes with the handle's pointer-swipe gesture for events | Keep custom gesture handling out of a `BottomSheet` body; use its own `70vh` scroll region |
+
+## Sources
+
+Verified against frappe-ui `1.0.0-beta.29` (`apps/frappe-ui/package.json`):
+
+- `apps/frappe-ui/src/composables/useScreenSize.ts` — `useScreenSize`/`useIsMobile`, `1024×768` SSR fallback, `640` default breakpoint
+- `apps/frappe-ui/src/components/MobileShell/MobileShell.vue` — fixed full-height column, pinned `PageHeaderTarget` with `standalone` safe-area padding, `#default`/`#nav` slots, no props
+- `apps/frappe-ui/src/composables/useScrollContainer.ts` — `registerScrollContainer`/`unregisterScrollContainer`/`useScrollContainer`/`getScrollContainer`/`scrollToTop` registry
+- `apps/frappe-ui/src/components/PageHeader/PageHeaderMobile.vue`, `PageHeaderBase.vue`, `types.ts` — centered title with dynamic `#left`/`#right` inset, two-line clamp, shared `Teleport`-to-target mechanism with desktop `PageHeader`
+- `apps/frappe-ui/src/components/PageHeader/PageHeaderBackButton.vue` — `label` default `'Back'`, `to` falls back to `router.back()`
+- `apps/frappe-ui/src/components/PageHeader/PageHeaderMobileTitle.vue` — `#icon`/`#default` slots
+- `apps/frappe-ui/src/components/MobileNav/MobileNav.vue` — bare `grid auto-cols-fr grid-flow-col` frame, `#default`-only slot
+- `apps/frappe-ui/src/components/MobileNav/MobileNavItem.vue`, `types.ts` — required `label`, `to`/`active` props, tap-when-current scrolls to top instead of re-navigating, `#default` slot receives `{ active }`, `click` emit
+- `apps/frappe-ui/src/components/BottomSheet/BottomSheet.vue`, `types.ts` — built on `reka-ui`'s `DialogRoot`, fixed `h-[70vh]` scroll region, `dismissible` (default `true`) gates outside-click/Escape/swipe, `usePointerSwipe`-driven drag with `CLOSE_HEIGHT_RATIO = 0.25` and rubber-band on upward drag, `update:open`/`after-leave` emits
+- No `ActionSheet` component anywhere in the package (repo-wide search)
+- `apps/frappe-ui/skills/frappe-ui/DESIGN.md` — desktop→mobile translation rules (sidebar→BottomSheet, action clusters→Dropdown, row-height/title-scale deltas, `[@media(display-mode:standalone)]` footer padding)
+- `apps/frappe-ui/src/index.ts` — `ListView` "do not deprecate until `frappe-ui/list` reaches parity" comment; full `List`/`ListView` API verification lives in [frappe-ui-list-and-editor.md](../../frappe-frontend-development/references/frappe-ui-list-and-editor.md)

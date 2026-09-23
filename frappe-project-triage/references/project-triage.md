@@ -126,4 +126,17 @@ Use this output to route to the appropriate skill:
 | Missing FM shell context | bench commands not found | Use `fm shell sitename` first |
 | Wrong directory level | Commands fail silently | Navigate to bench root (where `apps/` exists) |
 | Ignoring custom app overrides | Unexpected behavior | Check hooks.py for overrides |
-| Not checking Python version | Syntax/compatibility errors | Verify Python `>=3.10,<3.15` for v15, `>=3.14,<3.15` for v16 |
+| Not checking Python version | Syntax/compatibility errors | Verify Python `>=3.10,<3.14` for v15, `>=3.14,<3.15` for v16 |
+
+## Sources
+
+Verified against Frappe v16.35.0 (`apps/frappe/frappe/__init__.py` `__version__`) and Frappe v15.101.1 for comparison:
+
+- CLI subcommands `list-apps`, `install-app`, `migrate`, `console`, `set-config`: `apps/frappe/frappe/commands/site.py`, `apps/frappe/frappe/commands/utils.py`
+- `frappe.conf.developer_mode` config key: `apps/frappe/frappe/commands/site.py:1223`
+- `frappe.__version__` attribute: `apps/frappe/frappe/__init__.py:58`
+- `bench version` (shows installed app versions) and `bench --version` (shows bench package version): `bench` CLI (frappe/bench, pipx package, not part of this bench's `apps/` tree) — `bench version --help` output
+- Node engine requirement `>=24` (v16) vs `>=18` (v15): `apps/frappe/package.json` `engines.node` in a v16 bench vs a v15 bench
+- Python requirement `>=3.14,<3.15` (v16) vs `>=3.10,<3.14` (v15) — corrected from a prior draft that stated `<3.15` for v15: `apps/frappe/pyproject.toml` `requires-python` in a v16 bench vs a v15 bench
+- `pyproject.toml` as the standard app manifest (no `setup.py` present) confirmed by absence of `setup.py` in both v15 and v16 `apps/frappe/`; the claim that `setup.py` was used "only on legacy pre-v15 apps" is process/historical guidance about third-party apps and is not independently verifiable from this bench's installed source
+- The triage procedure itself (identifying project type, routing to other skills, escalation steps, output format) is process/methodology guidance with no further verifiable API claim

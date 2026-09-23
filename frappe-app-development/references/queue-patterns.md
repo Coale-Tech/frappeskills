@@ -402,7 +402,13 @@ def get_queue_stats():
     return stats
 ```
 
-Sources: `frappe/utils/background_jobs.py`, `frappe/utils/synchronization.py`,
-`frappe/utils/redis_wrapper.py`; see also [background-jobs.md](background-jobs.md)
-for verified `enqueue`/scheduler signatures. RQ (Redis Queue) / python-rq for queue
-internals (`failed_job_registry`, `scheduled_job_registry`).
+## Sources
+
+- `apps/frappe/frappe/utils/background_jobs.py:76-209` (`enqueue` signature, `job_name` deprecation warning), `:53-73` (`get_queues_timeout`), `:547-559` (`validate_queue`), `:535-544` (`get_queue`)
+- `apps/frappe/frappe/utils/synchronization.py:18-45` (`filelock(lock_name, *, timeout=30, is_global=False)`, `LockTimeoutError`)
+- `apps/frappe/frappe/utils/redis_wrapper.py:38-58` (`RedisWrapper` extends `redis.Redis`, `make_key`) — `frappe.cache` is a `RedisWrapper` instance (`frappe/__init__.py:77`), so `.set(key, val, ex=timeout, nx=True)`/`.delete(key)` are the standard `redis-py` methods
+- `apps/frappe/frappe/utils/boilerplate.py:563-579` (`scheduler_events` hook keys: `all`/`daily`/`hourly`/`weekly`/`monthly`, plus `cron` used in `apps/frappe/frappe/hooks.py:222-225`)
+- `apps/frappe/frappe/realtime.py:12` (`publish_progress`), `:23` (`publish_realtime`)
+- `env/lib/python3.14/site-packages/rq/queue.py:419-452` (`Queue.failed_job_registry`/`.scheduled_job_registry` properties) — RQ (Redis Queue) / python-rq for queue internals
+
+See also [background-jobs.md](background-jobs.md) for verified `enqueue`/scheduler signatures.

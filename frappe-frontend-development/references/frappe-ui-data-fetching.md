@@ -453,3 +453,20 @@ const customer = await call('frappe.client.get', { doctype: 'Customer', name: 'C
 - [frontend-architecture.md](frontend-architecture.md) — Pinia stores, Vue
   Router, and socket.io wiring in real apps.
 - https://ui.frappe.io/llms.txt — upstream exhaustive API reference.
+
+## Sources
+
+Verified against frappe-ui `1.0.0-beta.29` (`package.json`); inline
+`Verified …`/`Notes verified against …` callouts above pin specific claims
+to specific test files:
+
+- `apps/frappe-ui/src/data-fetching/useCall/useCall.ts`, `useCall/useCall.test.ts`, `useCall/types.ts`
+- `apps/frappe-ui/src/data-fetching/useFrappeFetch.ts` — `FrappeResponseError`, `/api/v2/...` error envelope
+- `apps/frappe-ui/src/data-fetching/useDoc/useDoc.ts`, `useDoc/useDoc.test.ts`
+- `apps/frappe-ui/src/data-fetching/docStore.ts`, `docStore.test.ts` — 5-minute IndexedDB staleness TTL, `docStore`/`listStore` not exported from `src/index.ts`
+- `apps/frappe-ui/src/data-fetching/useDoctype/useDoctype.ts`, `useDoctype/useDoctype.test.ts`
+- `apps/frappe-ui/src/data-fetching/useNewDoc/useNewDoc.ts`
+- `apps/frappe-ui/src/data-fetching/useList/useList.ts`, `useList/useList.test.ts`, `useList/listStore.ts`, `useList/types.ts`
+- `apps/frappe-ui/src/data-fetching/utils.ts` — `parseFilters`, `unrefObject`, `makeGetParams`, `normalizeCacheKey`
+- `apps/frappe-ui/src/utils/call.ts` (`call`/`createCall`), `apps/frappe-ui/src/utils/frappeRequest.ts`, `apps/frappe-ui/src/utils/request.ts`, `apps/frappe-ui/src/utils/socketio.ts` (`initSocket`)
+- `apps/frappe-ui/src/utils/plugin.ts` (`FrappeUI` — `app.config.globalProperties.$socket`)

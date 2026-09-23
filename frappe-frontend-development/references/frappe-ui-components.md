@@ -38,12 +38,13 @@ readable:
 > classes) — covered in `frappe-desk-client-apis.md`. Do not mix `frappe-ui`
 > imports into Desk client scripts or vice-versa.
 >
-> The core-components/overlays/form-controls/list-and-editor files are
-> verified against **frappe-ui `1.0.0-beta.29`**; API differences from the
+> The core-components/overlays/form-controls/list-and-editor files document
+> the frappe-ui **`1.0.0-beta.29`** API surface; differences from the
 > **`0.1.261`** baseline (still vendored by some apps, e.g.
 > `apps/crm/frontend/node_modules/frappe-ui`) are tagged `(v1)` inline. Check
 > `frontend/package.json` for the frappe-ui version actually pinned in your
-> app before relying on a `(v1)`-tagged API.
+> app before relying on a `(v1)`-tagged API — see each linked file's own
+> `## Sources` footer for the exact source citations.
 
 ## Desk vs frappe-ui — quick map
 
@@ -56,3 +57,9 @@ readable:
 | Form | `frappe.ui.form.on` + `frm` | hand-built `<FormControl>` + resource |
 | List customization | `frappe.listview_settings` | `<ListView>` props |
 | Toast/alert | `frappe.show_alert` / `frappe.msgprint` | `toast()` / `<Alert>` |
+
+## Sources
+
+- `apps/frappe-ui/package.json` — installed frappe-ui version (`1.0.0-beta.29`) this index and its linked files are verified against
+- `apps/crm/frontend/node_modules/frappe-ui/package.json` — vendored `0.1.261` baseline used for the `(v1)` comparisons in the linked files
+- Per-topic verification lives in each linked file's own `## Sources` footer; this page is a pure index and adds no independent API claims.

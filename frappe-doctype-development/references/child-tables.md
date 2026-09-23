@@ -332,5 +332,11 @@ frappe.ui.form.on("Parent DocType", {
 - Don't modify `idx` outside of controlled scenarios
 - Don't use child tables for many-to-many (use Table MultiSelect or link tables)
 
-Sources: Child Table, Table Field, Child DocType (official docs). Python child-row API
-(`append`, `remove`, `parent_doc`) verified against `apps/frappe/frappe/model/base_document.py`.
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/model/base_document.py:367-419` — `BaseDocument.append`, `parent_doc` weakref property (`_weakref`), `:429` `remove`
+- `apps/frappe/frappe/model/document.py:1080-1081,2166-2276` — `Document.append`, `frappe.new_doc(doctype, parent_doc=..., parentfield=...)`
+- `apps/frappe/frappe/utils/nestedset.py:365-368` — `NestedSet.get_parent` (tree-DocType method, unrelated to child-row `parent_doc`)
+- `apps/frappe/frappe/core/doctype/doctype/doctype.py` — `istable` child-table requirement (validated on the `Table`/`Table MultiSelect` parent field, not documented separately for Child Table docs)

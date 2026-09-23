@@ -218,3 +218,17 @@ as grantable flags (`frappe/share.py` `add`/`add_docshare`) — there is no `del
 on `read` once a document is shared for read; `share` itself is globally disabled
 when System Settings' `disable_document_sharing` is checked, at which point
 `has_permission(..., ptype="share")` always returns `False`.
+
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/permissions.py:80-227` — `has_permission` evaluation order (Administrator bypass, child-table redirect, controller hook, share fallback, `select`-implies-`read` fallback)
+- `apps/frappe/frappe/permissions.py:229-281` — `get_doc_permissions` (controller hook, role permissions + `if_owner`, User Permissions)
+- `apps/frappe/frappe/permissions.py:353-482` — `has_user_permission`
+- `apps/frappe/frappe/permissions.py:483-500` — `has_controller_permissions` (hooks.py `has_permission` dispatch, deny-only, `frappe.call(method, doc=doc, ptype=ptype, user=user, debug=debug)`)
+- `apps/frappe/frappe/permissions.py:592-...` — `add_user_permission`
+- `apps/frappe/frappe/permissions.py:807-903` — `has_child_permission`
+- `apps/frappe/frappe/model/document.py:397-421` — `Document.check_permission`/`Document.has_permission(self, permtype="read", *, debug=False, user=None)`
+- `apps/frappe/frappe/model/db_query.py:1027-1183` — `build_match_conditions`, `get_permission_query_conditions` (`frappe.call(method, user, doctype=doctype)`), `requires_owner_constraint`
+- `apps/frappe/frappe/share.py:22-93` — `frappe.share.add`/`add_docshare` grantable rights, `remove`, `get_shared`, `get_users`

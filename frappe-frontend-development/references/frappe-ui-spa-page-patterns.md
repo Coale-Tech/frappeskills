@@ -301,3 +301,17 @@ for a multi-step version with per-step validation and a `Dialog` shell.
 7. **Mobile** — stack columns (`grid-cols-1 md:grid-cols-2`), and use
    `MobileShell`/`PageHeaderMobile` instead of the desktop shell below the
    `sm`/`lg` breakpoint (see `app-shell-patterns.md`).
+
+## Sources
+
+Verified against frappe-ui `1.0.0-beta.29` (`package.json`). This page
+composes APIs documented in full elsewhere; only the composition itself was
+re-checked here:
+
+- `apps/frappe-ui/src/data-fetching/useList/useList.ts` — `filters`/`orderBy`, `next()`/`previous()`, `hasNextPage`
+- `apps/frappe-ui/src/data-fetching/useDoc/useDoc.ts` — `setValue.submit(partial)` (no dirty-diff), `delete.submit()`
+- `apps/frappe-ui/src/data-fetching/useNewDoc/useNewDoc.ts` — reactive `doc` draft, no-argument `submit()`
+- `apps/frappe-ui/src/molecules/list/List.vue`, `ListRows.vue`, `ListRow.vue`, `ListCell.vue`
+- `apps/frappe-ui/src/components/FormControl/FormControl.vue`
+- `apps/frappe-ui/src/utils/dialog.ts` (`dialog.confirm`/`dialog.danger`), `apps/frappe-ui/src/components/Toast/toast.ts` (`toast.success`/`toast.error`)
+- See [frappe-ui-data-fetching.md](frappe-ui-data-fetching.md), [frappe-ui-list-and-editor.md](frappe-ui-list-and-editor.md), and [frappe-ui-form-controls.md](frappe-ui-form-controls.md) for full API verification of each composable/component used above.

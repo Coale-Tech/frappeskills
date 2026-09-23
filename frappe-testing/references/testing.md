@@ -420,3 +420,16 @@ class TestPermissions(IntegrationTestCase):
 - Testing only as `Administrator` skips permission bugs — assert role-restricted behaviour too.
 - `EXTRA_TEST_RECORD_DEPENDENCIES`/`test_dependencies` only affects fixture loading order, not
   test execution order; don't rely on it for anything else.
+
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/testing/discovery.py` — test discovery (`test_*.py` file matching), `--test-category` filtering by base class
+- `apps/frappe/frappe/tests/classes/unit_test_case.py`, `apps/frappe/frappe/tests/classes/integration_test_case.py` — `UnitTestCase`/`IntegrationTestCase`, Frappe-specific assertions, `assertQueryCount`/`assertRowsRead`/`assertRedisCallCounts`/connection context managers
+- `apps/frappe/frappe/tests/classes/context_managers.py` — `change_settings`, `set_user`, `freeze_time`, `patch_hooks`, `switch_site`, `enable_safe_exec`, `debug_on`, `timeout`/`timeout_context`, `trace_fields`
+- `apps/frappe/frappe/tests/__init__.py` — `global_test_dependencies`
+- `apps/frappe/frappe/deprecation_dumpster.py` — `FrappeTestCase` deprecated compatibility shim
+- `apps/frappe/frappe/tests/utils/generators.py` — test-record loading priority, `EXTRA_TEST_RECORD_DEPENDENCIES`/`IGNORE_TEST_RECORD_DEPENDENCIES`
+- `apps/frappe/frappe/commands/testing.py` — `run-tests` CLI flags and mutual exclusivity of `--doctype`/`--doctype-list-path`/`--module-def`/`--module`
+- `apps/frappe/frappe/parallel_test_runner.py` — `run-parallel-tests` sharding flags

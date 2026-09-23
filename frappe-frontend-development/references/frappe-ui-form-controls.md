@@ -541,3 +541,20 @@ to the unwrapped response body (`response.data`, per Frappe's REST envelope).
 `transform` runs on every successful fetch, which is how the assignee
 `Combobox`'s options are shaped from the raw `frappe.client.get_list`
 response.
+
+## Sources
+
+Verified against frappe-ui `1.0.0-beta.29` (`package.json`), cross-checked
+against the `0.1.261` baseline vendored at
+`apps/crm/frontend/node_modules/frappe-ui`:
+
+- `apps/frappe-ui/src/composables/useInputLabeling.ts`, `apps/frappe-ui/spec/inputs.md` — shared labeling contract, `data-*` hooks, size/variant scales
+- `apps/frappe-ui/src/components/TextInput/TextInput.vue`, `Textarea/Textarea.vue`, `Password/Password.vue`
+- `apps/frappe-ui/src/components/Checkbox/Checkbox.vue`, `Switch/Switch.vue`, `Rating/Rating.vue`, `Slider/Slider.vue`, `Slider/types.ts`, `ErrorMessage/ErrorMessage.vue`
+- `apps/frappe-ui/spec/selection.md`, `apps/frappe-ui/src/components/Select/Select.api.md`, `Combobox/Combobox.api.md`, `MultiSelect/MultiSelect.api.md`
+- `apps/frappe-ui/src/components/DatePicker/DatePicker.api.md`, `DatePicker/types.ts`, `TimePicker/TimePicker.api.md`, `apps/frappe-ui/spec/date-picker.md`
+- `apps/frappe-ui/src/components/Duration/Duration.api.md`
+- `apps/frappe-ui/src/components/FileUploader/FileUploader.vue`, `FileUploader/types.ts`, `apps/frappe-ui/src/utils/useFileUpload.ts`, `apps/frappe-ui/src/utils/fileUploadHandler.ts`
+- `apps/frappe-ui/src/components/FormControl/FormControl.vue`
+- `apps/frappe-ui/frappe/Link/Link.vue`, `Link/Link.api.md`
+- `apps/frappe-ui/src/data-fetching/useCall/useCall.ts` (`useCall` shape referenced in the worked example)

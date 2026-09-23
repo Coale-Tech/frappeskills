@@ -1,6 +1,6 @@
 # ERPNext Workflows Complete Reference
 
-Comprehensive reference for ERPNext modules: Accounting, Stock, Selling, Buying, Manufacturing, CRM, Projects, Assets, and workflow patterns. Split by topic; each file is verified against installed ERPNext v16.6.1 source.
+Comprehensive reference for ERPNext modules: Accounting, Stock, Selling, Buying, Manufacturing, CRM, Projects, Assets, and workflow patterns. Split by topic; each topic file carries its own source citations.
 
 ## Document Lifecycle (docstatus)
 
@@ -21,3 +21,10 @@ Comprehensive reference for ERPNext modules: Accounting, Stock, Selling, Buying,
 - [erpnext-extending.md](erpnext-extending.md) — Hook points ERPNext itself uses: `extend_doctype_class`/`override_doctype_class`, `override_whitelisted_methods`, `doc_events`, `scheduler_events`, `regional_overrides`, deprecation handling
 
 See also [hrms-patterns.md](hrms-patterns.md) for Employee, leave, attendance, payroll and recruitment.
+
+## Sources
+
+Verified against ERPNext v16.6.1 (`apps/erpnext/erpnext/__init__.py` `__version__`) and Frappe v16.35.0 (`apps/frappe/frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/model/docstatus.py` — `DocStatus.DRAFT`/`SUBMITTED`/`CANCELLED` = `0`/`1`/`2`
+- Per-topic source citations live in each linked reference file (`erpnext-architecture.md`, `erpnext-accounting.md`, `erpnext-stock.md`, `erpnext-selling-buying.md`, `erpnext-manufacturing.md`, `erpnext-projects-assets-support.md`, `erpnext-extending.md`, `hrms-patterns.md`); this index file makes no additional standalone API claims

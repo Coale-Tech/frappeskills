@@ -86,7 +86,7 @@ has_website_permission = {
 
 ## DocType-backed pages — `WebsiteGenerator`
 
-For a DocType whose records each render as a public page (like `Web Page`, `Blog Post`), subclass `WebsiteGenerator` (`frappe/website/website_generator.py`). It manages the `route` field (`set_route` / `make_route` from the title) and cache clearing. Supply template variables by defining `get_context(self, context)` on the controller; the document page renderer calls it if present.
+For a DocType whose records each render as a public page (like `Web Page`, `Help Article`), subclass `WebsiteGenerator` (`frappe/website/website_generator.py`). It manages the `route` field (`set_route` / `make_route` from the title) and cache clearing. Supply template variables by defining `get_context(self, context)` on the controller; the document page renderer calls it if present.
 
 ```python
 from frappe.website.website_generator import WebsiteGenerator
@@ -110,7 +110,7 @@ dedicated web-form role), and handles create/update/list itself. See
 
 Register these in `hooks.py` to customize the logged-in user's portal
 sidebar and to inject data into every website page's Jinja context
-(`frappe/website/website_settings.py`, `frappe/website/utils.py`,
+(`frappe/website/doctype/website_settings/website_settings.py`, `frappe/website/utils.py`,
 `frappe/website/page_renderers/base_template_page.py`):
 
 ```python
@@ -134,9 +134,21 @@ website_context = {
 update_website_context = ["myapp.utils.update_website_context"]
 ```
 
-## References
+## Sources
 
-- `frappe/website/path_resolver.py`, `frappe/website/page_renderers/template_page.py`
-- `frappe/website/website_generator.py`, `frappe/website/website_settings.py`, `frappe/website/utils.py`
+- `frappe/website/path_resolver.py:38-86` — `PathResolver.resolve()` renderer order
+- `frappe/website/page_renderers/template_page.py` — `no_cache`/`sitemap` module properties,
+  `COMMENT_PROPERTY_KEY_VALUE_MAP` comment directives
+- `frappe/website/website_generator.py` — `WebsiteGenerator.set_route`/`make_route`;
+  `frappe/website/doctype/{web_page,help_article}/` for real subclasses (no `Blog Post` doctype
+  in this v16.35.0 install — removed from core)
+- `frappe/website/page_renderers/document_page.py:64-68` — `get_context` invocation
+- `frappe/website/utils.py:464-490` — `portal_menu_items` hook
+- `frappe/website/doctype/portal_settings/portal_settings.py:47` — `standard_portal_menu_items` hook
+- `frappe/website/doctype/website_settings/website_settings.py:171-241` — `website_context` hook
+  (merged via `frappe.get_hooks()`); `frappe/website/page_renderers/base_template_page.py:69-75` —
+  `update_website_context` hook
+- `frappe/__init__.py:673-676` — `has_website_permission` hook
+- `frappe/website/path_resolver.py:225-239` — `website_route_rules` hook
 - [Desk UI](https://frappe.io/framework/desk-ui)
 - [Frappe UI GitHub](https://github.com/frappe/frappe-ui)

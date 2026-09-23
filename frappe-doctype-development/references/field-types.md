@@ -228,7 +228,7 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 ### Password
 - **Purpose**: Sensitive value storage (API keys, secrets)
 - **Display**: Masked input; the saved doc shows `"*" * len(value)`, never the real value
-- **Storage**: not a column on the DocType's own table — encrypted with Fernet (`frappe.utils.password.encrypt`) and kept in the separate `__Auth` table, keyed by doctype/name/fieldname. Read back with `doc.get_password(fieldname)`. This is reversible encryption, not a one-way hash
+- **Storage**: `text` column on the DocType's own table, but that column only ever holds a masked placeholder (`"*" * len(value)`) once saved — the real value is encrypted with Fernet (`frappe.utils.password.encrypt`/`decrypt`) and kept in the separate `__Auth` table, keyed by doctype/name/fieldname. Read back with `doc.get_password(fieldname)`. This is reversible encryption, not a one-way hash
 
 ### Read Only
 - **Purpose**: Display computed/derived values
@@ -270,7 +270,7 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 ### Icon
 - **Purpose**: Icon picker
 - **Options**: `Emojis` (special case, shows emoji picker instead of the icon set)
-- **Storage**: no-value field, stores the chosen icon/emoji name as text via a separate mechanism — not a real DB column
+- **Storage**: `varchar` (same as Data) — a real DB column; despite the picker UI, Icon is a `data_fieldtypes` entry, not a no-value field
 
 ### Phone
 - **Purpose**: Phone number input with a country-code picker
@@ -317,7 +317,7 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 - **Note**: All fields after Fold are hidden until expanded
 
 ### No-Value Fieldtypes
-These render UI but never hold document data — no DB column is created and they cannot be `reqd`: `Section Break`, `Column Break`, `Tab Break`, `Table`, `Table MultiSelect`, `Button`, `Image`, `HTML`, `Heading`, `Icon`, `Attachment Gallery`, `Fold` (`no_value_fields`, `frappe/model/__init__.py`).
+These render UI but never hold document data — no DB column is created and they cannot be `reqd`: `Section Break`, `Column Break`, `Tab Break`, `Table`, `Table MultiSelect`, `Button`, `Image`, `HTML`, `Heading`, `Attachment Gallery`, `Fold` (`no_value_fields`, `frappe/model/__init__.py`). `Icon` looks similar in the form builder but is a real `varchar` column (`data_fieldtypes`), not a no-value field.
 
 ## Field Properties
 
@@ -340,7 +340,7 @@ These render UI but never hold document data — no DB column is created and the
 | `mandatory_depends_on` | String | Required condition |
 | `read_only_depends_on` | String | Read-only condition |
 | `not_nullable` (v16) | Int | Adds a `NOT NULL` DB column constraint |
-| `mask` (v16) | String | Input mask pattern for masked entry |
+| `mask` (v16) | Int | Check (0/1): marks the field as maskable for permission-based data masking (`get_masked_fields`); the pattern is not a user-supplied string |
 | `sticky` (v16) | Int | Keeps the field pinned while scrolling a long form |
 | `show_description_on_click` (v16) | Int | Shows the description as a popover on click instead of inline |
 
@@ -361,4 +361,18 @@ These render UI but never hold document data — no DB column is created and the
 - Use consistent suffixes: `_date`, `_time`, `_by`, `_at`
 - Avoid reserved names: `name`, `owner`, `creation`, `modified`, `docstatus`
 
-Sources: `frappe/model/__init__.py`, `frappe/core/doctype/docfield/docfield.json`, `frappe/core/doctype/doctype/doctype.py`, `frappe/database/schema.py`, `frappe/database/mariadb/database.py`, `frappe/model/document.py`, `frappe/model/base_document.py`, `frappe/utils/password.py`, `frappe/public/js/frappe/form/controls/` (rating.js, barcode.js, autocomplete.js, attachment_gallery.js, icon.js, phone.js, button.js)
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/model/__init__.py` — `data_fieldtypes`, `no_value_fields`, `data_field_options`
+- `apps/frappe/frappe/core/doctype/docfield/docfield.json` — DocField properties (`not_nullable`, `mask`, `sticky`, `show_description_on_click`, `hide_days`, `hide_seconds`, `link_filters`, `button_color`)
+- `apps/frappe/frappe/core/doctype/doctype/doctype.py` — Table/Table MultiSelect `istable`/Link-field validation, Data field options warning
+- `apps/frappe/frappe/database/schema.py:452-453` — Data field length forced to a 64-char minimum (InnoDB row-size guard)
+- `apps/frappe/frappe/database/database.py:91` — `VARCHAR_LEN = 140` default
+- `apps/frappe/frappe/database/mariadb/database.py:173-210` — per-fieldtype column type map (Rating `decimal(3,2)`, Duration `decimal(21,9)`, Icon/Phone/Color `varchar`, Password `text`, JSON `json`)
+- `apps/frappe/frappe/model/document.py:881-885` — `_fix_rating_value` clamps Rating to 0.0-1.0
+- `apps/frappe/frappe/model/base_document.py:1349-1380` — `_save_passwords`/`get_password`/`is_dummy_password`
+- `apps/frappe/frappe/utils/password.py` — Fernet encryption, `__Auth` table storage
+- `apps/frappe/frappe/model/meta.py:199-218` — `get_masked_fields` (permission-based `mask` property)
+- `apps/frappe/frappe/public/js/frappe/form/controls/rating.js`, `barcode.js`, `autocomplete.js`, `icon.js`, `phone.js`, `button.js` — client-side options/defaults (`options || 5`, `Installed Applications`, `Emojis`, country-code fallback, `button_color` map)

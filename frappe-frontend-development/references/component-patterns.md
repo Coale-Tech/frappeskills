@@ -46,12 +46,17 @@ logs a dev warning — always use the `lucide-` form in new code.
 
 #### Button groups
 
+frappe-ui has no dedicated `ButtonGroup` primitive. For a segmented control
+(mutually-exclusive selection, not a plain toolbar), use `TabButtons`
+instead — see [app-shell-patterns.md](app-shell-patterns.md). For a plain
+row of independent actions, compose `Button`s in a flex container:
+
 ```vue
-<ButtonGroup>
-  <Button>Left</Button>
-  <Button>Center</Button>
-  <Button>Right</Button>
-</ButtonGroup>
+<div class="flex -space-x-px">
+  <Button class="rounded-r-none">Left</Button>
+  <Button class="rounded-none">Center</Button>
+  <Button class="rounded-l-none">Right</Button>
+</div>
 ```
 
 ### Form Controls
@@ -159,16 +164,17 @@ logs a dev warning — always use the `lucide-` form in new code.
 <ListView
   :columns="columns"
   :rows="rows"
+  row-key="name"
   :options="{
     selectable: true,
     onRowClick: handleRowClick
   }"
 >
-  <template #cell="{ column, row }">
-    <Badge v-if="column.key === 'status'" :variant="statusVariant(row.status)">
-      {{ row.status }}
+  <template #cell="{ item, column, row }">
+    <Badge v-if="column.key === 'status'" :theme="statusTheme(row.status)">
+      {{ item }}
     </Badge>
-    <span v-else>{{ row[column.key] }}</span>
+    <span v-else>{{ item }}</span>
   </template>
 </ListView>
 
@@ -196,7 +202,7 @@ const columns = [
       <p class="font-medium truncate">{{ item.title }}</p>
       <p class="text-sm text-gray-500">{{ item.subtitle }}</p>
     </div>
-    <Badge :variant="statusVariant(item.status)">{{ item.status }}</Badge>
+    <Badge :theme="statusTheme(item.status)">{{ item.status }}</Badge>
     <Dropdown :options="rowActions" class="ml-2">
       <Button variant="ghost" icon="lucide-more-horizontal" />
     </Dropdown>
@@ -287,10 +293,14 @@ only the default slot with no chrome; `title`/`icon`/`actions` become no-ops).
 
 #### Filter dropdown
 
+`Dropdown` has no `v-model` for a selected value — each option is an action
+row with its own `onClick` (`open`/`update:open` is the only model it
+exposes, for the popover's visibility). Set the selection from the option's
+`onClick` instead:
+
 ```vue
 <Dropdown
-  :options="filterOptions"
-  v-model="selectedFilter"
+  :options="filterOptions.map((f) => ({ ...f, onClick: () => (selectedFilter = f) }))"
 >
   <Button variant="subtle">
     <template #prefix><span class="lucide-filter size-4" /></template>
@@ -501,3 +511,33 @@ defineProps({
   </div>
 </template>
 ```
+
+## Sources
+
+Verified against frappe-ui `1.0.0-beta.29` (`apps/frappe-ui/package.json`) —
+`src/components/{Button,FormControl,Combobox,ListView,Dialog,Dropdown,Menu,Avatar,Badge,Tabs,TabButtons,Tooltip,Skeleton}/*.api.md`,
+`.vue`, `types.ts`:
+
+- `src/components/Button/Button.api.md` — no `ButtonGroup` export anywhere
+  in `src/components/` or `src/index.ts`; `TabButtons` (`src/components/TabButtons/TabButtons.api.md`)
+  is the only segmented-control primitive.
+- `src/components/FormControl/{FormControl.api.md,types.ts}`, `src/components/types/TextInput.ts` — `type` union
+  (no `type="link"`; `date`/`datetime` both valid).
+- `src/components/Combobox/Combobox.api.md` — `label`, `options`, `update:query` emit.
+- `src/components/ListView/{ListView.api.md,ListView.vue,ListRow.vue,utils.js}`,
+  `src/components/ListView/stories/CellSlot.vue` — `rowKey` is required; `#cell` scope is
+  `{ item, row, column, align }` (threaded via `list.slots.cell`, not declared in `ListView`'s own
+  `defineSlots` so it doesn't appear in the auto-generated `.api.md`); column `width` accepts a
+  number (`fr` fraction) or a CSS-length string.
+- `src/utils/dialog.ts` — `dialog.confirm`/`dialog.danger`/`dialog.prompt` namespace, `onConfirm`
+  resolve/throw semantics, `danger()` theme/label defaults.
+- `src/components/Dialog/Dialog.api.md` — `open`/`modelValue`, `size`, `bare`, deprecated `options`/`#body-content`.
+- `src/components/Provider/FrappeUIProvider.vue`, `src/components/Dialogs.vue`, `src/index.ts` exports.
+- `src/components/Dropdown/{Dropdown.api.md,types.ts}`, `src/components/Menu/types.ts` — no
+  `modelValue`/`v-model`; options are `MenuActionOption` rows with `onClick`/`theme`.
+- `src/components/Avatar/Avatar.api.md`, `src/components/Badge/Badge.api.md` — Badge color comes
+  from `theme`, not `variant` (`variant` is `"subtle" | "outline" | "solid" | "ghost"`).
+- `src/components/Tabs/{Tabs.api.md,Tabs.vue}` — `v-model` binds `TabsTrigger`/`TabsContent`
+  `:value="i"` (the loop index), confirming it is 0-based, not a label string.
+- `src/components/Tooltip/Tooltip.api.md`, `src/components/Skeleton/Skeleton.api.md`.
+- `src/utils/iconString.ts` — `lucide-*` vs. legacy feather-name fallback and dev warning.

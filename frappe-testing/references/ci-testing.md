@@ -247,7 +247,12 @@ jobs:
     needs: test
 
     steps:
-      # ... setup steps ...
+      # ... setup steps (bench init, create test site) ...
+
+      - name: Start Bench
+        run: |
+          cd frappe-bench
+          nohup bench start &> bench_start.log &
 
       - name: Site Setup
         run: |
@@ -268,11 +273,14 @@ jobs:
           path: frappe-bench/apps/my_app/cypress/screenshots
 ```
 
-`run-ui-tests` starts the site itself via `bench start`/`bench serve`, driven by
-`frappe.get_site_url`, so an explicit `bench serve &` step beforehand is unnecessary
-(`frappe/commands/testing.py`, `run_ui_tests`). `create_test_user` is a real whitelisted helper
-in `frappe/tests/ui_test_helpers.py`; use it (or an app-specific equivalent) to provision a
-non-Administrator user Cypress can `cy.login()` as.
+`run-ui-tests` does **not** start the site itself — it only computes `CYPRESS_baseUrl` from
+`frappe.utils.get_site_url` and shells out to the cypress binary (`frappe/commands/testing.py`,
+`run_ui_tests`). The site must already be serving requests; Frappe's own CI starts it with
+`bench start &> bench_start.log &` during setup, well before the UI test job runs
+(`.github/actions/setup/action.yml`) — include an equivalent step, as above.
+`create_test_user` is a real whitelisted helper in `frappe/tests/ui_test_helpers.py`; use it
+(or an app-specific equivalent) to provision a non-Administrator user Cypress can `cy.login()`
+as.
 
 ## Conditional Testing
 
@@ -323,5 +331,12 @@ non-Administrator user Cypress can `cy.login()` as.
 5. **Upload artifacts** — Save logs and screenshots on failure
 6. **Set timeouts** — Prevent hung builds from blocking pipeline
 
-Sources: `frappe/commands/testing.py`, `frappe/parallel_test_runner.py`,
-`.github/workflows/_base-server-tests.yml`, `.github/actions/setup/action.yml` (Frappe 16.35.0).
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/commands/testing.py` — `run-tests`/`run-parallel-tests`/`run-ui-tests` CLI flags and behavior
+- `apps/frappe/frappe/parallel_test_runner.py` — `run-parallel-tests` sharding
+- `apps/frappe/frappe/tests/ui_test_helpers.py` — `create_test_user`
+- `apps/frappe/pyproject.toml` — `requires-python = ">=3.14,<3.15"`
+- `apps/frappe/.github/workflows/_base-server-tests.yml`, `apps/frappe/.github/workflows/_base-ui-tests.yml`, `apps/frappe/.github/actions/setup/action.yml` — Frappe's own CI matrix, redis-server install, `bench start &` ordering before UI tests

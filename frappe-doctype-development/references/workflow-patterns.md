@@ -326,4 +326,12 @@ def generate_workflow_diagram(workflow_name):
 4. **Document state purposes** - Add help text explaining what each state means
 5. **Test edge cases** - Test all possible state transitions
 
-Sources: `frappe/model/workflow.py`, `frappe/workflow/doctype/workflow/workflow.py`, `frappe/workflow/doctype/workflow/workflow.json`, `frappe/workflow/doctype/workflow_transition/workflow_transition.json`, `frappe/workflow/doctype/workflow_document_state/workflow_document_state.json` — Frappe 16.35.0.
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/model/workflow.py` — `get_transitions`, `apply_workflow`, `get_workflow_safe_globals`, `has_approval_access`, `bulk_workflow_approval`
+- `apps/frappe/frappe/workflow/doctype/workflow/workflow.py:35-143` — `Workflow.set_active`, `validate_docstatus`, `get_workflow_methods`
+- `apps/frappe/frappe/workflow/doctype/workflow/workflow.json` — `override_status`, `send_email_alert`, `enable_action_confirmation`, `workflow_state_field` (default `workflow_state`)
+- `apps/frappe/frappe/workflow/doctype/workflow_transition/workflow_transition.json` — `allow_self_approval` (default checked), `send_email_to_creator`, `transition_tasks`, `condition`
+- `apps/frappe/frappe/workflow/doctype/workflow_document_state/workflow_document_state.json` — `doc_status`, `allow_edit`, `update_field`/`update_value`/`evaluate_as_expression`, `is_optional_state`, `send_email` (default checked), `next_action_email_template`

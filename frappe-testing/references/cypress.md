@@ -1,8 +1,6 @@
 # Cypress UI Testing
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `testing/references/cypress.md`.
-> Commands and config verified against Frappe 16.35.0's own `cypress/` directory and
-> `cypress.config.js` — the source of truth for the commands available to app-level tests.
 
 ## Overview
 Frappe uses Cypress for end-to-end UI testing. Cypress tests simulate real user interactions with the Desk interface.
@@ -375,5 +373,12 @@ afterEach(() => {
 });
 ```
 
-Sources: `frappe/commands/testing.py`, `cypress.config.js`, `cypress/support/commands.js`,
-`frappe/public/js/frappe/router.js` (Frappe 16.35.0).
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/commands/testing.py` — `run-ui-tests` (Cypress/plugin install, `--headless`/`--parallel`/`--with-coverage`/`--browser`/`--spec`/`--ci-build-id` flags)
+- `apps/frappe/cypress.config.js` — `defineConfig` options (`adminPassword`, `testUser`, timeouts, `retries`, `specPattern`, `cypress-split` wiring)
+- `apps/frappe/cypress/support/commands.js` — custom `cy.*` command set (`login`, `call`, `get_list`/`get_doc`/`insert_doc`/`update_doc`/`remove_doc`/`set_value`, `fill_field`/`get_field`/`fill_table_field`/`get_table_field`, `new_form`/`go_to_list`/`select_form_tab`/`awesomebar`, `save`/`dialog`/`get_open_dialog`/`hide_dialog`/`clear_dialogs`/`clear_datepickers`, list-view and filter helpers, `switch_to_user`/`add_role`/`remove_role`, `clear_cache`/`create_records`/`compare_document`)
+- `apps/frappe/frappe/public/js/frappe/router.js` — `/desk/...` vs `/app/...` route prefix
+- `apps/frappe/frappe/tests/ui_test_helpers.py` — `create_if_not_exists` (backs `cy.create_records`)

@@ -130,3 +130,14 @@ nohup bench --site <site> serve --port <port> > /tmp/<site>_web.log 2>&1 &
 Never kill a PID you have not inspected. `ps -o pid,ppid,tty,lstart,command -p
 <pid>` first, every time — the difference between an orphaned worker and
 someone's live `bench start` is one column.
+
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`) and the
+installed `bench` CLI package (`bench --version` → 5.31.0):
+
+- `apps/frappe/frappe/model/document.py:43-44` (`DOCUMENT_LOCK_EXPIRY`/`DOCUMENT_LOCK_SOFT_EXPIRY`), `:529-539` (`check_if_locked` "Force Unlock" action), `:1871-1925` (`queue_action` calls `lock()` before enqueue; `lock`/`unlock`), `:2094-2097` (whitelisted `unlock_document`)
+- `apps/frappe/frappe/utils/file_lock.py` — filesystem lock primitives (`create_lock`/`lock_exists`/`lock_age`/`delete_lock`) backing the above
+- `apps/frappe/frappe/app.py:134-135` — module-level WSGI `application` callable (`@Request.application`), usable via `werkzeug.test.Client`
+- `bench` CLI package `bench/utils/bench.py:317-371` (`restart_supervisor_processes`: falls back to group `frappe:`, logs level 3 → `logger.warning` on failure with the exact message "restarting supervisor group `{group}` failed. Use `bench restart` to retry."), `bench/utils/bench.py:388-390` (`restart_process_manager` — "only overmind has the restart feature", so `honcho`-driven `bench start` sessions are not restarted by `bench get-app`/`bench install-app`)
+- Command behavior observed directly: `bench worker --help`, `bench migrate --help`, `bench console --help`, `bench serve --help`; `supervisorctl restart frappe:` exit code 7 reproduced locally with no supervisor daemon running

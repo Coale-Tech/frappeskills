@@ -94,3 +94,14 @@ API & ORM, Frontend, Version Compatibility) or `references/learned-patterns-ops.
 - Never assert an API/hook/token you didn't verify in source or current docs.
 - Custom apps only for edits; never edit core (`rule://frappe-app-standards`).
 - Every deliverable ends with the sources it used.
+
+## Sources
+
+This file documents a research process for using this skill repo and the host
+harness's own tools, not a Frappe API — the only claims that are independently
+verifiable are its cross-references to sibling files, confirmed present in
+this skill repo (paths relative to `frappeskills/`):
+
+- `frappe-bench-operations/references/bench.md`, `frappe-bench-operations/references/bench-troubleshooting.md`
+- `frappe-deep-research/references/learned-patterns.md` — has `## Debugging Patterns` (L16), `## API & ORM Patterns` (L27), `## Frontend Patterns` (L148), `## Version Compatibility` (L269)
+- `frappe-deep-research/references/learned-patterns-ops.md` — has `## Build & Deployment` (L13), `## Permissions Patterns` (L259), `## Caching & Asset Patterns` (L272)

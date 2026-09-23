@@ -2,9 +2,8 @@
 
 Adapted in part from frappe/frappe-ui (MIT): `skills/frappe-ui/SETUP.md`, `vite/README.md`.
 
-How to bootstrap and wire a Vue 3 + frappe-ui SPA inside `apps/<app>/frontend`,
-verified line-by-line against the `frappe-ui` source (`vite/*.js`,
-`tailwind/*.js`, `src/utils/*.ts`, `frappe/*`, `package.json`). Used by
+How to bootstrap and wire a Vue 3 + frappe-ui SPA inside `apps/<app>/frontend`.
+Used by
 [frontend-vue.md](frontend-vue.md) (entry point),
 [frontend-architecture.md](frontend-architecture.md) (app-scale wiring), and
 [frontend-portal.md](frontend-portal.md).
@@ -44,9 +43,11 @@ the bundled Inter font files, but its committed `vite.config.js`,
 files with the versions in this doc immediately after cloning; do not run
 `yarn dev` against the starter's own config.
 
-**`vue-router` is effectively required** even for a single-screen app —
-`<Button>` injects `Symbol(router)` (`src/components/Button`); without a
-router instance every Button logs an injection warning.
+**`vue-router` is effectively required** once any `<Button :route="...">` is
+used — `Button`'s dynamic root renders `RouterLink` when the `route` prop is
+set (`src/components/Button/Button.vue`), and `RouterLink` injects the
+router instance itself; without an installed router, only those route-bound
+buttons fail, not plain buttons with no `route` prop.
 
 ### Package `exports` — only these subpaths resolve
 
@@ -312,7 +313,7 @@ rejecting non-GET requests for lacking a CSRF token. Never ship
 
 ## 7. Production build (`buildConfig`)
 
-Verified against `vite/buildConfig.js`. All fields are overridable via
+All fields are overridable via
 `frappeui({ buildConfig: {...} })`, defaults shown:
 
 | Field | Default | How it's computed |
@@ -357,3 +358,21 @@ yarn dev             # Vite dev server; frappeProxy forwards /app,/login,/api,/a
 
 If any of these fail, the failure almost always traces to one row in the
 tables above being skipped.
+
+## Sources
+
+Verified against frappe-ui `1.0.0-beta.29` (`apps/frappe-ui/package.json`),
+cross-checked against the `0.1.261` baseline vendored at
+`apps/crm/frontend/node_modules/frappe-ui`:
+
+- `apps/frappe-ui/package.json` — `exports` map, `dependencies`/`devDependencies` (icon toolchain)
+- `apps/frappe-ui/tailwind/preset.js` — `darkMode`, spacing scale, `@tailwindcss/forms`/`@tailwindcss/typography`, Lucide icon-class plugin
+- `apps/frappe-ui/vite/index.js` — `frappeui()` plugin array, sub-plugin defaults, unconditional `optimizeDeps.include`
+- `apps/frappe-ui/vite/frappeProxy.js`, `apps/frappe-ui/vite/README.md:85` — proxy `source` regex (README omits `desk`, source code includes it)
+- `apps/frappe-ui/vite/buildConfig.js` — `outDir`/`baseUrl`/`indexHtmlPath`/`emptyOutDir`/`sourcemap` defaults, `findOutputDir`/`findAppDir`
+- `apps/frappe-ui/vite/jinjaBootData.js` — production-only Jinja boot-data injection
+- `apps/frappe-ui/vite/lucideIcons.js`, `apps/frappe-ui/vite/barrelImports.js`, `apps/frappe-ui/vite/siteBanner.js`, `apps/frappe-ui/vite/frappeTypes.js`
+- `apps/frappe-ui/vite/utils.js` — `getConfig()` reads `frappeui.json` but is uncalled by any plugin
+- `apps/frappe-ui/src/utils/plugin.ts` — `FrappeUI` plugin install (`resourcesPlugin`, `$call`, `initSocket`)
+- `apps/frappe-ui/src/components/Provider/FrappeUIProvider.vue` — renders `<Dialogs />`/`<ToastProvider />`
+- `apps/frappe-ui/src/components/Button/Button.vue:191-212` — `root` computed renders `RouterLink` only when the `route` prop is set

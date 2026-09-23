@@ -23,10 +23,10 @@ delete lifecycle, and the client/server scripting API.
 | `condition_json` | Filters restricting which existing docs a user may access |
 | `web_form_fields` | Child table of fields (see below) |
 | `custom_css` | Extra CSS scoped to this form |
-| `breadcrumbs`, `sidebar_settings`, `show_sidebar` | Portal chrome |
+| `breadcrumbs`, `website_sidebar`, `show_sidebar` | Portal chrome (`website_sidebar` links a Website Sidebar when `show_sidebar` is set) |
 | `apply_document_permissions` | Enforce the DocType's own permission rules instead of the form's own owner-only rule |
-| `published`, `published_score` | Visibility and sitemap weighting |
-| `client_script`, `server_script` | Only used when `is_standard = 0` (non-standard/DB-only forms); Jinja/JS for standard forms lives in files instead (see below) |
+| `published` | Visibility |
+| `client_script` | Jinja-rendered inline JS, only used when `is_standard = 0` (non-standard/DB-only forms); there is no `server_script` field — for standard forms JS/logic lives in files instead (see below) |
 | `key_required` | Enables key-based guest access via `Web Form Request` (no login) |
 | `anonymous` | Do not attribute a guest submission to a Contact/User |
 | `allowed_embedding_domains` | Domains permitted to `<iframe>`-embed this form |
@@ -149,8 +149,12 @@ also fires `"after_load"` / `"after_save"`, which is what `after_load` /
 Other instance methods commonly used from a script: `get_value(fieldname)`,
 `get_values()`, `set_value(fieldname, value)`, `set_df_property(fieldname,
 property, value)` (inherited from the shared `FieldGroup` base, e.g.
-toggling `reqd`/`hidden`/`read_only`), `refresh_field(fieldname)`,
-`validate_section()`.
+toggling `reqd`/`hidden`/`read_only` — this already re-renders the field via
+an internal `field.refresh()` call, so no separate refresh method is needed),
+`validate_section()`. There is no `refresh_field(fieldname)` method on
+`frappe.web_form` — that method exists on the desk `Form` class
+(`frappe/public/js/frappe/form/form.js`), not the web form's `FieldGroup`
+base.
 
 ## Whitelisted endpoints
 
@@ -193,12 +197,22 @@ the section breaks.
   DocType's permission rules — set it to `1` deliberately if you need real
   DocType-level permission checks (roles, user permissions, sharing) enforced
   on top of the web form.
-- `client_script`/`server_script` document fields are only read when
-  `is_standard = 0`; editing them on a standard (`is_standard = 1`) form has
-  no effect — edit the `.js`/`.py` files instead.
+- `client_script` is only read when `is_standard = 0`; editing it on a
+  standard (`is_standard = 1`) form has no effect — edit the `.js`/`.py`
+  files instead. There is no `server_script` field on Web Form.
 
-## References
+## Sources
 
-- `frappe/website/doctype/web_form/web_form.py`, `web_form.json`
-- `frappe/public/js/frappe/web_form/web_form.js`
+Verified against Frappe v16.35.0 (`apps/frappe/frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/website/doctype/web_form/web_form.json` — doctype fields; confirmed no `show_as_card`, `sidebar_settings`, `published_score`, or `server_script` fields exist (real fields are `website_sidebar`, `published`, `client_script` only)
+- `apps/frappe/frappe/website/doctype/web_form_field/web_form_field.json` — Web Form Field child table fields
+- `apps/frappe/frappe/website/doctype/web_form/web_form.py:187,193,603-632` — `get_context(context)` module hook, `add_custom_context_and_script` (only reads `.js`/`.css` files for `is_standard` forms, never a `server_script` field)
+- `apps/frappe/frappe/website/doctype/web_form/web_form.py:740-875` — `accept()` (`POST`/`PUT`, `allow_guest=True`, `@rate_limit(limit=10, seconds=60)`, calls real `doc.insert()`/`doc.save()`)
+- `apps/frappe/frappe/website/doctype/web_form/web_form.py:878-917` — `delete()`/`delete_multiple()` (`POST`/`DELETE`, `allow_guest=True`, rate-limited)
+- `apps/frappe/frappe/website/doctype/web_form/web_form.py:952-1143` — `get_web_form_filters`, `get_web_form_list`, `get_form_data`, `get_link_options`
+- `apps/frappe/frappe/website/doctype/web_form_request/` — `Web Form Request` doctype backing `key_required`/`web_form_request_key` guest access
+- `apps/frappe/frappe/public/js/frappe/web_form/web_form.js:5,38-52,129,215,381,391,423` — `WebForm extends frappe.ui.FieldGroup`; `on(fieldname, handler)` sets `field.df.change`; `this.validate`/`this.after_load`/`this.after_save` call sites; `validate_section()`; page-break/multi-step handling (`set_page_breaks`, l.71-83)
+- `apps/frappe/frappe/public/js/frappe/ui/field_group.js:139-251` — `FieldGroup.get_value`/`get_values`/`set_value`/`set_df_property` (no `refresh_field` method on this base)
+- `apps/frappe/frappe/public/js/frappe/form/form.js:1463` — `refresh_field(fname)` exists only on the desk `Form` class, not `FieldGroup`
 - https://frappeframework.com/docs/user/en/website/web-form

@@ -69,3 +69,11 @@ bench --site <site> migrate
 ```
 
 Same rules as new app — see [new-app.md](../../frappe-app-development/references/new-app.md#step-7-migrate-and-verify) for migrate rules.
+
+## Sources
+
+Verified against Frappe v16.35.0 (`apps/frappe/frappe/__init__.py` `__version__`):
+
+- CLI subcommands `list-apps`, `install-app`, `set-config`, `migrate`: `apps/frappe/frappe/commands/site.py`, `apps/frappe/frappe/commands/utils.py`
+- App metadata file `apps/<app>/pyproject.toml` (no `setup.py` present in installed apps) and `apps/<app>/<app>/hooks.py` as the hooks entry point: directory layout of `apps/frappe/` and `apps/erpnext/` in the installed bench
+- Everything else in this file (locating the bench root, not creating a second app, reading module structure before editing) is workflow/process guidance with no further verifiable API claim

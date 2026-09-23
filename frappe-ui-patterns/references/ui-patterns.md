@@ -330,3 +330,26 @@ no dark-mode-specific classes.
 | Re-deriving "is this row selected" from an outer `v-model` inside a `#item` slot | Duplicates and drifts from the component's own selection logic | Use the slot props the component already passes (`{ item, active, selected }`, P7) |
 | Using bare, un-namespaced icon names (`icon="edit"`) | Collides once a second icon set ships; not what frappe-ui components accept | Use the `lucide-*` namespaced class string, or a component for a custom glyph |
 | No keyboard navigation on a custom-built widget | Accessibility gap frappe-ui components don't have by default (P12) | Prefer the frappe-ui component over a hand-rolled `<div>` widget; if hand-rolling is unavoidable, follow the WAI-ARIA pattern for that role |
+
+## Sources
+
+Verified against frappe-ui `1.0.0-beta.29` (`apps/frappe-ui/package.json`):
+
+- `apps/frappe-ui/PHILOSOPHY.md` — P1-P14 rule text (naming, prop design, slot design, composition, styling, quality, evolution sections)
+- `apps/frappe-ui/CONTEXT.md`, `apps/frappe-ui/skills/frappe-ui/DESIGN.md` — shared vocabulary and app-design guide this file distills (shell anatomy, hierarchy, geometry, forms, confirmations, feedback, dark-mode patterns are near-verbatim from `DESIGN.md`)
+- `apps/frappe-ui/src/components/DesktopShell/DesktopShell.vue` — `data-slot="desktop-shell-content"`, `scroll` prop (default `true`), pinned `PageHeaderTarget`, scroll-container registration
+- `apps/frappe-ui/src/components/Sidebar/Sidebar.vue`, `types.ts` — `v-model:collapsed` (`defineModel`), auto-collapse below the `sm` breakpoint (`useBreakpoints`), `width`/`collapsedWidth` defaults (`15rem`/`3rem`; recipes and `DESIGN.md` itself call `Sidebar` with `width="14rem"`)
+- `apps/frappe-ui/src/components/PageHeader/PageHeaderBase.vue` — padding-free `Teleport`-to-target primitive shared by `PageHeader`/`PageHeaderMobile`
+- `apps/frappe-ui/src/components/Rail/Rail.vue`, `RailItem.vue`, `types.ts` — bare `w-[50px]` frame, `variant: 'tile' | 'ghost'` (default `'tile'`)
+- `apps/frappe-ui/src/components/ErrorMessage/ErrorMessage.vue` — accepts `string | Error`, `DOMPurify.sanitize`/escape fallback, `role="alert"`
+- `apps/frappe-ui/src/utils/dialog.ts` — `dialog = { confirm, prompt, danger }` namespace, `DialogHandle.close`, `onConfirm` auto-close + inline `setError` on throw
+- `apps/frappe-ui/src/components/Toast/toast.ts` — `toast.success`/`toast.error`/`toast.info`
+- `apps/frappe-ui/src/components/Provider/FrappeUIProvider.vue` — renders `<Dialogs />` and `<ToastProvider />`
+- `apps/frappe-ui/src/components/FormControl/FormControl.vue` — `label`/`description`/`error`/`required` passthrough (P5)
+- `apps/frappe-ui/src/data-fetching/useCall/useCall.ts` — `immediate` default `true`, `submit(params?)`, `loading`
+- `apps/frappe-ui/src/components/ScrollArea/ScrollArea.vue` — `orientation: 'vertical' | 'horizontal' | 'both'`
+- `apps/frappe-ui/spec/foundations.md`, `spec/adr/0005-focus-ring-2px.md` — focus-ring themes (`ring-outline-gray-3`/`ring-outline-red-3`/`ring-blue-400`/`ring-outline-green-3`)
+- `apps/frappe-ui/spec/adr/0006-numbered-radius-tokens.md` — numbered radius scale (`rounded-4`=8px default control, `rounded-6`=12px card, `rounded-9`=100px pill), deprecated named aliases
+- `apps/frappe-ui/spec/adr/0007-typography-style-utilities.md`, `apps/frappe-ui/tailwind/generated/typography.json` — `text-{size}-{weight}` composite utilities (`medium`/`semibold`/`bold`/`black` variants exist per size, incl. `text-base-medium` and `text-lg-semibold`)
+- `apps/frappe-ui/src/index.ts` — `ListView` "do not deprecate until `frappe-ui/list` reaches parity" comment; full `List`/`ListView` prop/slot tables live in [frappe-ui-list-and-editor.md](../../frappe-frontend-development/references/frappe-ui-list-and-editor.md)
+- Full component prop/slot/emit reference: [frappe-ui-components.md](../../frappe-frontend-development/references/frappe-ui-components.md) and its split files, cited independently in each file's own `## Sources` footer

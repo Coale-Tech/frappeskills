@@ -1,9 +1,8 @@
 # Enterprise Application Patterns
 
 Architectural patterns for building production-grade enterprise applications
-(CRM, Helpdesk, HRMS, and similar multi-entity systems) on Frappe. Every API
-below is verified against Frappe 16 core (`frappe/`); patterns that depend on
-ERPNext or Helpdesk say so explicitly.
+(CRM, Helpdesk, HRMS, and similar multi-entity systems) on Frappe. Patterns
+that depend on ERPNext or Helpdesk say so explicitly.
 
 ## When to use
 
@@ -117,7 +116,7 @@ the document's "..." menu or `frappe.get_all("Version", filters={...})`.
 (`frappe/automation/doctype/milestone_tracker`) with `document_type` and
 `track_field`. On every save where that field's value changed, Frappe
 auto-inserts a **Milestone** record (`reference_type`, `reference_name`,
-`track_field`, `from_value`, `value`, `milestone_tracker`) — this replaces
+`track_field`, `value`, `milestone_tracker`) — this replaces
 hand-written `has_value_changed` status-history code for simple field
 tracking.
 
@@ -226,8 +225,9 @@ assign_to.add({
 ```
 
 `assign_to.add(args)` and `assign_to.remove(doctype, name, assign_to)` are
-whitelisted; `assign_to.close_all_assignments(doctype, name)` cancels every
-open assignment. All raise `DuplicateToDoError` if the user is already
+whitelisted; `assign_to.close_all_assignments(doctype, name)` closes every
+open assignment (sets each open ToDo's `status` to `Closed`, not
+`Cancelled`). `add`/`_add` raise `DuplicateToDoError` if the user is already
 assigned.
 
 If Assignment Rule's conditions genuinely can't express your distribution
@@ -248,8 +248,7 @@ def get_next_agent(queue):
 
 ## Notifications and escalations
 
-`Notification` (`frappe/email/doctype/notification`) fields, verified against
-`notification.json`:
+`Notification` (`frappe/email/doctype/notification`) fields:
 
 - `channel`: `Email`, `Slack`, `System Notification`, `SMS`
 - `event` (`Send Alert On`): `New`, `Save`, `Submit`, `Cancel`, `Days After`,
@@ -409,3 +408,24 @@ Full reporting reference:
 | Not using queues for bulk operations | Timeouts, memory issues | `frappe.enqueue()` for operations touching many records |
 | Hardcoded role names | Breaks on role changes | Use constants/settings for role names |
 | Using vanilla JS/jQuery for custom frontends | Maintenance burden, ecosystem mismatch | Use Frappe UI with Vue 3 |
+
+## Sources
+
+Verified against Frappe v16.35.0 (`apps/frappe/frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/core/doctype/communication/communication.json` — `reference_doctype` (Link)/`reference_name` (Dynamic Link) as the Dynamic Link example
+- `apps/frappe/frappe/model/naming.py:141-230` — `autoname` dispatch (`field:`, `naming_series:`, `format:`, hash fallback); `apps/erpnext/erpnext/support/doctype/service_level_agreement/service_level_agreement.json` — `autoname: "format:SLA-{document_type}-{service_level}"`
+- `apps/frappe/frappe/__init__.py:600` — `has_permission()` signature
+- `apps/frappe/frappe/core/doctype/version/version.json` — Version fields (`ref_doctype`, `docname`, `data`)
+- `apps/frappe/frappe/automation/doctype/milestone_tracker/milestone_tracker.py`, `apps/frappe/frappe/automation/doctype/milestone/milestone.json` — Milestone Tracker `apply()`; Milestone's real persisted fields are `reference_type`, `reference_name`, `track_field`, `value`, `milestone_tracker` (a `from_value` local variable is computed in `apply()` but is not a Milestone doctype field)
+- `apps/frappe/frappe/model/document.py:1485,1771,1786` — `track_seen`/`track_views` meta flag handling; `apps/frappe/frappe/core/doctype/doctype/doctype.json` — `track_changes`/`track_seen`/`track_views` meta fields
+- `apps/frappe/frappe/core/doctype/activity_log/activity_log.json` — Activity Log real fields incl. `subject`, `content`, `reference_doctype`, `reference_name`, `operation` (options `Login`/`Logout`/`Impersonate`), `status`, `user`
+- `apps/frappe/frappe/core/doctype/log_settings/log_settings.json` — `logs_to_clear` child table; `apps/frappe/frappe/core/doctype/deleted_document/`, `apps/frappe/frappe/core/doctype/access_log/` — existence confirmed
+- `apps/frappe/frappe/automation/doctype/assignment_rule/assignment_rule.json` — fields incl. `document_type`, `priority`, `assign_condition`/`unassign_condition`/`close_condition`, `rule` (options `Round Robin`/`Load Balancing`/`Based on Field`/`Weighted Distribution`), `users`, `weighted_users`, `field`, `assignment_days`, `due_date_based_on`
+- `apps/frappe/frappe/automation/doctype/assignment_rule/assignment_rule.py:79-111` — calls into `assign_to.clear()`/`_add()`/`close_all_assignments()`
+- `apps/frappe/frappe/desk/form/assign_to.py` — `add()`, `_add()`, `remove()`, `close_all_assignments()` (sets ToDo `status="Closed"`, not `Cancelled`), `DuplicateToDoError`
+- `apps/frappe/frappe/email/doctype/notification/notification.json` — `channel`/`event`/`method`/`date_changed`/`days_in_advance`/`value_changed`/`condition`/`recipients`/`send_to_all_assignees`/`message` fields and their option lists
+- `apps/frappe/frappe/utils/background_jobs.py:76` — `enqueue()` signature
+- `apps/frappe/frappe/__init__.py:144,230` — `init()`/`connect()` signatures
+- `apps/frappe/frappe/core/doctype/report/report.json` — `report_type` options (`Report Builder`/`Query Report`/`Script Report`/`Custom Report`)
+- `apps/frappe/frappe/database/database.py:527,606` — `for_update` parameter on `get_value`/`get_values`

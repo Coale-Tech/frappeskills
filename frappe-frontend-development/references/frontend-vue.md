@@ -156,3 +156,28 @@ verified pattern.
 - Design tokens used rather than hardcoded colours or spacing — see
   [design-tokens.md](../../frappe-design-tokens/references/design-tokens.md).
 - `bench build --app <app>` runs clean before shipping.
+
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`) and frappe-ui
+`1.0.0-beta.29` (`apps/frappe-ui/package.json`):
+
+- `frappe/website/path_resolver.py:225-239` — `website_route_rules` hook resolution.
+- `apps/frappe-ui/vite/README.md:70-79`, `apps/frappe-ui/vite/frappeProxy.js` — dev-server proxy
+  default `'^/(app|login|api|assets|files|private)'`.
+- `apps/frappe-ui/vite/buildConfig.js:101-126`, `apps/frappe-ui/vite/README.md:170-183` — build
+  output (`../app_name/public/frontend`) and `index.html` copy target (`../app_name/www/app_name.html`).
+- `apps/frappe-ui/src/data-fetching/index.ts` — `useCall`/`useDoc`/`useDoctype`/`useList`/`useNewDoc` exports.
+- `apps/frappe-ui/src/data-fetching/useCall/useCall.ts` — `url`/`method`/`immediate`/`onSuccess`
+  options; `submit(params)`, `fetch`/`reload` (both aliases of a no-argument `execute()` that
+  reuses the last `submit`ted params).
+- `frappe/api/v2.py:280` — `/method/<method>` route mounted under `/api/v2`.
+- `apps/frappe-ui/src/data-fetching/useList/{useList.ts,types.ts}` — `doctype`/`fields`/`filters`
+  options, `.data`/`.reload()`.
+- `apps/frappe-ui/src/data-fetching/useDoc/useDoc.ts:34-197` — `doctype`/`name` options,
+  `.doc`, `.setValue` (a `useCall` instance, hence `.setValue.submit(...)`).
+- `apps/frappe-ui/src/data-fetching/useFrappeFetch.ts:132` — reads `window.csrf_token`.
+- `apps/frappe-ui/src/utils/call.ts:3,50-51` — legacy `call()`/`createResource` CSRF path.
+- `apps/frappe-ui/frappe/session.js` (`sessionUser()`), `apps/frappe-ui/frappe/index.js`,
+  `apps/frappe-ui/package.json` `exports["./frappe"]` — confirms `sessionUser` exists in source
+  but is not re-exported from the `frappe-ui/frappe` subpath entry.

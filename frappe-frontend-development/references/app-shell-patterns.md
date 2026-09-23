@@ -350,3 +350,24 @@ See [`frappe-ui-spa-page-patterns.md`](frappe-ui-spa-page-patterns.md) for
 full list/detail page recipes, and
 [`frappe-ui-list-and-editor.md`](frappe-ui-list-and-editor.md) for the list
 and rich-text primitives referenced above.
+
+## Sources
+
+Verified against frappe-ui `1.0.0-beta.29` (`apps/frappe-ui/package.json`):
+
+- `src/components/{DesktopShell,MobileShell}/{DesktopShell,MobileShell}.{api.md,vue,md}` —
+  props/slots, `data-slot="desktop-shell-content"`, `registerScrollContainer`/`useScrollContainer`
+  wiring (`src/composables/useScrollContainer.ts`), PWA safe-area padding on `MobileShell`.
+- `src/components/Rail/Rail.api.md`, `src/components/MobileNav/MobileNav.api.md` — `RailItem`/
+  `MobileNavItem` props and active-tab scroll-to-top behavior.
+- `src/components/Sidebar/Sidebar.api.md` — composition props/slots and the deprecated
+  `header`/`sections` config-object props.
+- `src/components/PageHeader/PageHeader.api.md` — `PageHeader`, `PageHeaderBase`,
+  `PageHeaderMobile`, `PageHeaderMobileTitle`, `PageHeaderBackButton`.
+- `apps/crm/frontend/node_modules/frappe-ui/` (v0.1.261) — `src/components/Sidebar/Sidebar.vue`
+  confirms the config-object-only API (no composition slot, no `width`/`collapsedWidth`) on the
+  0.1.x baseline.
+- `src/utils/iconString.ts`, `src/index.ts` — `FeatherIcon` still exported but deprecated in
+  favor of the `lucide-<name>` class convention used by v1.
+- `package.json` — `@vueuse/core` is a frappe-ui dependency, supporting the `useMediaQuery`
+  desktop/mobile split shown above.

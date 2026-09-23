@@ -203,3 +203,13 @@ def test_sales_user_cannot_delete(self):
     )
     frappe.set_user("Administrator")
 ```
+
+## Sources
+
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
+
+- `apps/frappe/frappe/__init__.py:600-646` — `frappe.has_permission(doctype, ptype, doc, user, throw, ..., debug, ignore_share_permissions)` wrapper, `throw` raising `frappe.PermissionError`
+- `apps/frappe/frappe/permissions.py:81-227` — `frappe.permissions.has_permission`, `debug` param; `:229-281` `get_doc_permissions`
+- `apps/frappe/frappe/permissions.py:347-350` — `get_user_permissions`
+- `apps/frappe/frappe/utils/user.py:433` — `get_users_with_role`
+- `apps/frappe/frappe/model/db_query.py` — `frappe.get_list`/`frappe.get_all` permission-filtering behavior

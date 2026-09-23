@@ -146,6 +146,9 @@ code-search tooling — puts them in its own agent context file (`AGENTS.md` /
   [learned-patterns.md](frappe-deep-research/references/learned-patterns.md) in
   the format defined by `frappe-deep-research`, and get promoted into the owning
   skill's reference once confirmed.
+- **A new skill directory needs `./install.sh` re-run.** Symlinking is not
+  automatic — the script only links what exists in each root at run time, so
+  a freshly added `frappe-*/` is invisible to every agent until it runs again.
 
 ## Credits
 

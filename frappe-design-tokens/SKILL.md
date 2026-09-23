@@ -19,7 +19,8 @@ match Desk and frappe-ui without bespoke CSS.
 
 - Surface being styled (Desk, portal, SPA)
 - Frappe version — Espresso is the v16 system
-- Whether the app ships its own Tailwind config
+- Whether the app ships its own Tailwind config, and its pinned frappe-ui
+  version (1.0 renames tokens — see the v2 migration reference)
 
 ## Procedure
 
@@ -42,11 +43,23 @@ Tailwind class for each: [references/design-tokens.md](references/design-tokens.
 
 ### 2) Use the Tailwind preset in frappe-ui apps
 
-```html
-<div class="bg-surface-white text-ink-gray-8 p-4 rounded-md shadow-sm">
+```js
+// tailwind.config.js (Tailwind v3)
+import frappeUIPreset from 'frappe-ui/tailwind'
+export default { presets: [frappeUIPreset], content: ['./src/**/*.{vue,js,ts}', './node_modules/frappe-ui/src/**/*.{vue,js,ts}'] }
 ```
 
-The preset ships with frappe-ui; extend it, never replace it.
+```html
+<div class="bg-surface-base text-ink-gray-8 border border-outline-gray-2 p-4 rounded-5">
+<!-- 0.1.x: bg-surface-white … rounded-md (no numbered radius, no surface-base) -->
+```
+
+Import `frappe-ui/tailwind`, not `frappe-ui/src/...` (outside the package
+`exports` map). Semantic families: `ink-*`, `surface-*`, `outline-*`; icons are
+`lucide-<name>` classes; dark mode is `[data-theme="dark"]` driven by `useTheme()` —
+[references/frappe-ui-tailwind-tokens.md](references/frappe-ui-tailwind-tokens.md).
+Migrating an app to the v2 token names:
+[references/frappe-ui-tokens-v2-migration.md](references/frappe-ui-tokens-v2-migration.md).
 
 ### 3) Respect the semantic layer
 
@@ -73,7 +86,8 @@ Every hit is a candidate token replacement.
 ## Failure modes / debugging
 
 - **Colors look right in light mode, wrong in dark**: a raw palette value was used instead of a semantic token
-- **Tailwind class has no effect**: the frappe-ui preset is not in the app's Tailwind config
+- **Tailwind class has no effect**: the frappe-ui preset is missing, frappe-ui source is not in `content`, or the app is on Tailwind v4
+- **Class existed before a frappe-ui upgrade, now unstyled**: renamed by the v2 tokens; run the migration codemod
 - **CSS variable resolves to nothing**: the variable is v16-only, or the element is outside the Desk/app root
 - **Component looks heavier than Desk's**: wrong shadow or radius step
 
@@ -85,8 +99,10 @@ Every hit is a candidate token replacement.
 
 ## References
 
-- [references/design-tokens.md](references/design-tokens.md) - Color, typography, spacing, radius, shadow scales
-- [references/espresso-design-system.md](references/espresso-design-system.md) - Espresso structure and semantic layer
+- [references/design-tokens.md](references/design-tokens.md) - Desk CSS variables: color, typography, spacing, radius, shadow
+- [references/espresso-design-system.md](references/espresso-design-system.md) - Espresso structure, Desk vs frappe-ui comparison
+- [references/frappe-ui-tailwind-tokens.md](references/frappe-ui-tailwind-tokens.md) - frappe-ui preset classes: colors, type scale, radius, shadow, icons, dark mode, `data-*` hooks
+- [references/frappe-ui-tokens-v2-migration.md](references/frappe-ui-tokens-v2-migration.md) - `migrate-tokens-v2` codemod and rename tables
 
 ## Guardrails
 
@@ -103,5 +119,7 @@ Every hit is a candidate token replacement.
 | Hardcoded hex values | Breaks theming and dark mode | CSS variable / Tailwind token |
 | Raw palette token in components | Dark mode inverts incorrectly | Semantic token |
 | Replacing the Tailwind preset | Loses the whole scale | Extend it |
+| `import … from 'frappe-ui/src/tailwind/preset'` | Not in `exports`; breaks on upgrade | `frappe-ui/tailwind` |
+| Named radius (`rounded-md`, `rounded-lg`) in 1.0 apps | Deprecated aliases (ADR 0006) | Numbered scale: `rounded-5`, `rounded-6` |
 | Arbitrary `px` spacing | Visual drift from Desk | Spacing scale |
 | Custom shadows | Screens feel foreign | Shadow scale |

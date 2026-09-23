@@ -1,277 +1,91 @@
 # frappe-ui SPA Page Patterns
 
 List, Detail, and Form page layouts for a frappe-ui (Vue) SPA. See
-[page-patterns.md](page-patterns.md) for the file index, and the two native
-Frappe page kinds (Desk Page, Web/Portal Page) documented there.
+[page-patterns.md](page-patterns.md) for the two native Frappe page kinds
+(Desk Page, Web/Portal Page). Component-level API — list primitives,
+`ListView`, `Editor` — lives in
+[frappe-ui-list-and-editor.md](frappe-ui-list-and-editor.md); shell/nav
+components in [app-shell-patterns.md](app-shell-patterns.md); data
+composables (`useList`, `useDoc`, `useNewDoc`) in
+`frappe-ui-data-fetching.md`; `FormControl` field types in
+`frappe-ui-form-controls.md`. This page shows how they wire together inside
+a routed page, not their full APIs.
 
 ## Pattern: List Page
 
-The List Page displays a collection of items with search, filters, and pagination.
-
-### List Page structure
-
 ```
 List Page
-├── Header Section
-│   ├── Title
-│   ├── Description
-│   └── Action Buttons (New, Refresh)
-├── Dashboard Section (Optional)
-│   └── NumberChart Stats
-├── Tabs Section (Optional)
-│   └── Tab buttons with counts
-├── Search & Filter Section
-│   ├── Search input
-│   ├── Filter dropdowns
-│   └── Clear filters button
-├── List Section
-│   ├── List header
-│   ├── ListView component
-│   └── Empty/Loading states
-└── Pagination
-    ├── Page size selector
-    └── Page navigation
+├── PageHeader — title, New / Refresh actions
+├── Tabs (optional) — status filter, tabs prop array, not <Tab> children
+├── Search & Filter — FormControl(text) + FormControl(select), feeds useList filters
+├── List body — frappe-ui/list primitives or ListView
+│   ├── Loading — Skeleton rows
+│   ├── Empty — no rows in `data`
+│   └── Error — useList `error`, retry button
+└── Pagination — useList `next()`/`previous()`/`hasNextPage`
 ```
 
-### List Page template
+### Template
 
 ```vue
 <template>
-  <div class="p-6 space-y-6">
-    <!-- Header Section -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-bold text-gray-900">{{ title }}</h1>
-        <p v-if="description" class="text-sm text-gray-600">{{ description }}</p>
-      </div>
+  <div class="flex flex-col h-full">
+    <PageHeader>
+      <h1 class="text-lg font-semibold">{{ title }}</h1>
       <div class="flex gap-2">
-        <Button
-          variant="solid"
-          theme="blue"
-          size="sm"
-          @click="create"
-        >
-          <template #prefix><FeatherIcon name="plus" class="h-4 w-4" /></template>
+        <Button variant="solid" @click="router.push({ name: 'LeadNew' })">
+          <template #prefix><span class="lucide-plus size-4" /></template>
           New
         </Button>
-        <Button
-          variant="solid"
-          theme="gray"
-          size="sm"
-          :loading="loading"
-          @click="refresh"
-        >
-          <template #prefix><FeatherIcon name="refresh-ccw" class="h-4 w-4" /></template>
+        <Button variant="subtle" :loading="leads.loading" @click="leads.reload()">
+          <template #prefix><span class="lucide-refresh-cw size-4" /></template>
           Refresh
         </Button>
       </div>
+    </PageHeader>
+
+    <Tabs v-model="activeTabIndex" :tabs="statusTabs">
+      <template #tab-panel />
+    </Tabs>
+
+    <div class="flex gap-3 p-4">
+      <FormControl v-model="search" placeholder="Search..." class="flex-1" />
+      <FormControl v-model="statusFilter" type="select" :options="statusOptions" class="w-40" />
+      <Button variant="outline" @click="clearFilters">Clear</Button>
     </div>
 
-    <!-- Dashboard Section -->
-    <div class="bg-white rounded-lg shadow-sm">
-      <div class="p-4 border-b border-gray-200">
-        <h3 class="text-md font-semibold text-gray-900">Overview</h3>
-      </div>
-      <div class="p-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <NumberChart
-            v-for="stat in stats"
-            :key="stat.label"
-            :config="stat"
-          />
-        </div>
-      </div>
+    <div v-if="leads.error" class="p-4">
+      <p class="text-ink-red-3 text-sm">{{ leads.error.messages?.[0] ?? leads.error.message }}</p>
+      <Button variant="outline" theme="red" size="sm" @click="leads.reload()">Retry</Button>
     </div>
 
-    <!-- Tabs Section -->
-    <div class="bg-white rounded-lg shadow-sm">
-      <nav class="flex border-b border-gray-200 overflow-x-auto">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          @click="activeTab = tab.key"
-          class="px-4 py-3 flex items-center gap-2 border-b-2 transition-colors"
-          :class="
-            activeTab === tab.key
-              ? 'border-blue-500 text-blue-600 bg-blue-50'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-          "
-        >
-          <FeatherIcon :name="tab.icon" class="h-4 w-4" />
-          <span class="text-sm font-medium">{{ tab.label }}</span>
-          <span
-            class="px-2 py-0.5 text-xs font-medium rounded-full"
-            :class="
-              activeTab === tab.key
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-gray-100 text-gray-600'
-            "
-          >
-            {{ getTabCount(tab.key) }}
-          </span>
-        </button>
-      </nav>
+    <List v-else-if="!leads.loading && leads.data?.length" class="flex-1">
+      <ListRows :items="leads.data" v-slot="{ item, value }">
+        <ListRow :value="value" :to="{ name: 'LeadDetail', params: { name: value } }">
+          <ListCell>{{ item.lead_name }}</ListCell>
+          <ListCell class="justify-end"><Badge :label="item.status" theme="gray" /></ListCell>
+        </ListRow>
+      </ListRows>
+    </List>
+
+    <div v-else-if="!leads.loading" class="flex flex-col items-center py-12 text-center">
+      <span class="lucide-inbox size-8 text-ink-gray-4 mb-3" />
+      <h3 class="font-medium mb-1">No leads found</h3>
+      <Button variant="solid" @click="router.push({ name: 'LeadNew' })">Create New</Button>
     </div>
 
-    <!-- Search & Filter Section -->
-    <div class="bg-white rounded-lg shadow-sm border-t">
-      <div class="p-4 space-y-3">
-        <div class="flex flex-col md:flex-row gap-3">
-          <FormControl
-            v-model="filters.search"
-            type="text"
-            placeholder="Search..."
-            class="flex-1"
-          />
-          <FormControl
-            v-model="filters.status"
-            type="select"
-            :options="statusOptions"
-            class="md:w-40"
-          />
-          <Button
-            variant="outline"
-            theme="gray"
-            size="sm"
-            @click="clearFilters"
-          >
-            <template #prefix><FeatherIcon name="x" class="h-4 w-4" /></template>
-            Clear
-          </Button>
-        </div>
-      </div>
+    <div v-if="leads.loading" class="p-4 space-y-2">
+      <Skeleton v-for="i in 5" :key="i" class="h-10 w-full" />
     </div>
 
-    <!-- Error State -->
-    <div v-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
-      <div class="flex items-center gap-3">
-        <FeatherIcon name="alert-circle" class="h-5 w-5 text-red-500" />
-        <div class="flex-1">
-          <p class="text-sm font-medium text-red-800">{{ error }}</p>
-        </div>
-        <Button
-          variant="outline"
-          theme="red"
-          size="sm"
-          @click="refresh"
-        >
-          Retry
+    <div class="flex justify-between p-4">
+      <span class="text-sm text-ink-gray-6">Page {{ page }}</span>
+      <div class="flex gap-2">
+        <Button variant="outline" size="sm" :disabled="page === 1" @click="leads.previous(); page--">
+          <span class="lucide-chevron-left size-4" />
         </Button>
-      </div>
-    </div>
-
-    <!-- List Section -->
-    <div class="bg-white rounded-lg shadow-sm">
-      <div class="px-6 py-4 border-b border-gray-200">
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-gray-900">
-            {{ tabs.find(t => t.key === activeTab)?.label || 'Items' }}
-          </h3>
-          <span class="text-sm text-gray-500">
-            Showing {{ startIndex }} to {{ endIndex }} of {{ totalItems }}
-          </span>
-        </div>
-      </div>
-
-      <!-- ListView Component -->
-      <ListView
-        v-if="!loading && !error"
-        :columns="columns"
-        :rows="paginatedRows"
-        :options="{
-          selectable: true,
-          onRowClick: handleRowClick,
-          getRowRoute: (row) => ({ name: row.name })
-        }"
-      >
-        <template #name="{ item }">
-          <div class="font-medium text-gray-900">{{ item.name }}</div>
-        </template>
-
-        <template #status="{ item }">
-          <Badge :theme="getStatusTheme(item.status)">
-            {{ item.status }}
-          </Badge>
-        </template>
-      </ListView>
-
-      <!-- Loading State -->
-      <div v-if="loading" class="p-12 flex justify-center">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-
-      <!-- Empty State -->
-      <div v-if="!loading && !error && paginatedRows.length === 0" class="p-12 text-center">
-        <FeatherIcon name="inbox" class="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h3 class="text-lg font-medium text-gray-900 mb-1">No items found</h3>
-        <p class="text-sm text-gray-500">
-          {{ hasActiveFilters ? 'Try adjusting your filters' : 'Get started by creating a new item' }}
-        </p>
-        <Button
-          v-if="!hasActiveFilters"
-          variant="solid"
-          theme="blue"
-          class="mt-4"
-          @click="create"
-        >
-          Create New
-        </Button>
-      </div>
-    </div>
-
-    <!-- Pagination -->
-    <div v-if="totalPages > 1" class="bg-white rounded-lg shadow-sm border-t flex items-center justify-between px-6 py-3">
-      <div class="flex items-center gap-2">
-        <span class="text-sm text-gray-600">Rows per page:</span>
-        <select
-          v-model="pageSize"
-          class="border border-gray-300 rounded px-2 py-1 text-sm"
-        >
-          <option :value="25">25</option>
-          <option :value="50">50</option>
-          <option :value="100">100</option>
-        </select>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <Button
-          variant="outline"
-          theme="gray"
-          size="sm"
-          :disabled="currentPage === 1"
-          @click="currentPage = 1"
-        >
-          <FeatherIcon name="chevrons-left" class="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          theme="gray"
-          size="sm"
-          :disabled="currentPage === 1"
-          @click="currentPage--"
-        >
-          <FeatherIcon name="chevron-left" class="h-4 w-4" />
-        </Button>
-        <span class="text-sm text-gray-600">
-          Page {{ currentPage }} of {{ totalPages }}
-        </span>
-        <Button
-          variant="outline"
-          theme="gray"
-          size="sm"
-          :disabled="currentPage === totalPages"
-          @click="currentPage++"
-        >
-          <FeatherIcon name="chevron-right" class="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          theme="gray"
-          size="sm"
-          :disabled="currentPage === totalPages"
-          @click="currentPage = totalPages"
-        >
-          <FeatherIcon name="chevrons-right" class="h-4 w-4" />
+        <Button variant="outline" size="sm" :disabled="!leads.hasNextPage" @click="leads.next(); page++">
+          <span class="lucide-chevron-right size-4" />
         </Button>
       </div>
     </div>
@@ -279,333 +93,211 @@ List Page
 </template>
 ```
 
-### Script Pattern
+### Script
 
-```javascript
-import { ref, computed, onMounted } from 'vue'
-import { createResource, useRouter } from 'frappe-ui'
-import { Button, FormControl, ListView, Badge, NumberChart, FeatherIcon } from 'frappe-ui'
+```js
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useList } from 'frappe-ui'
+import { List, ListRow, ListCell, ListRows } from 'frappe-ui/list'
 
 const router = useRouter()
-const loading = ref(false)
-const error = ref(null)
-const activeTab = ref('all')
-const currentPage = ref(1)
-const pageSize = ref(25)
+const search = ref('')
+const statusFilter = ref('')
+const activeTabIndex = ref(0)
+const page = ref(1)
 
-const filters = ref({
-  search: '',
-  status: ''
-})
-
-const tabs = [
-  { key: 'all', label: 'All', icon: 'list' },
-  { key: 'active', label: 'Active', icon: 'check-circle' },
-  { key: 'draft', label: 'Draft', icon: 'file' },
-  { key: 'inactive', label: 'Inactive', icon: 'x-circle' }
+const statusTabs = [
+  { label: 'All' }, { label: 'Active' }, { label: 'Draft' }, { label: 'Inactive' },
 ]
+const statusOptions = ['', 'Active', 'Draft', 'Inactive']
 
-const columns = [
-  { label: 'Name', key: 'name' },
-  { label: 'Status', key: 'status' },
-  { label: 'Date', key: 'date' },
-  { label: 'Actions', key: 'actions', align: 'right' }
-]
-
-const dataResource = createResource({
-  url: 'my_app.api.get_items',
-  params: { limit_page_length: 0 },
-  auto: true,
-  onSuccess: () => { error.value = null },
-  onError: (err) => { error.value = err.message }
+const leads = useList({
+  doctype: 'CRM Lead',
+  fields: ['name', 'lead_name', 'status'],
+  filters: computed(() => ({
+    status: statusFilter.value || statusTabs[activeTabIndex.value]?.label.replace('All', '') || undefined,
+    lead_name: search.value ? ['like', search.value] : undefined,
+  })),
+  orderBy: 'modified desc',
+  limit: 25,
 })
-
-const filteredData = computed(() => {
-  let items = dataResource.data || []
-
-  if (activeTab.value !== 'all') {
-    items = items.filter(item => item.status?.toLowerCase() === activeTab.value)
-  }
-
-  if (filters.value.search) {
-    const search = filters.value.search.toLowerCase()
-    items = items.filter(item =>
-      item.name?.toLowerCase().includes(search)
-    )
-  }
-
-  if (filters.value.status) {
-    items = items.filter(item => item.status === filters.value.status)
-  }
-
-  return items
-})
-
-const paginatedRows = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredData.value.slice(start, end)
-})
-
-const totalPages = computed(() => Math.ceil(filteredData.value.length / pageSize.value))
-const totalItems = computed(() => filteredData.value.length)
-const startIndex = computed(() => (currentPage.value - 1) * pageSize.value + 1)
-const endIndex = computed(() => Math.min(currentPage.value * pageSize.value, totalItems.value))
-
-const hasActiveFilters = computed(() => {
-  return filters.value.search || filters.value.status || activeTab.value !== 'all'
-})
-
-const stats = computed(() => [
-  { title: 'Total', value: dataResource.data?.length || 0 },
-  { title: 'Active', value: dataResource.data?.filter(i => i.status === 'Active').length || 0 },
-  { title: 'Draft', value: dataResource.data?.filter(i => i.status === 'Draft').length || 0 },
-  { title: 'Inactive', value: dataResource.data?.filter(i => i.status === 'Inactive').length || 0 }
-])
-
-function getTabCount(key) {
-  if (key === 'all') return dataResource.data?.length || 0
-  return dataResource.data?.filter(i => i.status?.toLowerCase() === key)?.length || 0
-}
-
-function getStatusTheme(status) {
-  const themes = { Active: 'green', Draft: 'yellow', Inactive: 'gray' }
-  return themes[status] || 'gray'
-}
-
-function handleRowClick(row) {
-  router.push({ name: 'ItemDetail', params: { name: row.name } })
-}
-
-function create() {
-  router.push({ name: 'ItemNew' })
-}
-
-function refresh() {
-  dataResource.fetch()
-}
 
 function clearFilters() {
-  filters.value = { search: '', status: '' }
-  activeTab.value = 'all'
-  currentPage.value = 1
+  search.value = ''
+  statusFilter.value = ''
+  activeTabIndex.value = 0
+  page.value = 1
 }
 ```
+
+`useList`'s `filters` accepts a reactive object or getter; a `'like'`
+operator value auto-wraps `%…%`. `leads.next()`/`previous()` mutate the
+internal `start` and refetch (since `refetch` defaults `true`);
+`hasNextPage`/`hasPreviousPage` gate the pagination buttons. Swap the `List`
+body for `ListView` (see `frappe-ui-list-and-editor.md`) when grouping or a
+built-in pagination footer is needed instead of hand-rolled paging.
+
+For a bulk-action toolbar over a filtered page, use `ListFilter`
+(`v-model` is a `FiltersDict`, `docfields` a `DocField[]` — see
+`frappe-ui-core-components.md`) instead of hand-rolled `FormControl` filters
+when the filter set should mirror the doctype's own field metadata.
 
 ## Pattern: Detail Page
 
-The Detail Page shows a single item with related information and actions.
-
-### Detail Page structure
-
 ```
 Detail Page
-├── Header Section
-│   ├── Back button
-│   ├── Title & Status
-│   └── Action buttons
-├── Status Banner (Conditional)
-├── Tabs Section
-│   └── Details, Activity, etc.
-└── Tab Content
-    └── Dynamic content per tab
+├── PageHeader — PageHeaderBackButton, title + status Badge, actions
+├── Status banner (conditional, e.g. submitted/cancelled)
+├── Tabs — tabs prop array, #tab-panel per section
+└── Tab content
 ```
 
-### Detail Page template
+### Template
 
 ```vue
 <template>
-  <div class="p-6 space-y-6">
-    <!-- Header Section -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <Button
-          variant="outline"
-          theme="gray"
-          size="sm"
-          @click="goBack"
-        >
-          <FeatherIcon name="arrow-left" class="h-4 w-4" />
-        </Button>
-        <div>
-          <div class="flex items-center gap-3">
-            <h1 class="text-xl font-bold text-gray-900">{{ doc?.name }}</h1>
-            <Badge :theme="getStatusTheme(doc?.status)">
-              {{ doc?.status }}
-            </Badge>
-          </div>
-          <p class="text-sm text-gray-500 mt-1">{{ doc?.customer }}</p>
-        </div>
+  <div class="flex flex-col h-full">
+    <PageHeader>
+      <div class="flex items-center gap-3">
+        <PageHeaderBackButton :to="{ name: 'LeadList' }" />
+        <h1 class="text-lg font-semibold">{{ lead.doc?.lead_name }}</h1>
+        <Badge v-if="lead.doc" :label="lead.doc.status" theme="gray" />
       </div>
-
-      <div class="flex items-center gap-2">
-        <Button
-          v-if="doc?.docstatus === 0"
-          variant="solid"
-          theme="blue"
-          @click="save"
-          :loading="saving"
-        >
-          Save
-        </Button>
-        <Button
-          v-if="doc?.docstatus === 0"
-          variant="solid"
-          theme="green"
-          @click="submit"
-          :loading="submitting"
-        >
-          Submit
-        </Button>
-        <Button
-          v-if="doc?.docstatus === 1"
-          variant="outline"
-          theme="red"
-          @click="cancel"
-          :loading="cancelling"
-        >
-          Cancel
-        </Button>
-        <Dropdown v-if="doc" :options="moreOptions" placement="right">
-          <template #default="{ toggleDropdown }">
-            <Button variant="outline" theme="gray" @click="toggleDropdown">
-              <FeatherIcon name="more-vertical" class="h-4 w-4" />
-            </Button>
-          </template>
+      <div class="flex gap-2">
+        <Button variant="solid" :loading="lead.setValue.loading" @click="save">Save</Button>
+        <Dropdown :options="moreOptions">
+          <Button variant="outline" icon="lucide-more-vertical" />
         </Dropdown>
       </div>
-    </div>
+    </PageHeader>
 
-    <!-- Status Banner -->
-    <div
-      v-if="doc?.docstatus === 1"
-      class="bg-green-50 border border-green-200 rounded-lg p-4"
-    >
-      <div class="flex items-center gap-3">
-        <FeatherIcon name="check-circle" class="h-5 w-5 text-green-500" />
-        <div>
-          <p class="text-sm font-medium text-green-800">Submitted</p>
-          <p class="text-xs text-green-600">This document has been submitted and is read-only</p>
+    <Tabs v-model="activeTabIndex" :tabs="[{ label: 'Details' }, { label: 'Activity' }]">
+      <template #tab-panel="{ tab }">
+        <div v-if="tab.label === 'Details'" class="p-6">
+          <!-- form fields bound to lead.doc -->
         </div>
-      </div>
-    </div>
-
-    <!-- Tabs -->
-    <div class="bg-white rounded-lg shadow-sm">
-      <nav class="flex border-b border-gray-200">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          @click="activeTab = tab.key"
-          class="px-4 py-3 text-sm font-medium transition-colors"
-          :class="
-            activeTab === tab.key
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          "
-        >
-          {{ tab.label }}
-        </button>
-      </nav>
-
-      <!-- Tab Content -->
-      <div class="p-6">
-        <div v-show="activeTab === 'details'">
-          <!-- Details Content -->
-        </div>
-        <div v-show="activeTab === 'activity'">
-          <!-- Activity Content -->
-        </div>
-      </div>
-    </div>
+        <ActivityFeed v-else doctype="CRM Lead" :name="lead.doc?.name" />
+      </template>
+    </Tabs>
   </div>
 </template>
 ```
 
-## Pattern: Form Page
+### Script
 
-The Form Page is used for creating and editing items.
+```js
+import { ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { useDoc, dialog, toast } from 'frappe-ui'
 
-### Form Page template
+const route = useRoute()
+const activeTabIndex = ref(0)
+
+const lead = useDoc({ doctype: 'CRM Lead', name: route.params.name })
+
+async function save() {
+  try {
+    await lead.setValue.submit({ ...lead.doc, name: lead.doc.name })
+    toast.success('Saved')
+  } catch (err) {
+    toast.error(err.messages?.[0] ?? 'Failed to save')
+  }
+}
+
+const moreOptions = [
+  {
+    label: 'Delete',
+    icon: 'lucide-trash-2',
+    theme: 'red',
+    onClick: () =>
+      dialog.danger({
+        title: 'Delete Lead?',
+        message: 'This action cannot be undone.',
+        onConfirm: async () => {
+          await lead.delete.submit()
+          toast.success('Deleted')
+        },
+      }),
+  },
+]
+```
+
+`useDoc`'s `setValue.submit(partial)` PUTs the given fields (no dirty-diff —
+it is not a full-document `save()`); `delete.submit()` takes no args and
+resolves the current `name`. Both are `useCall`-shaped: `.loading`, `.error`
+are available on `lead.setValue`/`lead.delete` directly.
+
+## Pattern: Form Page (create)
 
 ```vue
 <template>
-  <div class="max-w-4xl mx-auto p-6 space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-bold text-gray-900">
-          {{ isEdit ? 'Edit' : 'New' }} Item
-        </h1>
-        <p class="text-sm text-gray-500">
-          {{ isEdit ? 'Update the item details' : 'Create a new item' }}
-        </p>
+  <div class="max-w-2xl mx-auto p-6 space-y-6">
+    <PageHeader>
+      <h1 class="text-lg font-semibold">New Lead</h1>
+      <div class="flex gap-2">
+        <Button variant="outline" @click="router.back()">Cancel</Button>
+        <Button variant="solid" :loading="newLead.loading" @click="create">Create</Button>
       </div>
-      <div class="flex items-center gap-2">
-        <Button variant="outline" theme="gray" @click="cancel">
-          Cancel
-        </Button>
-        <Button
-          variant="solid"
-          theme="blue"
-          @click="save"
-          :loading="saving"
-        >
-          {{ isEdit ? 'Update' : 'Create' }}
-        </Button>
-      </div>
+    </PageHeader>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <FormControl v-model="newLead.doc.lead_name" label="Name" required />
+      <!-- No core FormControl type="link"; type="combobox" + a search
+           resource builds a DocType picker (see frappe-ui-form-controls.md). -->
+      <FormControl
+        v-model="newLead.doc.customer"
+        label="Customer"
+        type="combobox"
+        :options="customerOptions.data ?? []"
+      />
+      <FormControl v-model="newLead.doc.status" label="Status" type="select" :options="statusOptions" />
+      <FormControl v-model="newLead.doc.date" label="Date" type="date" />
     </div>
 
-    <!-- Form -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-      <div class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormControl
-            v-model="form.name"
-            label="Name"
-            placeholder="Enter name"
-            :required="true"
-          />
-          <!-- No core FormControl type="link" — build a picker from Autocomplete
-               + a search resource (see frappe-ui-core-components.md#link-fields) -->
-          <Autocomplete
-            v-model="form.customer"
-            label="Customer"
-            :options="customerOptions.data || []"
-            placeholder="Select customer"
-          />
-          <FormControl
-            v-model="form.status"
-            label="Status"
-            type="select"
-            :options="statusOptions"
-          />
-          <FormControl
-            v-model="form.date"
-            label="Date"
-            type="date"
-          />
-        </div>
-
-        <FormControl
-          v-model="form.description"
-          label="Description"
-          type="textarea"
-          placeholder="Enter description"
-          :rows="4"
-        />
-      </div>
-    </div>
+    <FormControl v-model="newLead.doc.description" label="Description" type="textarea" :rows="4" />
   </div>
 </template>
+
+<script setup>
+import { useRouter } from 'vue-router'
+import { useNewDoc, toast } from 'frappe-ui'
+
+const router = useRouter()
+const newLead = useNewDoc('CRM Lead', { status: 'Draft' })
+const statusOptions = ['Draft', 'Active', 'Inactive']
+
+async function create() {
+  try {
+    const doc = await newLead.submit()
+    toast.success(`Created ${doc.name}`)
+    router.push({ name: 'LeadDetail', params: { name: doc.name } })
+  } catch (err) {
+    toast.error(err.messages?.[0] ?? 'Failed to create')
+  }
+}
+</script>
 ```
 
-## Best Practices
+`useNewDoc(doctype, initialValues)` returns a reactive local `doc` draft —
+bind form fields to it directly (no separate `v-model="form"` object) — plus
+a no-argument `submit()` that POSTs the current draft and resolves the
+persisted doc. See `frappe-frontend-development/assets/FormWizard.vue.template`
+for a multi-step version with per-step validation and a `Dialog` shell.
 
-1. **Consistent spacing**: Use 8pt grid (p-4, p-6, p-8)
-2. **Loading states**: Show spinner during data fetch
-3. **Empty states**: Helpful message + action button
-4. **Error states**: Clear message + retry button
-5. **Mobile responsive**: Stack columns on small screens
-6. **Keyboard navigation**: Support tab and arrow keys
-7. **Progressive disclosure**: Hide advanced options by default
+## Best practices
+
+1. **Consistent spacing** — 8pt grid (`p-4`, `p-6`, `p-8`).
+2. **Loading states** — `Skeleton` rows/blocks, not a spinner div, for list
+   and detail bodies; `:loading` on the triggering `Button` for actions.
+3. **Empty states** — a `lucide-*` icon, a one-line message, and (when
+   filters aren't active) a create action.
+4. **Errors** — surface `error.messages?.[0]` (Frappe's structured error
+   shape) with a retry action, not a raw `error.message` stack string.
+5. **Confirmations** — `dialog.confirm`/`dialog.danger`, not a hand-rolled
+   `showConfirm` ref + inline `Dialog`.
+6. **Feedback** — `toast.success`/`toast.error` after mutations, not a
+   local banner state.
+7. **Mobile** — stack columns (`grid-cols-1 md:grid-cols-2`), and use
+   `MobileShell`/`PageHeaderMobile` instead of the desktop shell below the
+   `sm`/`lg` breakpoint (see `app-shell-patterns.md`).

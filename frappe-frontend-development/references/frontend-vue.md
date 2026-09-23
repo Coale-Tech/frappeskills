@@ -1,15 +1,19 @@
 # Vue SPA Frontend
 
 Entry point for building a standalone Vue 3 + frappe-ui SPA inside a Frappe app.
-Read this to wire and build one; then go deeper:
+Read this to decide and wire one; then go deeper:
 
+- **[frappe-ui-setup.md](frappe-ui-setup.md)** — scaffolding, the `frappeui()`
+  vite plugin options, Tailwind preset, `hooks.py`/`www/` wiring, and the
+  production build. Read this before touching `vite.config.js`.
 - **[frontend-architecture.md](frontend-architecture.md)** — the full SPA
   blueprint: bootstrap order, stores vs composables vs data layer, the
-  `useDocument` facade, router and guards, socket-driven invalidation, vite
-  wiring, TypeScript conventions.
+  `useDocument` facade, router and guards, socket-driven invalidation,
+  TypeScript conventions.
 - **[frappe-ui-components.md](frappe-ui-components.md)** — component and
-  data-layer catalog: `createResource`, `createListResource`,
-  `createDocumentResource`, form controls, `Autocomplete`-based link pickers, `Dialog`, toasts.
+  data-layer catalog: `useCall`/`useList`/`useDoc` (v1), `createResource`/
+  `createListResource`/`createDocumentResource` (legacy, still public), form
+  controls, `Dialog`, toasts.
 
 ## When an SPA is the wrong choice
 
@@ -35,56 +39,23 @@ apps/<app>/
       App.vue          # root component
       pages/           # route views
       components/      # reusable components
-      router.js        # vue-router setup
-      composables/     # Vue composables
+      router.js         # vue-router setup
+      composables/      # Vue composables
     index.html
-    vite.config.ts
+    vite.config.js
     package.json
     tailwind.config.js
   <app>/
     hooks.py           # website_route_rules to serve the SPA
+    www/<app>.html      # built entry Frappe serves (see frappe-ui-setup.md §6-7)
+    www/<app>.py         # boot context
 ```
 
-## Key dependencies
-
-- `vue` (3.x), `vue-router`, `frappe-ui` — UI framework with Frappe-aware components
-- `vite` with `@vitejs/plugin-vue` — build tool
-- `frappe-ui` vite plugin — handles dev proxy to Frappe backend, type generation
-
-## vite.config.ts
-
-```typescript
-import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
-import path from 'path'
-
-export default defineConfig(async () => {
-  const { default: frappeui } = await import('frappe-ui/vite')
-
-  return {
-    plugins: [
-      frappeui({
-        frontendRoute: '/myapp',       // route prefix for the SPA
-        frappeTypes: {                  // auto-generate TypeScript types for DocTypes
-          input: {
-            myapp: ['my_doctype'],
-          },
-        },
-      }),
-      vue(),
-    ],
-    resolve: {
-      alias: {
-        '@': path.resolve(__dirname, 'src'),
-      },
-    },
-  }
-})
-```
+Scaffolding, `vite.config.js`, the Tailwind preset, and the `hooks.py`/`www/`
+wiring are covered in full in [frappe-ui-setup.md](frappe-ui-setup.md) — this
+file assumes that's done and covers the app-facing pieces.
 
 ## hooks.py route
-
-Wire the SPA route in `hooks.py` so Frappe serves the Vue app:
 
 ```python
 website_route_rules = [
@@ -100,13 +71,15 @@ yarn install
 yarn dev            # starts Vite dev server with HMR (proxies API to Frappe)
 ```
 
-The Vite dev server proxies `/api` calls to the running Frappe backend (`bench start` must be running).
+The Vite dev server proxies `/api` (and `/app`, `/login`, `/assets`, `/files`,
+`/private`) calls to the running Frappe backend (`bench start` must be
+running).
 
 ## Production build
 
 ```bash
 cd apps/<app>/frontend
-yarn build          # outputs to apps/<app>/<app>/public/frontend
+yarn build          # outputs to apps/<app>/<app>/public/frontend, copies index.html to www/
 ```
 
 Or via bench:
@@ -116,12 +89,14 @@ bench build --app <app-name>
 
 ## Calling Frappe APIs from Vue
 
-frappe-ui provides composables for data fetching:
+frappe-ui v1 provides composables for data fetching (`(v1)`; the 0.1.x
+equivalent is `createResource`/`createListResource`/`createDocumentResource`
+— see [frappe-ui-components.md](frappe-ui-components.md)):
 
 ```javascript
 import { useCall, useList, useDoc } from 'frappe-ui'
 
-// API call
+// API call — POST to a full path, not a dotted method name
 const result = useCall({
   url: '/api/v2/method/myapp.api.get_summary',
   method: 'POST',
@@ -130,7 +105,9 @@ const result = useCall({
     console.log(data)
   },
 })
-result.fetch({ status: 'Draft' })  // call manually with params
+result.submit({ status: 'Draft' })  // call manually with params
+// result.fetch()/result.reload() re-run with the last submitted params but
+// take NO arguments — pass params through .submit(), not .fetch().
 
 // Document list
 const expenses = useList({
@@ -153,11 +130,22 @@ const expense = useDoc({
 
 ## Session and CSRF
 
-Requests from the SPA carry the Frappe session cookie. For non-GET calls
-include the CSRF token Frappe injects into the served page
-(`window.csrf_token`); `frappe-ui`'s request layer does this for you, which is
-one more reason to route every call through `createResource` / `useCall`
-instead of raw `fetch`.
+Requests from the SPA carry the Frappe session cookie. For non-GET calls,
+the data layer attaches the CSRF token itself: `useCall`/`useList`/`useDoc`
+read `window.csrf_token` via `useFrappeFetch` (`src/data-fetching/useFrappeFetch.ts`);
+the legacy `call()`/`createResource` path reads the same global via
+`src/utils/call.ts`. `window.csrf_token` is populated by the `jinjaBootData`
+build-time injection (see [frappe-ui-setup.md §6](frappe-ui-setup.md)) — this
+is one more reason to route every call through the data layer instead of raw
+`fetch`, which has to do this bookkeeping itself.
+
+There is no exported "get current session user" helper reachable from the
+package: `frappe-ui/frappe`'s `sessionUser()` (`frappe/session.js`) exists in
+source but is **not re-exported** from `frappe/index.js` (the file the
+`frappe-ui/frappe` subpath resolves to), so `import { sessionUser } from
+'frappe-ui/frappe'` fails. Real apps read the `user_id` cookie directly
+instead — see [frontend-architecture.md §8](frontend-architecture.md) for the
+verified pattern.
 
 ## Checklist
 

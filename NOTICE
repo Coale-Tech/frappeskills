@@ -27,6 +27,12 @@ Common Mistakes). Skill names carry a `frappe-` prefix here because they install
 into a shared skill root. Blocks taken from it carry an inline
 `Adopted from lubusIN/frappe-skills` provenance note naming the source file.
 
+The frappe-ui references (frontend development, UI patterns, design tokens) are
+verified against frappe-ui 1.0.0-beta.29 source (https://github.com/frappe/frappe-ui,
+MIT) with 0.1.x differences noted. Parts are adapted from that repository's
+`skills/frappe-ui/` agent skill, `PHILOSOPHY.md`, `CONTEXT.md` and `spec/`
+documents; files that do so say so in their first lines.
+
 Code examples cite Frappe Framework, ERPNext, HRMS, Frappe CRM and Frappe
 Insights source, all published by Frappe Technologies under the GNU General
 Public License v3 / MIT depending on the project. Those citations are

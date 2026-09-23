@@ -149,13 +149,13 @@ website_route_rules = [
 |---------------|-------------------|-----------|
 | Data | `FormControl` | `type="text"` |
 | Text / Long Text | `FormControl` | `type="textarea"` |
-| Link | `LinkField` | `doctype="Customer"` |
+| Link | `Combobox` `(v1)` / `Autocomplete` (0.1.x, deprecated in v1) | No core link-picker component exists — wrap the combobox with a `createResource` search resource; see [frappe-ui-core-components.md](../../frappe-frontend-development/references/frappe-ui-core-components.md) |
 | Select | `FormControl` | `type="select"`, `options` |
 | Date / DateTime | `FormControl` | `type="date"` / `type="datetime"` |
 | Check | `FormControl` | `type="checkbox"` |
 | Currency / Float / Int | `FormControl` | `type="number"` |
 | Table | Custom data grid | Child table component |
-| Text Editor | `TextEditor` | From frappe-ui |
+| Text Editor | `Editor` from `frappe-ui/editor` `(v1)` | Top-level `TextEditor` still works but is deprecated |
 
 ---
 

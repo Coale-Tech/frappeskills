@@ -1,20 +1,21 @@
 # Authentication Guide
 
-Frappe uses session-based authentication by default. `frappe-ui` provides
-components and utilities for handling authentication in Vue.js applications.
+Frappe uses session-based authentication by default. `frappe-ui` does not
+ship a session/user store of its own; client-side patterns build one on
+`createResource`/`call` — see [authentication-client.md](authentication-client.md).
 
 ## Topics
 
 | Topic | File |
 |---|---|
 | Session/role checks, the v16 permission model, rate limiting, CSRF | [authentication-server.md](authentication-server.md) |
-| frappe-ui user resource, login/logout, route guards, session timeout | [authentication-client.md](authentication-client.md) |
+| Session/user state, login/logout, route guards, session timeout | [authentication-client.md](authentication-client.md) |
 | Issuing, validating, and securing API key/secret credentials | [authentication-api-keys.md](authentication-api-keys.md) |
 
 ## Best Practices
 
 1. **Always check permissions** on server-side methods
-2. **Use frappe-ui's `user` resource** for client-side auth state
+2. **Build session state on `createResource`/`call`** — frappe-ui has no user/session export
 3. **Implement route guards** to protect authenticated pages
 4. **Use role-based access** for granular permissions
 5. **Never expose sensitive data** without permission checks

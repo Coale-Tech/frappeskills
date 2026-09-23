@@ -1,37 +1,19 @@
-<template>
-  <div class="flex h-screen bg-gray-50">
-    <!-- Frappe UI Sidebar -->
-    <div class="w-56 flex-shrink-0">
-      <UserNav />
-      <SideBarMenu>
-        <SideBarLink
-          icon="list"
-          :label="$t('{{ module_plural }}')"
-          route="/{{ route_base }}"
-        />
-        <SideBarLink
-          icon="plus"
-          :label="$t('New {{ doctype }}')"
-          route="/{{ route_base }}/new"
-        />
-      </SideBarMenu>
-    </div>
+<!--
+  Root component for a frappe-ui SPA. Verified against
+  src/components/Provider/FrappeUIProvider.vue and the `main.js`/`App.vue`
+  pattern in references/frappe-ui-setup.md (§5).
 
-    <!-- Main Content -->
-    <div class="flex-1 overflow-auto">
-      <router-view />
-    </div>
-  </div>
+  FrappeUIProvider renders <slot/> then <Dialogs/> and <ToastProvider/> —
+  without it, dialog.confirm(...)/toast(...) calls render nothing. It does
+  NOT provide a sidebar, nav, or layout chrome; add app-specific shell
+  components (sidebar, top bar) inside the slot as your own components.
+-->
+<template>
+  <FrappeUIProvider>
+    <router-view />
+  </FrappeUIProvider>
 </template>
 
 <script setup>
-import { UserNav, SideBarMenu, SideBarLink } from 'frappe-ui'
-import { useVersion } from '@/composables/useVersion'
-
-const { isV16 } = useVersion()
-
-// Initialize version detection on mount
-onMounted(() => {
-  // Version-specific initialization if needed
-})
+import { FrappeUIProvider } from 'frappe-ui'
 </script>

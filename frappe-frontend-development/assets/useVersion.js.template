@@ -1,50 +1,45 @@
 // composables/useVersion.js
-// Version detection composable for v15/v16 compatibility
+//
+// Frappe major-version detection, for apps that need to branch behavior
+// between v15/v16 (or any two major versions) at the frontend layer.
+//
+// `frappe.version.get_version` does NOT exist — there is no whitelisted
+// method by that name in frappe/frappe. The real endpoint is
+// `frappe.utils.change_log.get_versions` (frappe/utils/change_log.py),
+// which takes no arguments and returns EVERY installed app keyed by name,
+// not a single version string:
+//
+//   { frappe: { title, description, branch, color, logo, version }, ... }
+//
+// so the frappe framework's own version is `versions.frappe.version`
+// (e.g. "16.0.0-dev"), not the response itself.
 
-import { ref, computed } from 'vue'
-import { call } from 'frappe-ui'
+import { computed } from 'vue'
+import { useCall } from 'frappe-ui'
 
 export function useVersion() {
-  const version = ref(null)
-
-  async function fetchVersion() {
-    try {
-      const res = await call('frappe.version.get_version')
-      version.value = res
-    } catch (error) {
-      console.error('Failed to fetch Frappe version:', error)
-      // Default to v15 if unable to fetch
-      version.value = '15.0.0'
-    }
-  }
-
-  const isV16 = computed(() => {
-    if (!version.value) return false
-    const major = parseInt(version.value.split('.')[0])
-    return major >= 16
+  const versions = useCall({
+    url: '/api/v2/method/frappe.utils.change_log.get_versions',
+    method: 'GET',
+    immediate: true,
+    cacheKey: 'frappe-versions',
   })
 
-  const isV15 = computed(() => {
-    if (!version.value) return false
-    const major = parseInt(version.value.split('.')[0])
-    return major === 15
-  })
+  const versionString = computed(() => versions.data?.frappe?.version || null)
 
   const majorVersion = computed(() => {
-    if (!version.value) return 15
-    return parseInt(version.value.split('.')[0])
+    if (!versionString.value) return null
+    return parseInt(versionString.value.split('.')[0], 10)
   })
 
-  const versionString = computed(() => {
-    return version.value || '15.0.0'
-  })
+  const isV16 = computed(() => majorVersion.value !== null && majorVersion.value >= 16)
+  const isV15 = computed(() => majorVersion.value === 15)
 
   return {
-    version,
+    versions,          // full useCall resource — versions.data, versions.loading, versions.error
+    versionString,
+    majorVersion,
     isV16,
     isV15,
-    majorVersion,
-    versionString,
-    fetchVersion
   }
 }

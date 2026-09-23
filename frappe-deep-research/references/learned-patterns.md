@@ -485,13 +485,13 @@ capture rules, promotion triggers, and pruning criteria.
 - **Review cadence**: If a component's passed classes vanish, check for a leading comment inside `<template>`.
 - **Evidence**: `KpiCard.spec.ts` failed with `expected [] to include 'min-w-0'`; a repo-wide scan found two other SFCs with the same shape.
 
-### [Frontend Patterns] frappe-ui's ECharts hardcodes `min-w-[400px] min-h-[300px]`, and a caller's height class collides with its `h-full`
+### [Frontend Patterns] frappe-ui's ECharts hardcodes a `min-w`/`min-h` floor on its container, and a caller's height class collides with its `h-full`
 - **Discovered**: 2026-07-31
 - **Confidence**: high
 - **Uses**: 1
 - **Flagged**:
 - **Context**: Making 21 intelligence dashboards work on phones and tablets.
-- **Pattern**: `frappe-ui/src/components/Charts/ECharts.vue` sizes its container `h-full w-full min-w-[400px] min-h-[300px]`. (1) The width floor is unsatisfiable well into desktop: measured 400px inside a 364px grid cell at 1024px (37px bleed) and 74px past a 375px viewport. Because a typical app shell is `overflow-hidden`, the excess is CUT OFF with nothing to scroll and no overflow reported, so it never shows up in a page-level overflow check. (2) Passing `class="lg:h-64"` puts a second height utility on the SAME element as frappe-ui's `h-full`; the winner is stylesheet order, and when `h-full` won a chart asked for 256px rendered at 892px by taking its stretched grid cell. Fixes: release `min-width` globally on `[_echarts_instance_]`, LOWER the height floor rather than zeroing it (zeroing collapsed charts to 16px wherever a parent height was auto), and wrap ECharts in a plain div inside your own chart component so caller height and `h-full` resolve against different elements.
+- **Pattern**: `frappe-ui/src/components/Charts/ECharts.vue` sizes its container `h-full w-full min-w-[300px] md:min-w-[400px] min-h-[300px]` (verified unchanged in frappe-ui 0.1.261 and 1.0.0-beta.29; the 0.1.142 audit measured a flat 400px floor with no `md:` responsive variant, so a version bump may have since narrowed the mobile floor to 300px — re-measure before relying on the exact number). (1) The width floor is unsatisfiable well into desktop: measured 400px inside a 364px grid cell at 1024px (37px bleed) and 74px past a 375px viewport. Because a typical app shell is `overflow-hidden`, the excess is CUT OFF with nothing to scroll and no overflow reported, so it never shows up in a page-level overflow check. (2) Passing `class="lg:h-64"` puts a second height utility on the SAME element as frappe-ui's `h-full`; the winner is stylesheet order, and when `h-full` won a chart asked for 256px rendered at 892px by taking its stretched grid cell. Fixes: release `min-width` globally on `[_echarts_instance_]`, LOWER the height fl…
 - **Review cadence**: Re-measure after any frappe-ui bump; these are internal classes with no public API.
 - **Evidence**: measured in a live browser across 375/812/1024/1440 on `procurement-intelligence` and `strategic-finance-intelligence`; before/after 400→314px wide and 892→300px tall at 1024x768.
 

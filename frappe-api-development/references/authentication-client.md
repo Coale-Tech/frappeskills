@@ -1,33 +1,68 @@
 # Client-Side Authentication (frappe-ui)
 
-Vue/frappe-ui patterns: user resource, login/logout, route guards, and
+Vue/frappe-ui patterns: session state, login/logout, route guards, and
 session timeout. Server-side session/permission checks:
 [authentication-server.md](authentication-server.md).
 
-## Using frappe-ui User Resource
+## Session/User State
+
+`frappe-ui` exports no `user` ref, session store, or login/logout resource
+— confirmed absent from `src/index.ts` in both the `0.1.261` baseline and
+the v1 beta (`src/index.ts` has no `user`/`session` export in either
+tree). Every Frappe SPA builds this itself on top of `createResource` (or
+`useCall` `(v1)`), seeded from the `user_id` cookie the Desk login sets.
+This is the pattern used by Frappe CRM (`frontend/src/stores/session.js`)
+and HRMS (`frontend/src/data/session.js`):
 
 ```javascript
-import { user } from 'frappe-ui'
+// data/session.js
+import { computed, reactive } from 'vue'
+import { createResource, call } from 'frappe-ui'
 
-// Access current user
-console.log(user.value) // Ref with user object
-
-// Check if logged in
-const isLoggedIn = computed(() => user.value && user.value.name !== 'Guest')
-
-// Get user properties
-const userName = computed(() => user.value?.full_name)
-const userEmail = computed(() => user.value?.email)
-const userRoles = computed(() => user.value?.roles)
-
-// Check if user has role
-const hasRole = (role) => {
-  return user.value?.roles?.includes(role) ?? false
+function sessionUser() {
+  let cookies = new URLSearchParams(document.cookie.split('; ').join('&'))
+  let name = cookies.get('user_id')
+  return name === 'Guest' ? null : name
 }
 
-// Check if System Manager
-const isSystemManager = computed(() => hasRole('System Manager'))
+// Roles are not part of the session cookie — fetch and cache them
+// separately with the stock `get_roles` whitelisted method.
+const roles = createResource({
+  url: 'frappe.core.doctype.user.user.get_roles',
+  cache: 'session-roles',
+  auto: !!sessionUser(),
+})
+
+export const session = reactive({
+  user: sessionUser(),
+  isLoggedIn: computed(() => !!session.user),
+  hasRole: (role) => (roles.data || []).includes(role),
+  login: async (usr, pwd) => {
+    let response = await call('login', { usr, pwd })
+    session.user = sessionUser()
+    roles.reload()
+    return response
+  },
+  logout: createResource({
+    url: 'logout',
+    onSuccess() {
+      session.user = null
+      roles.reset()
+      window.location.href = '/login'
+    },
+  }),
+})
 ```
+
+`session.user` only ever holds the logged-in user's `name` (the cookie's
+value) — not `full_name`, `email`, or other profile fields. Two ways to get
+those: (1) the `frappe-ui/vite` plugin's `jinjaBootData: true` option injects
+a server-populated `context.boot` object onto `window` — put
+`context.boot.user_info = frappe.session.user_info` in the page's Python
+`get_context` and read `window.user_info` client-side (`vite/README.md`
+"Jinja Boot Data"); (2) fetch on demand with a cached `createResource`
+(HRMS's `get_current_user_info` pattern) or the stock
+`frappe.client.get_value` (`doctype: 'User'`, `filters: session.user`).
 
 ## Login Component
 
@@ -135,7 +170,7 @@ async function logout() {
 ```javascript
 // router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
-import { user } from 'frappe-ui'
+import { session } from '@/data/session'
 
 const routes = [
   {
@@ -163,29 +198,28 @@ const router = createRouter({
   routes
 })
 
-// Navigation guard
+// Navigation guard. `session.hasRole` reads from the roles resource that
+// `data/session.js` fetches once at login/boot — fetch it during app
+// bootstrap (before `app.use(router)`) so it's already resolved here.
 router.beforeEach((to, from, next) => {
   const isPublic = to.meta.public
   const requiresAuth = to.meta.requiresAuth
   const requiredRoles = to.meta.roles
 
-  const isLoggedIn = user.value && user.value.name !== 'Guest'
-  const userRoles = user.value?.roles || []
-
   if (isPublic) {
     // Redirect to home if already logged in
-    if (isLoggedIn && to.name === 'Login') {
+    if (session.isLoggedIn && to.name === 'Login') {
       next('/')
     } else {
       next()
     }
-  } else if (requiresAuth && !isLoggedIn) {
+  } else if (requiresAuth && !session.isLoggedIn) {
     // Redirect to login if not authenticated
     next({
       name: 'Login',
       query: { redirect: to.fullPath }
     })
-  } else if (requiredRoles && !requiredRoles.some(role => userRoles.includes(role))) {
+  } else if (requiredRoles && !requiredRoles.some((role) => session.hasRole(role))) {
     // Redirect if user doesn't have required role
     next({ name: 'Home' })
   } else {
@@ -201,31 +235,27 @@ export default router
 ```javascript
 // composables/usePermissions.js
 import { computed } from 'vue'
-import { user } from 'frappe-ui'
+import { call } from 'frappe-ui'
+import { session } from '@/data/session'
 
 export function usePermissions() {
-  const isLoggedIn = computed(() => {
-    return user.value && user.value.name !== 'Guest'
-  })
+  const isLoggedIn = computed(() => session.isLoggedIn)
 
-  const hasRole = (role) => {
-    return user.value?.roles?.includes(role) ?? false
-  }
+  const hasRole = (role) => session.hasRole(role)
 
-  const hasAnyRole = (roles) => {
-    if (!user.value?.roles) return false
-    return roles.some(role => user.value.roles.includes(role))
-  }
+  const hasAnyRole = (roles) => roles.some((role) => session.hasRole(role))
 
-  const hasAllRoles = (roles) => {
-    if (!user.value?.roles) return false
-    return roles.every(role => user.value.roles.includes(role))
-  }
+  const hasAllRoles = (roles) => roles.every((role) => session.hasRole(role))
 
-  const hasPermission = (doctype, permtype) => {
-    // Check from user's permissions
-    const perms = user.value?.permissions?.[doctype]
-    return perms?.[permtype] ?? false
+  // `frappe.client.get_doc_permissions` evaluates a saved document, not a
+  // bare doctype — there is no stock endpoint for "can I write a Customer
+  // that doesn't exist yet"; gate create actions with `hasRole` instead.
+  async function hasDocPermission(doctype, docname, permtype) {
+    const perms = await call('frappe.client.get_doc_permissions', {
+      doctype,
+      docname,
+    })
+    return !!perms?.[permtype]
   }
 
   const isSystemManager = computed(() => hasRole('System Manager'))
@@ -236,10 +266,10 @@ export function usePermissions() {
     hasRole,
     hasAnyRole,
     hasAllRoles,
-    hasPermission,
+    hasDocPermission,
     isSystemManager,
     isAdmin,
-    user: computed(() => user.value)
+    user: computed(() => session.user)
   }
 }
 ```
@@ -251,7 +281,7 @@ export function usePermissions() {
   <div>
     <!-- Show based on authentication -->
     <div v-if="isLoggedIn">
-      Welcome, {{ user?.full_name }}!
+      Welcome, {{ user }}!
     </div>
 
     <!-- Show based on role -->
@@ -262,8 +292,9 @@ export function usePermissions() {
       Admin Action
     </Button>
 
-    <!-- Show based on permission -->
-    <div v-if="hasPermission('Customer', 'write')">
+    <!-- Gate a create action by role — no document exists yet for
+         get_doc_permissions/hasDocPermission to evaluate -->
+    <div v-if="hasRole('Sales User')">
       <Button @click="createCustomer">Create Customer</Button>
     </div>
   </div>
@@ -275,7 +306,7 @@ import { usePermissions } from '@/composables/usePermissions'
 const {
   isLoggedIn,
   isSystemManager,
-  hasPermission,
+  hasRole,
   user
 } = usePermissions()
 

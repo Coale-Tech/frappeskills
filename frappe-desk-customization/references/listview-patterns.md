@@ -32,7 +32,7 @@ summarized below.
 - Right: Action buttons (New, Refresh) with icons
 - Button variant: `solid` with theme `blue` or `gray`
 - Button size: `sm`
-- Icon prefix using `FeatherIcon` at `h-4 w-4`
+- Icon prefix using `FeatherIcon` at `h-4 w-4` (deprecated `(v1)`; prefer a `lucide-*` icon string)
 
 ### 2. Dashboard Section
 - White background, rounded-lg, shadow-sm

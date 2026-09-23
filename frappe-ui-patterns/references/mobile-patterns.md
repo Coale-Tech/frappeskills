@@ -1,481 +1,271 @@
 # Mobile UI Patterns
 
-> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `ui-patterns/references/mobile-patterns.md`.
+Adapted in part from frappe/frappe-ui (MIT): `skills/frappe-ui/DESIGN.md`.
 
-Responsive design patterns for Frappe applications.
+Mobile shell APIs and desktop→mobile translation patterns for frappe-ui apps.
+Desktop shell, screen archetypes, hierarchy, and color rules live in
+[ui-patterns.md](ui-patterns.md) — this file covers only what's
+mobile-specific: the mobile shell components and the systematic desktop→mobile
+translation.
+
+**Version note:** every component below — `MobileShell`, `MobileNav`/
+`MobileNavItem`, `PageHeaderMobile`/`PageHeaderBackButton`, `BottomSheet`, and
+the `useScreenSize`/`useIsMobile` composables — is **`(v1)`**; none exist in
+frappe-ui 0.1.x. 0.1.x apps hand-build a mobile header/drawer with plain
+`<div>`s, a media query (commonly `@vueuse/core`'s `useBreakpoints`/
+`useMediaQuery`), and either a self-built sheet or a third-party one. If your
+app is pinned to 0.1.x, treat the component names below as the migration
+target, not as available imports — check `frontend/package.json` first.
 
 ### Breakpoints
 
-Frappe UI apps use TailwindCSS breakpoints:
+frappe-ui apps use TailwindCSS's default breakpoint scale for responsive
+utility classes (`sm:`, `md:`, …):
 
-| Breakpoint | Min Width | Typical Device |
-|------------|-----------|----------------|
+| Breakpoint | Min width | Typical device |
+|---|---|---|
 | `sm` | 640px | Large phones |
 | `md` | 768px | Tablets |
 | `lg` | 1024px | Small laptops |
 | `xl` | 1280px | Desktops |
 | `2xl` | 1536px | Large screens |
 
-### Responsive Shell
+For the one decision that isn't a utility class — *which shell to mount* —
+use the reactive composable below rather than a CSS-only toggle; the app
+needs to pick `DesktopShell` vs `MobileShell` in script, not just restyle one
+component.
 
-#### Collapsible sidebar
+### `useScreenSize` / `useIsMobile` `(v1)`
+
+`src/composables/useScreenSize.ts`:
+
+```ts
+function useScreenSize(): { width: number; height: number } // reactive, updates on resize
+function useIsMobile(breakpoint = 640): ComputedRef<boolean>
+```
+
+`useScreenSize()` returns a reactive `{ width, height }` that tracks
+`window.resize`; it falls back to a desktop-sized `1024×768` with no
+`window` (SSR) so a mobile layout doesn't flash before hydration.
+`useIsMobile(breakpoint)` derives a boolean from it — `true` below
+`breakpoint`, default `640` (Tailwind's `sm`). Use it to pick the shell:
 
 ```vue
-<template>
-  <div class="flex h-screen">
-    <!-- Desktop sidebar -->
-    <aside 
-      v-show="!isMobile"
-      class="w-56 border-r bg-gray-50 flex-shrink-0"
-    >
-      <Sidebar />
-    </aside>
-    
-    <!-- Mobile drawer -->
-    <Transition name="slide">
-      <div 
-        v-if="isMobile && sidebarOpen"
-        class="fixed inset-0 z-50 flex"
-      >
-        <!-- Backdrop -->
-        <div 
-          class="fixed inset-0 bg-black/50"
-          @click="sidebarOpen = false"
-        />
-        <!-- Drawer -->
-        <aside class="relative w-64 bg-white shadow-xl">
-          <Button 
-            variant="ghost" 
-            icon="x" 
-            class="absolute top-2 right-2"
-            @click="sidebarOpen = false"
-          />
-          <Sidebar />
-        </aside>
-      </div>
-    </Transition>
-    
-    <!-- Main content -->
-    <div class="flex-1 flex flex-col min-w-0">
-      <!-- Mobile header -->
-      <header v-if="isMobile" class="h-12 border-b flex items-center px-4">
-        <Button variant="ghost" icon="menu" @click="sidebarOpen = true" />
-        <span class="ml-3 font-medium">{{ pageTitle }}</span>
-      </header>
-      
-      <main class="flex-1 overflow-auto">
-        <router-view />
-      </main>
-    </div>
-  </div>
-</template>
-
 <script setup>
-import { ref } from 'vue'
-import { useMediaQuery } from '@vueuse/core'
-
-const isMobile = useMediaQuery('(max-width: 1023px)')
-const sidebarOpen = ref(false)
+import { useIsMobile } from 'frappe-ui'
+const isMobile = useIsMobile()
 </script>
 
-<style>
-.slide-enter-active,
-.slide-leave-active {
-  transition: all 0.3s ease;
-}
-.slide-enter-from,
-.slide-leave-to {
-  opacity: 0;
-}
-.slide-enter-from aside,
-.slide-leave-to aside {
-  transform: translateX(-100%);
-}
-</style>
-```
-
-#### Mobile-first layout
-
-```vue
 <template>
-  <!-- Stack on mobile, side-by-side on desktop -->
-  <div class="flex flex-col lg:flex-row h-full">
-    <!-- List: full width on mobile, half on desktop when detail open -->
-    <div 
-      :class="[
-        'lg:border-r',
-        selectedDoc 
-          ? 'hidden lg:block lg:w-1/2' 
-          : 'w-full'
-      ]"
-    >
-      <ListView :data="items" @select="selectDoc" />
-    </div>
-    
-    <!-- Detail: full screen on mobile, side panel on desktop -->
-    <div 
-      v-if="selectedDoc"
-      :class="[
-        'w-full lg:w-1/2',
-        isMobile && 'fixed inset-0 bg-white z-40'
-      ]"
-    >
-      <DetailPanel 
-        :doc="selectedDoc" 
-        @close="selectedDoc = null"
-        :showBackButton="isMobile"
-      />
-    </div>
-  </div>
+  <MobileShell v-if="isMobile">…</MobileShell>
+  <DesktopShell v-else>…</DesktopShell>
 </template>
 ```
 
-### Responsive Components
+## MobileShell `(v1)`
 
-#### Responsive table → cards
+The mobile app frame — a fixed, full-height column: a pinned
+`PageHeaderTarget` on top (with safe-area padding when running as an
+installed PWA), a native-momentum-scrolling content area, and a `#nav` slot
+for a bottom `MobileNav`. It's a separate family from `DesktopShell`, not a
+responsive variant of it — the app picks which shell to render
+(`src/components/MobileShell/MobileShell.vue`).
 
-```vue
-<template>
-  <!-- Table on desktop -->
-  <table class="hidden md:table w-full">
-    <thead>
-      <tr>
-        <th v-for="col in columns" :key="col.key">{{ col.label }}</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr v-for="row in rows" :key="row.name">
-        <td v-for="col in columns" :key="col.key">{{ row[col.key] }}</td>
-      </tr>
-    </tbody>
-  </table>
-  
-  <!-- Cards on mobile -->
-  <div class="md:hidden space-y-3 p-4">
-    <div 
-      v-for="row in rows" 
-      :key="row.name"
-      class="bg-white border rounded-lg p-4 shadow-sm"
-    >
-      <div class="flex items-center justify-between mb-2">
-        <span class="font-medium">{{ row.name }}</span>
-        <Badge :variant="statusVariant(row.status)">{{ row.status }}</Badge>
-      </div>
-      <div class="text-sm text-gray-600 space-y-1">
-        <p>{{ row.customer }}</p>
-        <p>{{ formatDate(row.date) }}</p>
-      </div>
-    </div>
-  </div>
-</template>
+**Slots:** `#default` (routed page content, scrolls with the platform's own
+momentum/overscroll), `#nav` (pinned tab bar, not scrolled). No props.
+
+```html
+<MobileShell>
+  <PageHeaderMobile title="Inbox">
+    <template #left><PageHeaderBackButton /></template>
+    <template #right><Button variant="ghost" icon="lucide-search" /></template>
+  </PageHeaderMobile>
+  <div>…routed page…</div>
+  <template #nav>
+    <MobileNav>
+      <MobileNavItem label="Home" icon="lucide-home" to="/" />
+      <MobileNavItem label="Inbox" icon="lucide-inbox" to="/inbox" />
+      <MobileNavItem label="You"><Avatar :image="user.image" size="sm" /></MobileNavItem>
+    </MobileNav>
+  </template>
+</MobileShell>
 ```
 
-#### Responsive filters
+The content area registers into frappe-ui's scroll-container registry, so
+`useScrollContainer()` / `getScrollContainer()` resolve it — a tapped-active
+tab or a router `scrollBehavior` can drive it without an app-owned global.
+
+## PageHeaderMobile / PageHeaderBackButton `(v1)`
+
+`PageHeaderMobile` keeps its title centered regardless of the `#left`/`#right`
+control widths and clamps it to two lines; it teleports into the
+`PageHeaderTarget` `MobileShell` pins for it, same mechanism as the desktop
+`PageHeader`.
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `title` | `string` | — | Centered title; overridden by the `#default` slot |
+
+**Slots:** `#left`, `#default`, `#right`.
+
+`PageHeaderBackButton`:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `to` | `string \| RouteLocationRaw` | — | Navigation target; omit to fall back to browser history |
+| `label` | `string` | `"Back"` | Accessible label |
+
+There's also `PageHeaderMobileTitle` (props: `title`; slots: `#icon`,
+`#default`) — the title-plus-leading-icon primitive `PageHeaderMobile` is
+built from, for a custom header row that still needs the centered-title
+behavior.
+
+## MobileNav / MobileNavItem `(v1)`
+
+`MobileNav` is a bare grid frame — each `MobileNavItem` becomes one
+equal-width column (`grid auto-cols-fr grid-flow-col`), so the bar adapts to
+however many items you pass; it isn't hardcoded to a fixed tab count. Bottom
+padding clears the home-indicator area in an installed PWA
+(`src/components/MobileNav/MobileNav.vue`). **Slots:** `#default` only (place
+`MobileNavItem`s in it).
+
+`MobileNavItem`:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `label` | `string` | — | **Required.** Shown under the icon; also the accessible name |
+| `icon` | `string \| Component` | — | `lucide-*` class or a component; ignored when the `#default` slot is used |
+| `to` | `string \| RouteLocationRaw` | — | Router link target. Tapping the item while it's already the current route scrolls the shell to top instead of re-navigating |
+| `active` | `boolean` | inferred from `to` | Highlight independent of the current route, so one tab can stay lit across a whole section |
+
+**Slots:** `#default` (`{ active: boolean }`) — a custom glyph or `Avatar`,
+overriding `icon`. **Emits:** `click` (`[event: MouseEvent]`).
+
+A common convention in shipping apps (not a component constraint) is four
+tabs with the last a personal-account `Avatar` — but `MobileNav`'s grid
+layout works with any item count.
+
+## BottomSheet `(v1)`
+
+The mobile-native replacement for a desktop `Popover`/side panel — "whatever
+lived in the desktop sidebar" per `skills/frappe-ui/DESIGN.md`. Built on
+`reka-ui`'s `DialogRoot`, so it inherits the same focus-trap/ARIA baseline as
+`Dialog` (P12); content scrolls in a fixed `70vh` region below the drag
+handle (`src/components/BottomSheet/BottomSheet.vue`).
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `open` | `boolean` | — | Visibility; bind with `v-model:open` |
+| `title` | `string` | — | Optional centered title in the drag-handle area |
+| `dismissible` | `boolean` | `true` | Allow outside-click, Escape, **and swipe-down** to close |
+
+**Slots:** `#default`. **Emits:** `update:open` (`[value: boolean]`),
+`after-leave` (`[]`, fires once the close transition finishes).
 
 ```vue
-<template>
-  <div>
-    <!-- Desktop: inline filters -->
-    <div class="hidden md:flex items-center gap-2">
-      <Input type="search" v-model="search" placeholder="Search..." />
-      <Select v-model="statusFilter" :options="statusOptions" />
-      <Select v-model="sortBy" :options="sortOptions" />
-    </div>
-    
-    <!-- Mobile: filter sheet -->
-    <div class="md:hidden flex items-center gap-2">
-      <Input type="search" v-model="search" placeholder="Search..." class="flex-1" />
-      <Button variant="subtle" @click="showFilters = true">
-        <FeatherIcon name="filter" class="w-4 h-4" />
-        <Badge v-if="activeFilterCount" class="ml-1">{{ activeFilterCount }}</Badge>
-      </Button>
-    </div>
-    
-    <!-- Filter bottom sheet -->
-    <BottomSheet v-model="showFilters" title="Filters">
-      <div class="space-y-4 p-4">
-        <FormControl label="Status" type="select" v-model="statusFilter" :options="statusOptions" />
-        <FormControl label="Sort by" type="select" v-model="sortBy" :options="sortOptions" />
-      </div>
-      <template #footer>
-        <Button class="flex-1" @click="clearFilters">Clear</Button>
-        <Button class="flex-1" variant="solid" @click="applyFilters">Apply</Button>
-      </template>
-    </BottomSheet>
+<BottomSheet v-model:open="showFilters" title="Filters">
+  <div class="space-y-4 p-4">
+    <FormControl v-model="statusFilter" type="select" label="Status" :options="statusOptions" />
+    <FormControl v-model="sortBy" type="select" label="Sort by" :options="sortOptions" />
   </div>
-</template>
+</BottomSheet>
 ```
 
-#### Responsive actions
+The handle is genuinely swipeable — dragging it down past ~25% of the sheet's
+own height, or a fast downward flick, closes it with an iOS-style fling
+animation; an upward drag rubber-bands back to rest. This is a real pointer
+gesture (`@vueuse/core`'s `usePointerSwipe`), not a CSS-only transition, so
+don't wrap `BottomSheet`'s content in another scrollable/draggable element
+that would compete with it for the same pointer events. There is no separate
+`ActionSheet` component in frappe-ui — build an action list as a `BottomSheet`
+whose body is a stack of `Button`/`SidebarItem`-style rows, or use a
+`Dropdown` for a small, anchored action menu.
+
+## Desktop → mobile translation
+
+Systematic translation, not a separate design (`skills/frappe-ui/DESIGN.md`):
+
+- `Sidebar` → `BottomSheet`; persistent nav → `MobileNav` tabs; side-by-side
+  panes → separate routes, not a CSS breakpoint toggle on one component.
+- Action clusters collapse to one `…` `Dropdown`; multi-value fields collapse
+  (an assignee list → a single avatar, a meta panel → a chip row).
+- Titles scale up (`text-base` → `text-lg`), rows get taller (`h-15` →
+  `h-17`).
+- Drop the active-row highlight used on desktop lists — tapping drills in
+  instead of selecting-and-showing-alongside.
+- Section cards go flush on mobile: border/rounding/padding apply only at
+  `sm:`+.
+- Pinned footers need safe-area padding in an installed PWA:
+  `[@media(display-mode:standalone)]:pb-[env(safe-area-inset-bottom)]`
+  (the same pattern `MobileNav` and `MobileShell`'s header target use
+  internally).
+- Same data on both — trim fields for the narrower layout, don't fork the
+  underlying model or fetch different data per breakpoint.
+
+### Responsive filters
+
+Inline controls on desktop become a `BottomSheet` trigger on mobile — the
+sheet body is ordinary `FormControl`s, not a bespoke filter widget:
 
 ```vue
 <template>
-  <!-- Desktop: button row -->
   <div class="hidden md:flex items-center gap-2">
-    <Button>Edit</Button>
-    <Button>Duplicate</Button>
-    <Button>Share</Button>
-    <Button variant="subtle" theme="red">Delete</Button>
+    <FormControl v-model="search" type="text" placeholder="Search…" />
+    <FormControl v-model="statusFilter" type="select" :options="statusOptions" />
   </div>
-  
-  <!-- Mobile: FAB + action sheet -->
-  <div class="md:hidden">
-    <Button 
-      variant="solid" 
-      class="fixed bottom-4 right-4 rounded-full w-14 h-14 shadow-lg"
-      @click="showActions = true"
-    >
-      <FeatherIcon name="more-vertical" class="w-6 h-6" />
-    </Button>
-    
-    <ActionSheet v-model="showActions">
-      <ActionSheetItem icon="edit-2" @click="edit">Edit</ActionSheetItem>
-      <ActionSheetItem icon="copy" @click="duplicate">Duplicate</ActionSheetItem>
-      <ActionSheetItem icon="share" @click="share">Share</ActionSheetItem>
-      <ActionSheetItem icon="trash-2" theme="red" @click="confirmDelete">Delete</ActionSheetItem>
-    </ActionSheet>
+
+  <div class="flex items-center gap-2 md:hidden">
+    <FormControl v-model="search" type="text" placeholder="Search…" class="flex-1" />
+    <Button variant="subtle" icon-left="lucide-filter" label="Filters" @click="showFilters = true" />
   </div>
+
+  <BottomSheet v-model:open="showFilters" title="Filters">
+    <div class="space-y-4 p-4">
+      <FormControl v-model="statusFilter" type="select" label="Status" :options="statusOptions" />
+    </div>
+  </BottomSheet>
 </template>
 ```
 
-### Bottom Sheet Component
+### Responsive actions
+
+A desktop button row collapses to a single `Dropdown` trigger on mobile —
+there's no `ActionSheet` component to reach for; `Dropdown`'s own options
+list already renders as a scrollable menu:
 
 ```vue
-<!-- BottomSheet.vue -->
-<template>
-  <Teleport to="body">
-    <Transition name="sheet">
-      <div v-if="modelValue" class="fixed inset-0 z-50">
-        <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/50" @click="close" />
-        
-        <!-- Sheet -->
-        <div class="absolute bottom-0 inset-x-0 bg-white rounded-t-xl max-h-[90vh] flex flex-col">
-          <!-- Handle -->
-          <div class="flex justify-center py-2">
-            <div class="w-10 h-1 bg-gray-300 rounded-full" />
-          </div>
-          
-          <!-- Header -->
-          <div v-if="title" class="px-4 pb-2 border-b">
-            <h3 class="font-semibold">{{ title }}</h3>
-          </div>
-          
-          <!-- Content -->
-          <div class="flex-1 overflow-auto">
-            <slot />
-          </div>
-          
-          <!-- Footer -->
-          <div v-if="$slots.footer" class="p-4 border-t flex gap-2">
-            <slot name="footer" />
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
-</template>
-
-<script setup>
-defineProps({
-  modelValue: Boolean,
-  title: String
-})
-
-const emit = defineEmits(['update:modelValue'])
-const close = () => emit('update:modelValue', false)
-</script>
-
-<style>
-.sheet-enter-active,
-.sheet-leave-active {
-  transition: all 0.3s ease;
-}
-.sheet-enter-from,
-.sheet-leave-to {
-  opacity: 0;
-}
-.sheet-enter-from > div:last-child,
-.sheet-leave-to > div:last-child {
-  transform: translateY(100%);
-}
-</style>
-```
-
-### Touch Interactions
-
-#### Swipe actions
-
-```vue
-<template>
-  <div 
-    class="relative overflow-hidden"
-    @touchstart="onTouchStart"
-    @touchmove="onTouchMove"
-    @touchend="onTouchEnd"
-  >
-    <!-- Actions revealed on swipe -->
-    <div class="absolute inset-y-0 right-0 flex">
-      <button class="w-20 bg-blue-500 text-white">Edit</button>
-      <button class="w-20 bg-red-500 text-white">Delete</button>
-    </div>
-    
-    <!-- Main content -->
-    <div 
-      class="relative bg-white"
-      :style="{ transform: `translateX(${offset}px)` }"
-    >
-      <slot />
-    </div>
-  </div>
-</template>
-
-<script setup>
-import { ref } from 'vue'
-
-const offset = ref(0)
-const startX = ref(0)
-const threshold = 100
-
-const onTouchStart = (e) => {
-  startX.value = e.touches[0].clientX
-}
-
-const onTouchMove = (e) => {
-  const diff = e.touches[0].clientX - startX.value
-  offset.value = Math.min(0, Math.max(-160, diff))
-}
-
-const onTouchEnd = () => {
-  if (offset.value < -threshold) {
-    offset.value = -160 // Snap to reveal actions
-  } else {
-    offset.value = 0 // Reset
-  }
-}
-</script>
-```
-
-#### Pull to refresh
-
-```vue
-<template>
-  <div 
-    class="relative overflow-hidden"
-    @touchstart="onTouchStart"
-    @touchmove="onTouchMove"
-    @touchend="onTouchEnd"
-  >
-    <!-- Refresh indicator -->
-    <div 
-      class="absolute top-0 left-0 right-0 flex justify-center py-4 transition-transform"
-      :style="{ transform: `translateY(${Math.min(pullDistance - 60, 0)}px)` }"
-    >
-      <FeatherIcon 
-        name="refresh-cw" 
-        :class="['w-6 h-6 transition-transform', refreshing && 'animate-spin']"
-        :style="{ transform: `rotate(${pullDistance * 2}deg)` }"
-      />
-    </div>
-    
-    <!-- Content -->
-    <div 
-      class="transition-transform"
-      :style="{ transform: `translateY(${pulling ? pullDistance : 0}px)` }"
-    >
-      <slot />
-    </div>
-  </div>
-</template>
-
-<script setup>
-import { ref } from 'vue'
-
-const emit = defineEmits(['refresh'])
-
-const pulling = ref(false)
-const pullDistance = ref(0)
-const refreshing = ref(false)
-const startY = ref(0)
-const threshold = 80
-
-const onTouchStart = (e) => {
-  if (window.scrollY === 0) {
-    startY.value = e.touches[0].clientY
-    pulling.value = true
-  }
-}
-
-const onTouchMove = (e) => {
-  if (pulling.value) {
-    pullDistance.value = Math.max(0, (e.touches[0].clientY - startY.value) * 0.5)
-  }
-}
-
-const onTouchEnd = async () => {
-  if (pullDistance.value > threshold) {
-    refreshing.value = true
-    await new Promise(r => emit('refresh', r))
-    refreshing.value = false
-  }
-  pulling.value = false
-  pullDistance.value = 0
-}
-</script>
-```
-
-### Safe Areas
-
-Handle notches and home indicators:
-
-```css
-/* In your global CSS */
-.safe-area-inset {
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
-}
-
-/* Fixed bottom elements */
-.fixed-bottom-safe {
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
-}
-```
-
-```vue
-<!-- Fixed bottom bar with safe area -->
-<div class="fixed bottom-0 inset-x-0 bg-white border-t pb-[env(safe-area-inset-bottom)]">
-  <div class="flex items-center justify-around p-2">
-    <NavItem icon="home" label="Home" />
-    <NavItem icon="search" label="Search" />
-    <NavItem icon="user" label="Profile" />
-  </div>
+<div class="hidden items-center gap-2 md:flex">
+  <Button label="Edit" @click="edit" />
+  <Button label="Duplicate" @click="duplicate" />
+  <Button variant="subtle" theme="red" label="Delete" @click="confirmDelete" />
 </div>
+
+<Dropdown
+  class="md:hidden"
+  :options="[
+    { label: 'Edit', icon: 'lucide-edit-2', onClick: edit },
+    { label: 'Duplicate', icon: 'lucide-copy', onClick: duplicate },
+    { label: 'Delete', icon: 'lucide-trash-2', onClick: confirmDelete },
+  ]"
+>
+  <Button variant="ghost" icon="lucide-more-vertical" />
+</Dropdown>
 ```
 
-### Testing Responsive Designs
+### Responsive table → list
 
-1. **Browser DevTools**: Use Chrome/Firefox responsive mode
-2. **Real devices**: Test on actual phones/tablets
-3. **Common viewport sizes**:
-   - iPhone SE: 375x667
-   - iPhone 14: 390x844
-   - iPad: 768x1024
-   - iPad Pro: 1024x1366
+Don't hand-build a card list to replace a table on narrow viewports — pick
+the archetype per breakpoint from the same data source (`List` from the
+`frappe-ui/list` subpath, `(v1)`, or the legacy `ListView` family), rather
+than maintaining two markup trees. Component and prop reference:
+[frappe-ui-list-and-editor.md](../../frappe-frontend-development/references/frappe-ui-list-and-editor.md).
 
-```javascript
-// Utility for testing
-const breakpoints = {
-  mobile: '(max-width: 639px)',
-  tablet: '(min-width: 640px) and (max-width: 1023px)',
-  desktop: '(min-width: 1024px)'
-}
+## Common mistakes
 
-// In component
-import { useMediaQuery } from '@vueuse/core'
-
-const isMobile = useMediaQuery(breakpoints.mobile)
-const isTablet = useMediaQuery(breakpoints.tablet)
-const isDesktop = useMediaQuery(breakpoints.desktop)
-```
+| Mistake | Impact | Fix |
+|---|---|---|
+| Building a custom fixed-bottom sheet with `Teleport` + `Transition` | Reimplements focus trap, Escape handling, and swipe-to-dismiss `BottomSheet` already has | Use `BottomSheet` (`(v1)`) |
+| Reaching for `useMediaQuery`/`useBreakpoints` from `@vueuse/core` to pick the shell | Works, but frappe-ui already ships `useIsMobile()` wired to the same breakpoint convention and SSR-safe defaults | Use `useIsMobile()` from `frappe-ui` |
+| A component named `ActionSheet` | Doesn't exist in frappe-ui at any version | Compose action lists from `BottomSheet`, or use `Dropdown` for a small anchored menu |
+| Hardcoding `MobileNav` to exactly 4 columns | `MobileNav`'s grid adapts to item count automatically | Just add/remove `MobileNavItem`s |
+| Wrapping `BottomSheet`'s content in another swipeable/scrollable region | Competes with the handle's pointer-swipe gesture for events | Keep custom gesture handling out of a `BottomSheet` body; use its own `70vh` scroll region |

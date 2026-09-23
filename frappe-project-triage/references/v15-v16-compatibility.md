@@ -265,8 +265,11 @@ export function useVersion() {
   const version = ref(null)
 
   async function fetchVersion() {
-    const res = await call('frappe.version.get_version')
-    version.value = res
+    // frappe.utils.change_log.get_versions is the real whitelisted endpoint
+    // (there is no `frappe.version.get_version`); it returns a dict of
+    // per-app info, e.g. { frappe: { title, version, branch, ... }, ... }
+    const res = await call('frappe.utils.change_log.get_versions')
+    version.value = res.frappe?.version
   }
 
   const isV16 = computed(() => {
@@ -361,6 +364,28 @@ unchanged on v16 — prefer them over version-gating for API compatibility.
 7. **Implement version detection** for conditional behavior
 8. **Document version-specific features** in code comments
 
+## frappe-ui Version Compatibility (independent of Frappe framework version)
+
+**This is a separate axis from the Frappe v15/v16 split above.** `frappe-ui` is versioned and
+released independently on npm; a bench can run Frappe v15 or v16 with either `frappe-ui@0.1.x`
+or the `1.0.0-beta` line. Pin the frontend's `package.json` and check which line a project is on
+before applying the patterns below — they are `(v1)` breaking changes, not Frappe-version gates.
+
+| Component | 0.1.x | 1.0 beta | Fix |
+|-----------|-------|----------|-----|
+| `Dialog` | nested `options="{title, message, actions}"` blob, `v-model="show"` | flat top-level props (`title`, `message`, `icon`, `size`, `actions`), `v-model:open`; new imperative `dialog.confirm()` / `dialog.danger()` / `dialog.prompt()` helpers | Migrate to flat props + `v-model:open`; legacy `options`/`v-model` still work but warn |
+| `DateRangePicker` | emits `update:modelValue`/`change` as a comma-joined string | emits a `[from, to]` tuple (`DateRangeValue = [string, string] \| []`) | Update the event handler to destructure `[from, to]`, not split a string |
+| `DateTimePicker` | selecting a date auto-closed the popover | selecting a date keeps the popover open (focus moves into the embedded `TimePicker` for a continuous date -> time flow); closes on Esc/click-outside/`close()` | Bind `v-model:open` and close from `@update:modelValue`, or add an `#actions` "Apply" button, if the old auto-close behavior is required |
+| `Dropdown` | `menu` items keyed `{ group, items }` | `{ group, options }` (matches `Combobox`/`MultiSelect`/`Select`) | Rename `items` to `options`; the old key is a silent deprecated alias that warns if both are present |
+| `FeatherIcon` (as a component) | primary icon component | deprecated; feather-name strings passed to `Button.icon`/`iconLeft`/`iconRight`, `Dialog.options.icon`, `Dropdown` item icons, `TabButtons` icons still render via `FeatherIcon` internally but warn | Prefer `lucide-*` icon name strings |
+| `Autocomplete` | link-style picker component | deprecated; still exported | Use `Combobox` (single select) or `MultiSelect` |
+| `Input` (SFC) | generic input wrapper | deprecated; still exported | Use `TextInput` |
+| `Card`, `ConfirmDialog`/`confirmDialog`, `ListItem`, `MonthPicker`, `Toast` (SFC), `ThemeSwitcher`, root `TextEditor` + editor extensions, `FormControl` `type="autocomplete"` | present | marked `@deprecated`, still exported pre-1.0.0 | See `v1-release/deprecated-removals.md` in the frappe-ui repo for each replacement |
+
+`createResource`, `createListResource`, `createDocumentResource`, the legacy resource API, the
+`useCall`/`useDoc`/`useList` v2 data-fetching composables, and `ListView` are unaffected by the
+0.1.x -> 1.0 beta transition — none of that surface is in scope for the v1 deprecation pass.
+
 ## Sources
 
 Verified against Frappe v16.27.1 at `<bench>/apps/frappe`:
@@ -372,3 +397,6 @@ Verified against Frappe v16.27.1 at `<bench>/apps/frappe`:
 - `apps/frappe/frappe/www/desk.py` and `apps/frappe/frappe/public/js/frappe/router.js`
 - `apps/frappe/frappe/custom/doctype/custom_field/custom_field.py` (`create_custom_fields`)
 - `apps/frappe/frappe/hooks.py` (`add_to_apps_screen`)
+- `apps/frappe/frappe/utils/change_log.py` (`get_versions`, whitelisted)
+- `frappe-ui` `v1-release/changelog.md` and `v1-release/deprecated-removals.md` (0.1.x -> 1.0 beta
+  breaking changes and deprecation table)

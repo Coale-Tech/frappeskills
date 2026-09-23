@@ -16,7 +16,7 @@ Usage patterns for Frappe UI components in app development.
 <Button variant="subtle">Cancel</Button>
 
 <!-- Tertiary/icon action -->
-<Button variant="ghost" icon="more-horizontal" />
+<Button variant="ghost" icon="lucide-more-horizontal" />
 
 <!-- Destructive action -->
 <Button variant="solid" theme="red">Delete</Button>
@@ -24,15 +24,19 @@ Usage patterns for Frappe UI components in app development.
 
 #### With icons
 
+`icon` accepts a `lucide-<name>` CSS class string (or a component). A bare
+non-`lucide-`-prefixed string falls back to the deprecated `FeatherIcon` and
+logs a dev warning — always use the `lucide-` form in new code.
+
 ```vue
-<!-- Icon prefix -->
+<!-- Icon prefix (label + leading icon) -->
 <Button variant="solid">
-  <template #prefix><FeatherIcon name="plus" class="w-4 h-4" /></template>
+  <template #prefix><span class="lucide-plus size-4" /></template>
   New Lead
 </Button>
 
 <!-- Icon only -->
-<Button variant="ghost" icon="settings" />
+<Button variant="ghost" icon="lucide-settings" />
 
 <!-- Loading state -->
 <Button variant="solid" :loading="saving">
@@ -97,8 +101,11 @@ Usage patterns for Frappe UI components in app development.
 />
 
 <!-- Link to DocType — no core FormControl type="link"; build a picker from
-     Autocomplete + a search resource (see frappe-ui-core-components.md) -->
-<Autocomplete
+     Combobox + a search resource (see frappe-ui-core-components.md).
+     FormControl also accepts type="combobox" and forwards to the same
+     component. Autocomplete/type="autocomplete" are deprecated — use
+     Combobox. -->
+<Combobox
   label="Customer"
   v-model="form.customer"
   :options="customerOptions.data || []"
@@ -191,7 +198,7 @@ const columns = [
     </div>
     <Badge :variant="statusVariant(item.status)">{{ item.status }}</Badge>
     <Dropdown :options="rowActions" class="ml-2">
-      <Button variant="ghost" icon="more-horizontal" />
+      <Button variant="ghost" icon="lucide-more-horizontal" />
     </Dropdown>
   </div>
 </div>
@@ -201,31 +208,44 @@ const columns = [
 
 #### Confirmation dialog
 
-```vue
-<Dialog
-  v-model="showConfirm"
-  :options="{
-    title: 'Delete Lead?',
-    message: 'This action cannot be undone.',
-    actions: [
-      { label: 'Cancel', onClick: () => showConfirm = false },
-      { label: 'Delete', variant: 'solid', theme: 'red', onClick: handleDelete }
-    ]
-  }"
-/>
+For confirm/destructive flows, prefer the imperative `dialog` namespace over
+a hand-rolled `showConfirm` ref — it mounts, awaits, and tears itself down:
+
+```ts
+import { dialog } from 'frappe-ui'
+
+dialog.danger({
+  title: 'Delete Lead?',
+  message: 'This action cannot be undone.',
+  onConfirm: async () => {
+    await deleteLead()
+  },
+})
 ```
 
-#### Form dialog
+`dialog.danger` is sugar for `dialog.confirm` with `theme: 'red'` and a
+`'Delete'` confirm label. `onConfirm` resolving auto-closes the dialog;
+throwing keeps it open with the thrown message rendered inline (e.g. a
+server validation error). `dialog.confirm`/`dialog.danger`/`dialog.prompt`
+each return a `DialogHandle` for programmatic dismissal. Requires
+`<FrappeUIProvider>` (or a standalone `<Dialogs />`) mounted once in the app.
+
+#### Declarative dialog (custom content)
+
+For anything beyond confirm/prompt — a form, a multi-section body — use
+`Dialog` directly with its flat v1 props and canonical `#default`/`#actions`
+slots. `v-model:open` is canonical; plain `v-model` also works. The legacy
+`:options="{...}"` blob and `#body-content` slot still work (flat props take
+precedence when both are given) but are deprecated — write new code with
+flat props.
 
 ```vue
-<Dialog v-model="showForm" :options="{ title: 'New Lead', size: 'lg' }">
-  <template #body-content>
-    <div class="space-y-4">
-      <FormControl label="Name" v-model="newLead.name" />
-      <FormControl label="Email" v-model="newLead.email" type="email" />
-      <FormControl label="Source" v-model="newLead.source" type="select" :options="sources" />
-    </div>
-  </template>
+<Dialog v-model:open="showForm" title="New Lead" size="lg">
+  <div class="space-y-4">
+    <FormControl label="Name" v-model="newLead.name" />
+    <FormControl label="Email" v-model="newLead.email" type="email" />
+    <FormControl label="Source" v-model="newLead.source" type="select" :options="sources" />
+  </div>
   <template #actions>
     <Button @click="showForm = false">Cancel</Button>
     <Button variant="solid" @click="createLead" :loading="creating">Create</Button>
@@ -233,16 +253,19 @@ const columns = [
 </Dialog>
 ```
 
+`Dialog` props: `title`, `message`, `icon`, `size` (default `'lg'`),
+`position`, `paddingTop`, `actions`, `dismissible` (default `true`),
+`showCloseButton` (default `true`), `bare` (default `false` — `true` renders
+only the default slot with no chrome; `title`/`icon`/`actions` become no-ops).
+
 #### Nested dialogs
 
 ```vue
 <!-- Avoid deeply nested dialogs. Use side panels instead. -->
-<Dialog v-model="showEdit">
-  <template #body-content>
-    <FormFields :doc="editDoc" />
-    <!-- Instead of nested dialog, emit event to parent -->
-    <Button @click="$emit('show-advanced')">Advanced Options</Button>
-  </template>
+<Dialog v-model:open="showEdit" title="Edit Lead">
+  <FormFields :doc="editDoc" />
+  <!-- Instead of nesting another Dialog, emit an event to the parent -->
+  <Button @click="$emit('show-advanced')">Advanced Options</Button>
 </Dialog>
 ```
 
@@ -253,13 +276,12 @@ const columns = [
 ```vue
 <Dropdown
   :options="[
-    { label: 'Edit', icon: 'edit-2', onClick: edit },
-    { label: 'Duplicate', icon: 'copy', onClick: duplicate },
-    { component: 'separator' },
-    { label: 'Delete', icon: 'trash-2', onClick: confirmDelete, theme: 'red' }
+    { label: 'Edit', icon: 'lucide-pencil', onClick: edit },
+    { label: 'Duplicate', icon: 'lucide-copy', onClick: duplicate },
+    { label: 'Delete', icon: 'lucide-trash-2', onClick: confirmDelete, theme: 'red' }
   ]"
 >
-  <Button variant="ghost" icon="more-horizontal" />
+  <Button variant="ghost" icon="lucide-more-horizontal" />
 </Dropdown>
 ```
 
@@ -271,9 +293,9 @@ const columns = [
   v-model="selectedFilter"
 >
   <Button variant="subtle">
-    <template #prefix><FeatherIcon name="filter" class="w-4 h-4" /></template>
+    <template #prefix><span class="lucide-filter size-4" /></template>
     {{ selectedFilter?.label || 'All' }}
-    <template #suffix><FeatherIcon name="chevron-down" class="w-4 h-4" /></template>
+    <template #suffix><span class="lucide-chevron-down size-4" /></template>
   </Button>
 </Dropdown>
 ```
@@ -314,44 +336,66 @@ const columns = [
 
 ### Tabs
 
+`Tabs` takes a `tabs` prop (`Tab[]`, required) — there is no `<Tab>` child
+component. Each `Tab` is `{ label, icon?, route? }`. `v-model` is the
+**0-based index** into `tabs`, not a name string. Customize the trigger with
+`#tab-item` (scoped `{ tab, selected }`) and the panel content with
+`#tab-panel` (scoped `{ tab }`, rendered once per tab in the array).
+
 #### Basic tabs
 
 ```vue
-<Tabs v-model="activeTab">
-  <Tab name="details" label="Details" />
-  <Tab name="activity" label="Activity" />
-  <Tab name="notes" label="Notes" />
-</Tabs>
+<script setup>
+import { ref } from 'vue'
 
-<div class="mt-4">
-  <DetailsPanel v-if="activeTab === 'details'" :doc="doc" />
-  <ActivityFeed v-else-if="activeTab === 'activity'" :doctype="doctype" :name="doc.name" />
-  <NotesList v-else :doctype="doctype" :name="doc.name" />
-</div>
+const activeTab = ref(0)
+const tabs = [
+  { label: 'Details' },
+  { label: 'Activity' },
+  { label: 'Notes' },
+]
+</script>
+
+<template>
+  <Tabs v-model="activeTab" :tabs="tabs">
+    <template #tab-panel="{ tab }">
+      <DetailsPanel v-if="tab.label === 'Details'" :doc="doc" />
+      <ActivityFeed v-else-if="tab.label === 'Activity'" :doctype="doctype" :name="doc.name" />
+      <NotesList v-else :doctype="doctype" :name="doc.name" />
+    </template>
+  </Tabs>
+</template>
 ```
 
-#### Tabs with counts
+#### Tabs with icons
 
 ```vue
-<Tabs v-model="activeTab">
-  <Tab name="all">
-    All <Badge class="ml-2">{{ allCount }}</Badge>
-  </Tab>
-  <Tab name="open">
-    Open <Badge class="ml-2" theme="orange">{{ openCount }}</Badge>
-  </Tab>
-  <Tab name="closed">
-    Closed <Badge class="ml-2">{{ closedCount }}</Badge>
-  </Tab>
+<Tabs
+  v-model="activeTab"
+  :tabs="[
+    { label: 'Overview', icon: 'lucide-layout-dashboard' },
+    { label: 'Activity', icon: 'lucide-activity' },
+    { label: 'Settings', icon: 'lucide-settings' },
+  ]"
+>
+  <template #tab-panel="{ tab }">…</template>
 </Tabs>
 ```
+
+For a segmented-control look (not a panel switcher), use `TabButtons`
+instead — `options` (`TabButton[]`: `{label?, value?, icon?, active?,
+disabled?, route?, href?, onClick?}`), `modelValue`, `type` (`'subtle' |
+'ghost' | 'underline' | 'browser-tab'`, default `'subtle'`), `size`,
+`vertical`. It renders a button group, not tab panels, and carries no
+`<Tab>`/`tabs`-panel semantics. `buttons` is a deprecated alias for
+`options`.
 
 ### Tooltips
 
 ```vue
 <!-- Basic tooltip -->
 <Tooltip text="Click to edit">
-  <Button variant="ghost" icon="edit-2" />
+  <Button variant="ghost" icon="lucide-pencil" />
 </Tooltip>
 
 <!-- Tooltip for truncated text -->
@@ -419,12 +463,12 @@ const columns = [
 <template>
   <div class="flex flex-col items-center justify-center py-12 text-center">
     <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-      <FeatherIcon :name="icon" class="w-8 h-8 text-gray-400" />
+      <span class="size-8 text-ink-gray-4" :class="icon" />
     </div>
     <h3 class="font-medium text-gray-900 mb-1">{{ title }}</h3>
     <p class="text-sm text-gray-500 max-w-sm mb-4">{{ description }}</p>
     <Button v-if="action" variant="solid" @click="action.handler">
-      <template #prefix><FeatherIcon name="plus" class="w-4 h-4" /></template>
+      <template #prefix><span class="lucide-plus size-4" /></template>
       {{ action.label }}
     </Button>
   </div>
@@ -432,7 +476,7 @@ const columns = [
 
 <script setup>
 defineProps({
-  icon: { type: String, default: 'inbox' },
+  icon: { type: String, default: 'lucide-inbox' },
   title: { type: String, required: true },
   description: { type: String, default: '' },
   action: { type: Object, default: null }
@@ -446,12 +490,12 @@ defineProps({
 <template>
   <div class="flex flex-col items-center justify-center py-12 text-center">
     <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
-      <FeatherIcon name="alert-triangle" class="w-8 h-8 text-red-500" />
+      <span class="lucide-alert-triangle size-8 text-red-500" />
     </div>
     <h3 class="font-medium text-gray-900 mb-1">Something went wrong</h3>
     <p class="text-sm text-gray-500 max-w-sm mb-4">{{ error.message }}</p>
     <Button variant="subtle" @click="retry">
-      <template #prefix><FeatherIcon name="refresh-cw" class="w-4 h-4" /></template>
+      <template #prefix><span class="lucide-refresh-cw size-4" /></template>
       Try Again
     </Button>
   </div>

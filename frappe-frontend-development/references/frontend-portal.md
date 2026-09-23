@@ -5,10 +5,12 @@
 Server-rendered Jinja templates for public-facing pages. Portals are the
 customer-facing or public counterpart to Desk — built with plain web
 views/portal pages for simple record exposure, web forms for record
-submission without Desk access, or a full frappe-ui SPA (see
-[frappe-ui-components.md](frappe-ui-components.md)) when the portal needs
-app-like interactivity. Authenticate with standard Frappe auth and enforce
-permissions server-side regardless of which approach you pick.
+submission without Desk access, or a full frappe-ui SPA
+([frappe-ui-setup.md](frappe-ui-setup.md) to scaffold it,
+[frappe-ui-components.md](frappe-ui-components.md) for its component/data
+API) when the portal needs app-like interactivity. Authenticate with
+standard Frappe auth and enforce permissions server-side regardless of
+which approach you pick.
 
 ## Jinja templates
 

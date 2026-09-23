@@ -2,18 +2,30 @@
 
 The **app-level scaffold** a new Frappe v16 Vue-3 + frappe-ui SPA copies:
 bootstrap, stores vs composables vs data-layer, meta caching, router+guard,
-socket invalidation, vite/build wiring, session/auth, and TypeScript conventions.
+socket invalidation, session/auth, and TypeScript conventions. For
+scaffolding, the `frappeui()` vite plugin, and `hooks.py`/`www/` wiring, see
+[frappe-ui-setup.md](frappe-ui-setup.md) first — this file assumes that's
+done and covers app-scale structure on top of it.
 
 [frappe-ui-components.md](frappe-ui-components.md) covers per-component API
 (createResource, createListResource, FormControl, Autocomplete-based link
 pickers). This file covers the **wiring
 around** those components. Source-verified against two production apps:
 
-- **CRM** `apps/crm/frontend` — mature JS SPA (frappe-ui beta.19,
-  Vue 3.5, Pinia 2, Vite 5). Copy for a JS app.
+- **CRM** `apps/crm/frontend` — mature JS SPA. `frontend/package.json` pins
+  `frappe-ui@0.1.261`, `vue@^3.5.13`, `pinia@^2.0.33`, `vite@^4.4.9`,
+  `@vitejs/plugin-vue@^4.2.3`. Copy for a JS app on the 0.1.x line.
 - **Insights** `apps/insights/frontend` — TS SPA; ships two
-  trees (`src/`=v2 Pinia, `src2/`=v3 module-singleton, fully typed). Copy `src2`
-  conventions for a TS app.
+  trees (`src/`=v2 Pinia, `src2/`=v3 module-singleton, fully typed).
+  `frontend/package.json` pins `frappe-ui@~0.1.25x`, `vite@^4.4.6`. Copy
+  `src2` conventions for a TS app.
+
+Neither production app observed here has adopted frappe-ui v1
+(`1.0.0-beta.x`) yet — both are 0.1.x. For a **brand-new** app, prefer v1
+(canonical per this skill's version policy) and translate these 0.1.x
+snippets using [frappe-ui-components.md](frappe-ui-components.md)'s `(v1)`
+tags; for an app extending CRM or Insights, match whichever line
+`frontend/package.json` already pins — don't mix eras.
 
 Precedence: verify against these trees before asserting. `## Sources` at bottom.
 
@@ -271,32 +283,25 @@ export function initSocket() {
   per-document — opt in via `createDocumentResource({ realtime: Boolean(vm?.$socket) })`.
 - Dev-vs-prod site name: `import.meta.env.DEV ? host : window.site_name`.
 - Reach the socket app-wide via `globalStore().$socket` (never re-init).
+- frappe-ui exports `initSocket` directly (`src/utils/socketio.ts`, default
+  export re-exported as `initSocket` from the package root — present in both
+  v1 and the 0.1.261 baseline): `import { initSocket } from 'frappe-ui'`
+  returns a connected `socket.io-client` using the same
+  dev-vs-prod site-name/`withCredentials` logic as CRM's hand-rolled version
+  above; it takes an optional `{ port }` (default `9000`). It does **not**
+  wire the `refetch_resource` listener or a `reconnectionAttempts` option —
+  add those yourself on the returned socket, same as CRM's `socket.js` does.
+  For a new app, start from the export instead of copying `socket.js`
+  verbatim.
 
 ---
 
 ## 7. Build & dev config (vite + frappe-ui plugin)
 
-The `frappeui` vite plugin does the dev proxy, CSRF, and boot injection — **no
-manual `proxyOptions` block needed**.
-
-```js
-// crm/frontend/vite.config.js:85-98 (unshift so it runs first)
-plugins.unshift(frappeui({
-  frappeProxy: true,          // dev proxy to the Frappe backend
-  lucideIcons: true,
-  jinjaBootData: true,        // inject boot vars server-side in prod
-  buildConfig: { indexHtmlPath: '../crm/www/crm.html', emptyOutDir: true, sourcemap: true },
-}))
-// plus vue(), vueJsx(), VitePWA(...)
-// resolve: alias @->src; dedupe:['vue','vue-router','frappe-ui','dompurify']; server.fs.allow the bench apps/ dir
-```
-
-```jsonc
-// package.json scripts — build --base MUST match the router base + asset route
-"dev":   "vite",
-"build": "vite build --base=/assets/crm/frontend/ && yarn copy-html-entry",
-"copy-html-entry": "cp ../crm/public/frontend/index.html ../crm/www/crm.html"
-```
+The `frappeui()` vite plugin's options, CSRF/boot injection, and the
+`hooks.py`/`www/` wiring are covered in
+[frappe-ui-setup.md](frappe-ui-setup.md) — this section only covers the
+two architecture-specific patterns beyond a single-app default config.
 
 - **Local sibling packages** (developing frappe-ui alongside): alias
   `@framework/ui`→`../../frappe/ui/src`, source the frappe-ui vite plugin from the
@@ -306,13 +311,16 @@ plugins.unshift(frappeui({
 - **Multiple SPAs from one config** (Insights): `build.rollupOptions.input =
   { main: index.html, insights_v2: index_v2.html }`, then `cp` each built entry
   into `../insights/www/<name>.html`. `output.manualChunks:{ 'frappe-ui':['frappe-ui'] }`.
-- **frappe-ui version gotcha:** CRM pins `frappe-ui@1.0.0-beta.19`; Insights pins
-  `frappe-ui@0.1.261` — **different major lines**, so their component APIs and
-  imports diverge (don't copy an Insights snippet into a CRM-era app or vice-versa
-  without checking). Match whichever line the app you're extending already has
-  installed; for a brand-new v16 app **follow CRM's `1.0.0-beta.x` line** (the
-  modern reference here) and always **pin frappe-ui explicitly** in
-  `package.json` — the API moves between these lines.
+- **frappe-ui version pin:** CRM and Insights are both on the **0.1.x line**
+  (`frappe-ui@0.1.261` and `frappe-ui@~0.1.25x` respectively) — not different
+  major lines. A snippet from one is safe to adapt into the other. v1
+  (`1.0.0-beta.x`) is a separate, newer line with a different component API
+  and export surface (see the `(v1)` tags in
+  [frappe-ui-components.md](frappe-ui-components.md)); don't mix v1 snippets
+  into a 0.1.x app or vice-versa. For a brand-new v16 app, prefer v1 per this
+  skill's version policy; when extending CRM or Insights, match whichever
+  line `frontend/package.json` already pins. Always **pin frappe-ui
+  explicitly** — the API moves across both boundaries.
 
 ---
 
@@ -324,6 +332,12 @@ plugins.unshift(frappeui({
 - `login`/`logout` call the `login`/`logout` endpoints, then
   `window.location.reload()` (full reload clears all resource caches cleanly).
 - `provide('session', session)` at `App.vue` setup so any component can inject it.
+- **Gotcha:** `frappe-ui/frappe` ships a `sessionUser()` helper
+  (`frappe/session.js`) but it is **not re-exported** from `frappe/index.js`,
+  the file the `frappe-ui/frappe` subpath resolves to — `import {
+  sessionUser } from 'frappe-ui/frappe'` fails at build time. The
+  cookie-read pattern above is the actual way every verified app gets the
+  current user client-side; don't reach for `sessionUser()`.
 
 ---
 
@@ -374,8 +388,10 @@ plugins.unshift(frappeui({
 - CRM frontend: `apps/crm/frontend/src/{main.js,router.js,socket.js,App.vue}`,
   `stores/{global,session,users,meta,settings}.js`, `data/{document,script}.js`,
   `composables/{settings,document,useKeyboardShortcuts}.js`, `frontend/vite.config.js`,
-  `frontend/package.json`; backend `crm/www/crm.py`. (frappe-ui beta.19, Vue 3.5, Pinia 2, Vite 5.)
+  `frontend/package.json`; backend `crm/www/crm.py`. (frappe-ui 0.1.261, Vue ^3.5.13, Pinia ^2.0.33, Vite ^4.4.9.)
 - Insights frontend: `apps/insights/frontend/` — v2 `src/{main.js,router.ts,socket.js,api/{index,whitelistedMethods}.ts,global.d.ts,stores/*.ts}`;
   v3 `src2/{main.ts,router.ts,session.ts,socket.ts,globals.ts,translation.ts,helpers/resource.ts,data_source/*,workbook/*,composables/*,types/*.types.ts}`;
-  `frontend/vite.config.js`, `package.json`, `tsconfig.json`. (frappe-ui 0.1.261, TS 5.5 strict.)
-- Extracted via read-only `read-only scout` passes 2026-07-21; all citations verified against the trees above.
+  `frontend/vite.config.js`, `package.json`, `tsconfig.json`. (frappe-ui ~0.1.25x, Vite ^4.4.6, TS 5.5 strict — checked in a sibling bench; this bench has no `apps/insights`.)
+- frappe-ui v1 (`1.0.0-beta.29`) source and 0.1.261 baseline cross-checked for
+  the `(v1)`-tagged claims and the `initSocket`/`sessionUser` gotchas above.
+- Extracted via read-only scout passes; all citations verified against the trees above.

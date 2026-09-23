@@ -1,4 +1,4 @@
-# Design Tokens (Espresso)
+# Design Tokens (Espresso, Frappe Desk)
 
 Frappe Desk (v15+/v16) ships its design tokens through the **Espresso** design
 system. All token values below are the **actual** values compiled into Desk, read
@@ -11,8 +11,16 @@ two ways:
    Desk CSS, inline `style`, JS, and even non-bundled custom app CSS, because they
    are globally defined on `:root`.
 
-> For the conceptual overview, dark-mode mechanics, semantic tokens, icons, and
-> the Desk-vs-frappe-ui split, see [espresso-design-system.md](espresso-design-system.md).
+> This file covers Desk's own SCSS/CSS-custom-property implementation of
+> Espresso. **frappe-ui** (the Vue component library) ships a second,
+> independent implementation of the same token vocabulary as a Tailwind v3
+> preset generated from a Figma export — different pipeline, same names. See
+> [frappe-ui-tailwind-tokens.md](frappe-ui-tailwind-tokens.md) for the
+> generated color/typography/radius/shadow/icon utility classes (v1,
+> `1.0.0-beta.29`) and [frappe-ui-tokens-v2-migration.md](frappe-ui-tokens-v2-migration.md)
+> for the espresso-v2 rename migration. For the conceptual overview,
+> dark-mode mechanics, semantic tokens, icons, and the Desk-vs-frappe-ui
+> split, see [espresso-design-system.md](espresso-design-system.md).
 
 Import order (from `apps/frappe/frappe/public/scss/desk/variables.scss`):
 
@@ -438,10 +446,25 @@ mixins. In plain custom SCSS that isn't part of a frappe bundle, use the CSS var
 
 ### In frappe-ui (Vue) apps
 
-frappe-ui apps use the same token vocabulary through the Tailwind preset
-`frappe-ui/src/tailwind/preset` (see `apps/hrms/frontend/tailwind.config.js`),
-giving utilities like `text-ink-gray-8`, `bg-surface-white`,
-`border-outline-gray-2`, `rounded-lg`. Details in [espresso-design-system.md](espresso-design-system.md).
+frappe-ui apps use the same token *names* through a separately-generated
+Tailwind v3 preset — utilities like `text-ink-gray-8`, `bg-surface-white`,
+`border-outline-gray-2`, `rounded-lg` exist, but they are **not** produced
+from this Desk SCSS; frappe-ui compiles its own preset from a Figma token
+export (`tailwind/generated/*.json`). Values are pixel-identical to Desk's
+CSS vars for the tokens both sides ship, but frappe-ui v1 has a materially
+larger scale (more typography sizes, a numbered radius scale, per-weight
+typography classes). Import path is version-gated — check
+`frontend/package.json`:
+
+- **v1** (`1.0.0-beta.x`, canonical): `import frappeUIPreset from 'frappe-ui/tailwind'`
+- **0.1.261 baseline**: same `import frappeUIPreset from 'frappe-ui/tailwind'`
+  (`./tailwind` was already a stable export subpath)
+- **very old 0.1.x** (e.g. `apps/hrms/frontend` pins `0.1.105`): a pre-exports-map
+  deep import, `import frappeUIPreset from 'frappe-ui/src/tailwind/preset'`
+  (`apps/hrms/frontend/tailwind.config.js`) — don't copy this pattern into new code.
+
+Full generated class reference: [frappe-ui-tailwind-tokens.md](frappe-ui-tailwind-tokens.md).
+Details on the split: [espresso-design-system.md](espresso-design-system.md).
 
 ---
 

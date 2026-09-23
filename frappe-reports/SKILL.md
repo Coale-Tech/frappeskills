@@ -40,6 +40,7 @@ See [references/reports.md](references/reports.md).
 ```python
 import frappe
 from frappe import _
+from frappe.query_builder.functions import Sum
 
 def execute(filters=None):
     filters = filters or {}
@@ -47,18 +48,25 @@ def execute(filters=None):
         {"label": _("Customer"), "fieldname": "customer", "fieldtype": "Link", "options": "Customer", "width": 200},
         {"label": _("Total"), "fieldname": "total", "fieldtype": "Currency", "width": 140},
     ]
-    data = frappe.db.sql("""
-        SELECT customer, SUM(grand_total) AS total
-        FROM `tabSales Order`
-        WHERE docstatus = 1 AND company = %(company)s
-        GROUP BY customer ORDER BY total DESC
-    """, filters, as_dict=True)
+    SO = frappe.qb.DocType("Sales Order")
+    total = Sum(SO.grand_total).as_("total")
+    query = (
+        frappe.qb.from_(SO)
+        .select(SO.customer, total)
+        .where(SO.docstatus == 1)
+        .groupby(SO.customer)
+        .orderby(total, order=frappe.qb.desc)
+    )
+    if filters.get("company"):
+        query = query.where(SO.company == filters["company"])
+    data = query.run(as_dict=True)
     return columns, data
 ```
 
-Parameters are bound with `%(name)s` — never interpolated. The full return is
-`columns, data, message, chart, report_summary, skip_total_row`; trailing
-items may be omitted.
+Build the query with `frappe.qb` (never `frappe.db.sql`) — see
+[references/database.md](../frappe-api-development/references/database.md#never-use-frappedbsql-by-default).
+The full return is `columns, data, message, chart, report_summary,
+skip_total_row`; trailing items may be omitted.
 
 ### 2) Script Report — JS filters
 
@@ -114,19 +122,19 @@ the report as part of the app module, and migrate. Slow reports: enable
 
 ## Guardrails
 
-- **Parameterized SQL only**: `%(name)s`, never f-strings
+- **`frappe.qb` always, never `frappe.db.sql`**: for a query the query builder can express
 - **Translate column labels**: `_("Total")`
 - **Set `fieldtype` on every column**: it drives formatting and links
 - **Respect permissions**: reports expose data — grant roles deliberately
-- **Aggregate in SQL, not Python loops**: per-row queries do not scale
+- **Aggregate via `frappe.qb`, not Python loops**: per-row queries do not scale
 
 ## Common Mistakes
 
 | Mistake | Why It Fails | Fix |
 |---------|--------------|-----|
-| String-interpolated SQL | Injection risk | Bound parameters |
+| `frappe.db.sql` for a query `frappe.qb` can express | Injection risk; bypasses dialect handling | Rewrite with `frappe.qb` |
 | Untyped columns | No formatting or links | Set `fieldtype` |
 | Including drafts unintentionally | Inflated totals | Filter `docstatus = 1` |
 | Joins before aggregation | Duplicated rows | Aggregate, then join |
-| Python loop over rows for sums | Slow reports | SQL aggregation |
+| Python loop over rows for sums | Slow reports | `frappe.qb` aggregation |
 | Chart disagreeing with the table | Two query paths | Derive both from one dataset |

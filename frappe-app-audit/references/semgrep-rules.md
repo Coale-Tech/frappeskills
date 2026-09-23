@@ -111,11 +111,15 @@ semgrep --config=<bench>/apps/semgrep-rules/rules path/to/file.py
 ## Common Fix Patterns
 
 ```python
-# SQL injection -> parameterize
+# SQL injection / raw SQL -> frappe.qb (always; never frappe.db.sql for a
+# query the query builder can express)
 # BAD
 frappe.db.sql(f"SELECT * FROM tabItem WHERE name = '{name}'")
-# GOOD
+# BAD (parameterized, but still frappe.db.sql where frappe.qb applies)
 frappe.db.sql("SELECT * FROM tabItem WHERE name = %s", (name,))
+# GOOD
+Item = frappe.qb.DocType("Item")
+frappe.qb.from_(Item).select(Item.name).where(Item.name == name).run(as_dict=True)
 
 # Unchecked permission -> throw=True or check return
 # BAD
@@ -206,10 +210,20 @@ are high-value to grep for in review. Verified against Frappe v16 source.
 | `ignore_permissions=True` in a `@frappe.whitelist()`-reachable path driven by user input | Bypasses ALL permission checks (`document.py:409` short-circuits `has_permission()`: `if self.flags.ignore_permissions: return True`) → privilege escalation | Remove it, or gate behind `frappe.only_for(...)` / `frappe.has_permission(..., throw=True)` first |
 | `doc.flags.ignore_permissions = True` set from a request value | Same as above — user-controlled bypass | Only set in trusted jobs/migrations, never from `frappe.form_dict` |
 | Interpolated value in a `permission_query_conditions` hook return string without `frappe.db.escape(...)` | SQL injection into the row-filter `WHERE` clause (consumed via `get_permission_query_conditions()`, `db_query.py:1159`) | Wrap every interpolated value in `frappe.db.escape(...)` |
-| `frappe.db.sql(f"... {var} ...")` / `.format()` | SQL injection — same class as `frappe-sql-format-injection` but also covers `execute`/`multisql` | Parameterize: `frappe.db.sql("... %s", (var,))` or use `frappe.qb` |
+| `frappe.db.sql(f"... {var} ...")` / `.format()` | SQL injection — same class as `frappe-sql-format-injection` but also covers `execute`/`multisql` | Rewrite as `frappe.qb` (preferred) or, only if `frappe.qb` genuinely cannot express the query, parameterize: `frappe.db.sql("... %s", (var,))` |
 | `@frappe.whitelist()` with no `methods=` on a state-changing endpoint | Accepts GET/PUT/DELETE too; CSRF and caching implications | `@frappe.whitelist(methods=["POST"])` |
 | User-facing `frappe.throw(...)`/`frappe.msgprint(...)` without `_()` | Untranslatable UI text — same class as `frappe-missing-translate-function-python` | Wrap message in `_(...)` (JS: `__(...)`) |
 | Raw user-supplied HTML rendered/stored without `frappe.utils.sanitize_html(...)` (e.g. Text Editor / HTML field content echoed into a report or web page) | Stored/reflected XSS — `sanitize_html` (`frappe/utils/html_utils.py:146`) strips script/style tags and disallowed attributes; skipping it lets `<script>` through | Pass through `frappe.utils.sanitize_html(html)` before rendering or persisting untrusted HTML; use `frappe.utils.escape_html(...)` for plain-text-in-HTML contexts |
+| Any `frappe.db.sql(...)` call, parameterized or not, for a query `frappe.qb`/`frappe.get_all`/`frappe.get_list` can express | Not a security bug by itself, but every hand-written query bypasses `frappe.qb`'s automatic multitenancy-safe table naming, dialect handling (MariaDB/Postgres/SQLite), and composability — and is one accidental edit away from `frappe-sql-format-injection`. `frappe.query_builder.functions` wraps dialect-specific SQL (`CustomFunction`, `ImportMapper`) precisely so raw SQL is never needed for this | Rewrite via `frappe.qb.from_(...)`/`frappe.qb.get_query(...)`; wrap a DB-specific function with `pypika.terms.CustomFunction("FN_NAME", ["arg1", "arg2"])` rather than dropping into raw SQL |
+
+**The one legitimate exception**: an operator `frappe.qb`/PyPika does not
+expose at all — e.g. a `REGEXP`/dialect-specific match operator. Frappe core
+itself drops to `frappe.db.sql` for exactly this reason in
+`append_number_if_name_exists` (`frappe/model/naming.py:531-537`, matching
+`frappe.db.REGEX_CHARACTER` in a `WHERE` clause with no query-builder
+equivalent). Treat that shape — a real operator gap, not convenience — as the
+only acceptable `frappe.db.sql` use for an otherwise `frappe.qb`-expressible
+query, and comment why at the call site.
 
 ## Sources
 
@@ -221,3 +235,4 @@ All rule IDs verified present in `apps/frappe/../semgrep-rules/rules` on this be
 - `rules/translate.yml` — incl. `frappe-translation-js-splitting`; `rules/ux.yml`; `rules/report.yml`
 - `rules/hooks.yml` — `override-doctype-class`
 - Framework API confirmations (frappe 16.35.0): `apps/frappe/frappe/model/document.py` (`ignore_permissions` short-circuit in `has_permission`, l.409), `apps/frappe/frappe/model/db_query.py` (`get_permission_query_conditions`, l.1159), `apps/frappe/frappe/__init__.py` (`whitelist` l.439, `has_permission` l.600), `apps/frappe/frappe/database/database.py` (`escape`, l.1405), `apps/frappe/frappe/utils/html_utils.py` (`sanitize_html`, l.146), `apps/frappe/frappe/utils/data.py` (`escape_html`, l.1720)
+- Query builder enforcement: `apps/frappe/frappe/database/query.py:290` (`.delete()` support), `apps/frappe/frappe/query_builder/functions.py` (`CustomFunction`/`ImportMapper` wrapping dialect-specific SQL), `apps/frappe/frappe/model/naming.py:531-537` (`append_number_if_name_exists`, the one real `REGEXP`-operator exception)

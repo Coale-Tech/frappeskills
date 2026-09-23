@@ -155,22 +155,30 @@ form sets automatically when the naming rule is `By script`
 ```
 
 ```python
+from pypika.terms import CustomFunction
+from frappe.query_builder.functions import Cast, IfNull, Max
+
 class MyDoc(Document):
     def autoname(self):
         # Custom naming logic
         prefix = self.get_prefix()
         counter = self.get_next_counter()
         self.name = f"{prefix}-{counter:05d}"
-    
+
     def get_prefix(self):
         return self.region[:3].upper()
-    
+
     def get_next_counter(self):
-        return frappe.db.sql("""
-            SELECT IFNULL(MAX(CAST(SUBSTRING_INDEX(name, '-', -1) AS UNSIGNED)), 0) + 1
-            FROM `tabMy Doc`
-            WHERE name LIKE %s
-        """, f"{self.get_prefix()}-%")[0][0]
+        Table = frappe.qb.DocType("My Doc")
+        substring_index = CustomFunction("SUBSTRING_INDEX", ["str", "delim", "count"])
+        suffix = Cast(substring_index(Table.name, "-", -1), "UNSIGNED")
+        row = (
+            frappe.qb.from_(Table)
+            .select(IfNull(Max(suffix), 0) + 1)
+            .where(Table.name.like(f"{self.get_prefix()}-%"))
+            .run()
+        )
+        return row[0][0]
 ```
 
 ## Naming Series Management
@@ -306,4 +314,7 @@ Counters reset based on the date pattern:
 - `.YY.MM.DD.` — Resets daily
 - No date pattern — Never resets
 
-Sources: `frappe/model/naming.py`, `frappe/core/doctype/doctype/doctype.py`, `frappe/model/rename_doc.py`
+## Sources
+
+- `apps/frappe/frappe/model/naming.py`, `apps/frappe/frappe/core/doctype/doctype/doctype.py`, `apps/frappe/frappe/model/rename_doc.py`
+- Query builder: `apps/frappe/frappe/query_builder/functions.py` (`Cast`/`IfNull`/`Max` re-exports), `env/lib/python3.14/site-packages/pypika/terms.py:171` (`Term.like`), `env/lib/python3.14/site-packages/pypika/functions.py:114` (`Cast`)

@@ -84,8 +84,10 @@ SO = DocType("Sales Order")
 q = frappe.qb.from_(SO).select(SO.name, SO.grand_total).where(SO.docstatus == 1)
 ```
 
-Never build SQL with f-strings — `%s` parameters or `frappe.qb` only.
-See [references/database.md](references/database.md).
+Always use `frappe.get_all`/`frappe.get_list` or `frappe.qb` — never
+`frappe.db.sql`, even parameterized, for a query they can express. The one
+exception is an operator `frappe.qb` genuinely can't expose (e.g. `REGEXP`);
+see [references/database.md](references/database.md#never-use-frappedbsql-by-default).
 
 ### 5) Wire external access
 
@@ -148,7 +150,7 @@ Third-party sync shapes: [references/integration-patterns.md](references/integra
 
 - **Explicit permission check on every state-changing method**: `frappe.has_permission(..., throw=True)`
 - **Never trust argument types**: validate with `isinstance` before using them in filters
-- **Parameterized SQL only**: `%s` or `frappe.qb`, never f-strings
+- **`frappe.qb`/`frappe.get_all`/`frappe.get_list` always — never `frappe.db.sql`** for a query they can express; see [references/database.md](references/database.md)
 - **Return dicts, not `Response` objects**
 - **`allow_guest=True` is a public endpoint**: justify, rate-limit, and validate hard
 - **Translate user-facing errors**: `frappe.throw(_("…"))`
@@ -160,7 +162,7 @@ Third-party sync shapes: [references/integration-patterns.md](references/integra
 |---------|--------------|-----|
 | No `has_permission` call | Silent security bypass | `throw=True` gate |
 | Ignoring `has_permission()`'s return value | Check does nothing | Pass `throw=True` or branch on it |
-| `frappe.db.sql(f"… {value}")` | SQL injection | `%s` params or `frappe.qb` |
+| `frappe.db.sql(...)` for a query `frappe.qb` can express | Bypasses qb's dialect handling; one edit from SQL injection | Rewrite with `frappe.qb` |
 | Trusting a filter argument's type | Crafted filters bypass checks | `isinstance` validation |
 | Returning a `Response` object | Breaks `createResource` | Return a dict |
 | `allow_guest=True` by reflex | Public write endpoint | Remove it unless required |

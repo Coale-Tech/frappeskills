@@ -268,13 +268,19 @@ def get_accessible_departments(user):
     employee = frappe.db.get_value("Employee", {"user_id": user}, "department")
     if not employee:
         return []
-    
-    # Get all child departments
-    return frappe.db.sql_list("""
-        SELECT name FROM `tabDepartment`
-        WHERE lft >= (SELECT lft FROM `tabDepartment` WHERE name = %(dept)s)
-        AND rgt <= (SELECT rgt FROM `tabDepartment` WHERE name = %(dept)s)
-    """, {"dept": employee})
+
+    # Get all child departments via nested-set (lft/rgt) subqueries
+    Department = frappe.qb.DocType("Department")
+    lft_subquery = frappe.qb.from_(Department).select(Department.lft).where(Department.name == employee)
+    rgt_subquery = frappe.qb.from_(Department).select(Department.rgt).where(Department.name == employee)
+    rows = (
+        frappe.qb.from_(Department)
+        .select(Department.name)
+        .where(Department.lft >= lft_subquery)
+        .where(Department.rgt <= rgt_subquery)
+        .run()
+    )
+    return [r[0] for r in rows]
 
 def is_manager_of_user(manager_user, target_user):
     """Check if manager_user manages target_user"""
@@ -353,4 +359,7 @@ def create_permission_log(**kwargs):
 4. **Document your permissions** - Keep a permission matrix document
 5. **Use has_permission sparingly** - It's called on every read, keep it fast
 
-Sources: `frappe/permissions.py`, `frappe/core/doctype/permission_type/permission_type.py`, `frappe/model/document.py`, `frappe/model/meta.py` — Frappe 16.35.0.
+## Sources
+
+- `apps/frappe/frappe/permissions.py`, `apps/frappe/frappe/core/doctype/permission_type/permission_type.py`, `apps/frappe/frappe/model/document.py`, `apps/frappe/frappe/model/meta.py` — Frappe 16.35.0
+- Query builder: `env/lib/python3.14/site-packages/pypika/queries.py:695` (`QueryBuilder(Selectable, Term)` — a query builder is itself a `Term`, so it renders as a scalar subquery in `>=`/`<=` comparisons), matching the documented subquery pattern in [database.md](../../frappe-api-development/references/database.md#subqueries)

@@ -124,6 +124,7 @@ required; the rest are optional trailing elements.
 ```python
 import frappe
 from frappe import _
+from frappe.query_builder.functions import Count, Sum
 
 def execute(filters=None):
     columns = get_columns()
@@ -155,26 +156,21 @@ def get_columns():
     ]
 
 def get_data(filters):
-    conditions = get_conditions(filters)
-
-    return frappe.db.sql("""
-        SELECT
-            customer,
-            COUNT(name) as total_orders,
-            SUM(grand_total) as total_amount
-        FROM `tabSales Order`
-        WHERE docstatus = 1 {conditions}
-        GROUP BY customer
-        ORDER BY total_amount DESC
-    """.format(conditions=conditions), filters, as_dict=True)
-
-def get_conditions(filters):
-    conditions = ""
+    SO = frappe.qb.DocType("Sales Order")
+    total_orders = Count(SO.name).as_("total_orders")
+    total_amount = Sum(SO.grand_total).as_("total_amount")
+    query = (
+        frappe.qb.from_(SO)
+        .select(SO.customer, total_orders, total_amount)
+        .where(SO.docstatus == 1)
+        .groupby(SO.customer)
+        .orderby(total_amount, order=frappe.qb.desc)
+    )
     if filters.get("company"):
-        conditions += " AND company = %(company)s"
+        query = query.where(SO.company == filters["company"])
     if filters.get("from_date"):
-        conditions += " AND transaction_date >= %(from_date)s"
-    return conditions
+        query = query.where(SO.transaction_date >= filters["from_date"])
+    return query.run(as_dict=True)
 
 def get_chart(data):
     if not data:
@@ -390,7 +386,7 @@ Every key below is read by `frappe/public/js/frappe/views/reports/query_report.j
 
 - **Validate filters**: Check filter values before building queries; handle empty/invalid input
 - **Handle empty results**: Always handle case where query returns no data; show appropriate message
-- **Parameterized SQL only**: Bind filter values with `%(name)s`; never string-interpolate them
+- **`frappe.qb` always, never `frappe.db.sql`**: for a query the query builder can express (see [database.md](../../frappe-api-development/references/database.md#never-use-frappedbsql-by-default))
 - **Limit result sets**: Add LIMIT clause or pagination for large datasets
 - **Check permissions in execute**: Verify user has permission to see the data
 
@@ -398,10 +394,17 @@ Every key below is read by `frappe/public/js/frappe/views/reports/query_report.j
 
 | Mistake | Why It Fails | Fix |
 |---------|--------------|-----|
-| String-interpolated SQL | Injection risk | Bound parameters |
+| `frappe.db.sql` for a query `frappe.qb` can express | Injection risk; bypasses dialect handling | Rewrite with `frappe.qb` |
 | Untyped columns | No formatting or links | Set `fieldtype` |
 | Including drafts unintentionally | Inflated totals | Filter `docstatus = 1` |
 | Joins before aggregation | Duplicated rows | Aggregate, then join |
-| Python loop over rows for sums | Slow reports | SQL aggregation |
+| Python loop over rows for sums | Slow reports | `frappe.qb` aggregation (`Sum`, `Count`, `groupby`) |
 | Query not starting with `select`/`explain` | `check_safe_sql_query` throws | Rewrite as a read-only statement |
-| Not handling None in aggregations | Errors or wrong totals | Use `COALESCE()` or `IFNULL()` in SQL |
+| Not handling None in aggregations | Errors or wrong totals | Wrap with `frappe.query_builder.functions.IfNull` |
+
+## Sources
+
+Verified against Frappe 16.35.0 (`apps/frappe`):
+
+- `apps/frappe/frappe/query_builder/functions.py:4` (re-exports `pypika.functions.{Count,Sum}`), `functions.py` `IfNull` wrapper
+- `apps/frappe/frappe/desk/query_report.py` — `check_safe_sql_query`, report return contract

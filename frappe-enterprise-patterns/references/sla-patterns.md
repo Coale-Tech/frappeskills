@@ -338,21 +338,29 @@ differs.
 ## SLA reporting
 
 ```python
+from pypika import Case
+from pypika.terms import CustomFunction, LiteralValue
+from frappe.query_builder.functions import Avg, Count, Sum
+
 def get_sla_performance(filters):
-    """Aggregate SLA performance metrics. Sanitize/whitelist any doctype-name
-    input before interpolating into SQL; this example assumes a fixed table."""
-    return frappe.db.sql("""
-        SELECT
-            app_sla,
-            COUNT(*) as total,
-            SUM(CASE WHEN response_sla_status = 'Fulfilled' THEN 1 ELSE 0 END) as response_met,
-            SUM(CASE WHEN resolution_sla_status = 'Fulfilled' THEN 1 ELSE 0 END) as resolution_met,
-            AVG(TIMESTAMPDIFF(SECOND, creation, first_responded_on)) as avg_response_time,
-            AVG(TIMESTAMPDIFF(SECOND, creation, resolution_date)) as avg_resolution_time
-        FROM `tabTicket`
-        WHERE creation BETWEEN %(from_date)s AND %(to_date)s
-        GROUP BY app_sla
-    """, filters, as_dict=True)
+    """Aggregate SLA performance metrics for the fixed Ticket doctype."""
+    Ticket = frappe.qb.DocType("Ticket")
+    timestamp_diff = CustomFunction("TIMESTAMPDIFF", ["unit", "start", "end"])
+    seconds = LiteralValue("SECOND")
+    return (
+        frappe.qb.from_(Ticket)
+        .select(
+            Ticket.app_sla,
+            Count(Ticket.name).as_("total"),
+            Sum(Case().when(Ticket.response_sla_status == "Fulfilled", 1).else_(0)).as_("response_met"),
+            Sum(Case().when(Ticket.resolution_sla_status == "Fulfilled", 1).else_(0)).as_("resolution_met"),
+            Avg(timestamp_diff(seconds, Ticket.creation, Ticket.first_responded_on)).as_("avg_response_time"),
+            Avg(timestamp_diff(seconds, Ticket.creation, Ticket.resolution_date)).as_("avg_resolution_time"),
+        )
+        .where(Ticket.creation.between(filters["from_date"], filters["to_date"]))
+        .groupby(Ticket.app_sla)
+        .run(as_dict=True)
+    )
 ```
 
 Prefer a Script Report (`report_type = "Script Report"` on the `Report`
@@ -370,3 +378,4 @@ gets filters, export, and permission enforcement for free.
   `crm/fcrm/doctype/crm_service_level_agreement/crm_service_level_agreement.py`
   (`validate_condition`) and `crm/install.py:558-608`
   (`Assignment Rule` custom fields).
+- Query builder: `apps/frappe/frappe/query_builder/functions.py:88` (`CustomFunction` pattern for dialect-specific SQL functions), `env/lib/python3.14/site-packages/pypika/terms.py:574,1389` (`LiteralValue`, `CustomFunction`), `env/lib/python3.14/site-packages/pypika/terms.py:1255` (`Case`)

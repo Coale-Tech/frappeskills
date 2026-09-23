@@ -202,7 +202,30 @@ results = query.run(as_dict=True)
 
 ## Anti-patterns
 
-- **Don't use raw SQL when `frappe.qb` works.** Prefer the query builder for UPDATE/INSERT. Use `frappe.db.sql` only for queries `frappe.qb` cannot express (CTEs, etc.).
+### Never use frappe.db.sql by default
+
+**Always use `frappe.qb` (or `frappe.get_all`/`frappe.get_list`) — never
+`frappe.db.sql`, even parameterized, for a query the query builder can
+express.** Raw SQL bypasses `frappe.qb`'s automatic multitenancy-safe table
+naming, dialect handling (MariaDB/Postgres/SQLite), and composability, and is
+one accidental edit away from SQL injection. This covers UPDATE/INSERT/DELETE
+too — `frappe.qb.from_(Table).delete().where(...)` and
+`frappe.qb.update(Table)` both work (`frappe/database/query.py:290`).
+Dialect-specific SQL functions (`TIMESTAMPDIFF`, `SUBSTRING_INDEX`, etc.) are
+expressible via `pypika.terms.CustomFunction("FN_NAME", ["arg1", "arg2"])`,
+matching the pattern `frappe.query_builder.functions` itself uses. CTEs are
+also supported — pypika's `QueryBuilder.with_(selectable, name)` renders a
+real `WITH name AS (...)` clause (`pypika/queries.py:850,1397`), so a CTE is
+not a reason to drop to raw SQL either.
+
+The one legitimate exception is an operator `frappe.qb`/PyPika does not
+expose at all — e.g. a `REGEXP`/dialect-specific match operator. Frappe core
+itself drops to `frappe.db.sql` for exactly this reason in
+`append_number_if_name_exists` (`frappe/model/naming.py:531-537`, matching
+`frappe.db.REGEX_CHARACTER` in a `WHERE` clause with no query-builder
+equivalent). Comment why at the call site when you hit this.
+
+- **UPDATE via `frappe.qb`, not raw SQL:**
   ```python
   # BAD
   frappe.db.sql("UPDATE `tabExpense` SET `amount` = `amount` + 1 WHERE name = %s", (name,))
@@ -330,19 +353,24 @@ row  = frappe.get_cached_value("Customer", "CUST-001",
 doc = frappe.get_lazy_doc("Customer", "CUST-001")
 ```
 
-### Raw SQL
+### Query builder, not raw SQL
+
+See [Never use frappe.db.sql by default](#never-use-frappedbsql-by-default) —
+the queries a `frappe.db.sql` call like this used to run are `frappe.qb`:
 
 ```python
-# Parameterized (ALWAYS use %s for security)
-results = frappe.db.sql("""
-    SELECT name, status
-    FROM `tabCustomer`
-    WHERE territory = %s AND status = %s
-    ORDER BY creation DESC
-""", ("Kenya", "Active"), as_dict=True)
+Customer = frappe.qb.DocType("Customer")
+results = (
+    frappe.qb.from_(Customer)
+    .select(Customer.name, Customer.status)
+    .where(Customer.territory == "Kenya")
+    .where(Customer.status == "Active")
+    .orderby(Customer.creation, order=frappe.qb.desc)
+    .run(as_dict=True)
+)
 
-# Single value
-value = frappe.db.sql("SELECT COUNT(*) FROM `tabCustomer`")[0][0]
+# Single value — frappe.db.count, not a raw COUNT(*) query
+value = frappe.db.count("Customer")
 ```
 
 ### Bulk Operations & DDL
@@ -366,10 +394,12 @@ frappe.db.delete("Customer", filters={"status": "Disabled"})
 # Drop all rows without logging individual deletes (DDL, not transactional in most engines)
 frappe.db.truncate("Log Table")
 
-# Multi-database-compatible SQL when frappe.qb can't express the query
+# frappe.db.multisql — for syntax that genuinely diverges per dialect, not
+# just a different function name (those go through pypika CustomFunction
+# instead). Real core example: random ordering has no portable SQL syntax.
 results = frappe.db.multisql({
-    "mariadb": "SELECT name FROM `tabCustomer` LIMIT %s",
-    "postgres": '''SELECT name FROM "tabCustomer" LIMIT %s''',
+    "mariadb": "SELECT name FROM `tabCustomer` ORDER BY RAND() LIMIT %s",
+    "postgres": '''SELECT name FROM "tabCustomer" ORDER BY RANDOM() LIMIT %s''',
 }, (10,))
 
 # DDL statements (CREATE/ALTER/DROP) — separate from frappe.db.sql for clarity
@@ -556,6 +586,7 @@ Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__ = "16.35.0"`
 - `apps/frappe/frappe/database/query.py` — `Engine.get_query()`/`Engine.apply_filters()` (nested AND/OR groups, 4-element doctype-qualified filters, `ignore_permissions` default, `for_update`/`skip_locked`/`wait`)
 - `apps/frappe/frappe/database/database.py` — `get_value`, `set_value`, `get_single_value`, `exists`, `count`, `bulk_update`, `bulk_insert`, `delete`, `truncate`, `multisql`, `sql_ddl`, `savepoint`
 - `apps/frappe/frappe/query_builder/` — `frappe.qb`, `DocType`, `get_query`
+- Query builder enforcement: `apps/frappe/frappe/database/query.py:290` (`.delete()` support), `apps/frappe/frappe/query_builder/functions.py` (`CustomFunction`/`ImportMapper` wrapping dialect-specific SQL), `apps/frappe/frappe/model/naming.py:531-537` (`append_number_if_name_exists`, the one real `REGEXP`-operator exception), `env/lib/python3.14/site-packages/pypika/queries.py:850,1397` (`QueryBuilder.with_`/`_with_sql` — CTE support), `apps/frappe/frappe/utils/make_random.py:42-44` (real core `multisql` use for `RAND()`/`RANDOM()` — genuine per-dialect syntax divergence, not just a function-name difference)
 - `apps/frappe/frappe/utils/background_jobs.py` — `enqueue`/`enqueue_doc` signatures, `get_queues_timeout` (short/default=300s, long=1500s), `is_job_enqueued`, `job_name` deprecation
 - `apps/frappe/frappe/hooks.py` — framework `doc_events`, `scheduler_events`, and hook-key surface
 - `apps/frappe/frappe/utils/boilerplate.py` — `hooks_template` (canonical `bench new-app` hooks.py)

@@ -433,22 +433,28 @@ bench --site my-site install-app insights
 ```python
 # Programmatic query via API
 import frappe
+from frappe.query_builder.functions import Avg, Count, Sum
+from frappe.utils import add_months, nowdate
 
 @frappe.whitelist()
 def get_insights_data():
-    return frappe.db.sql("""
-        SELECT
-            customer,
-            SUM(grand_total) as total_sales,
-            COUNT(*) as invoice_count,
-            AVG(grand_total) as avg_sale
-        FROM `tabSales Invoice`
-        WHERE docstatus = 1
-        AND posting_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-        GROUP BY customer
-        ORDER BY total_sales DESC
-        LIMIT 10
-    """, as_dict=True)
+    SI = frappe.qb.DocType("Sales Invoice")
+    total_sales = Sum(SI.grand_total).as_("total_sales")
+    query = (
+        frappe.qb.from_(SI)
+        .select(
+            SI.customer,
+            total_sales,
+            Count(SI.name).as_("invoice_count"),
+            Avg(SI.grand_total).as_("avg_sale"),
+        )
+        .where(SI.docstatus == 1)
+        .where(SI.posting_date >= add_months(nowdate(), -12))
+        .groupby(SI.customer)
+        .orderby(total_sales, order=frappe.qb.desc)
+        .limit(10)
+    )
+    return query.run(as_dict=True)
 ```
 
 ### Dashboard Configuration
@@ -485,7 +491,7 @@ ds.insert()
 2. **Use Frappe Insights** for complex BI dashboards and ad-hoc analysis
 3. **Apply black/minimal design tokens** to chart colors (`#171717`, `#737373`, `#D4D4D4`)
 4. **Use createResource** for loading chart data in Vue.js
-5. **Prefer Query Builder** (PyPika) over raw SQL for chart data queries
+5. **Always use Query Builder** (`frappe.qb`, PyPika) — never `frappe.db.sql` — for chart data queries
 6. **Add loading states** while chart data fetches
 7. **Make charts responsive** with percentage-based widths
 8. **Export functionality** - use `chart.export()` for PNG downloads
@@ -503,4 +509,5 @@ Verified against Frappe 16.35.0 (`apps/frappe`):
 - `apps/frappe/frappe/desk/doctype/number_card/number_card.json`, `number_card.py` — function/type/naming
 - `apps/frappe/frappe/desk/doctype/dashboard/dashboard.json` (Dashboard container)
 - `apps/frappe/frappe/desk/doctype/dashboard_chart_source/dashboard_chart_source.json` (Custom chart source)
+- Query builder: `apps/frappe/frappe/query_builder/functions.py:4` (re-exports `pypika.functions.{Avg,Count,Sum}` via `frappe.query_builder.functions`), `apps/frappe/frappe/utils/data.py:330,428` (`add_months`, `nowdate`)
 - Frappe Insights is an external app: https://github.com/frappe/insights (not on this bench)

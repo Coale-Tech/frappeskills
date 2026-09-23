@@ -190,10 +190,13 @@ def full_sync_customers():
         synced_ids.append(local.name)
     
     # Delete orphaned local records
-    frappe.db.sql("""
-        DELETE FROM `tabExternal Customer`
-        WHERE external_id NOT IN %(ids)s
-    """, {"ids": synced_ids})
+    ExternalCustomer = frappe.qb.DocType("External Customer")
+    (
+        frappe.qb.from_(ExternalCustomer)
+        .delete()
+        .where(ExternalCustomer.external_id.notin(synced_ids))
+        .run()
+    )
     # No explicit commit: this runs as a scheduled job, which auto-commits
     # on successful completion (see database.md `## Transactions`).
 ```
@@ -511,3 +514,7 @@ class RateLimitedConnector(BaseConnector):
 
 See also [rate-limiting.md](rate-limiting.md) for server-side rate limiting and
 [webhooks.md](webhooks.md) for inbound webhook handling.
+
+## Sources
+
+- Query builder: `apps/frappe/frappe/database/query.py:290` (`.delete()` support), `env/lib/python3.14/site-packages/pypika/terms.py:209` (`Term.notin`)

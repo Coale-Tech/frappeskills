@@ -293,15 +293,19 @@ ci.insert()
 ### Attendance Query
 
 ```python
+from frappe.query_builder.functions import Count
+
 # Monthly attendance summary
-attendance = frappe.db.sql("""
-    SELECT status, COUNT(*) as count
-    FROM `tabAttendance`
-    WHERE employee = %s
-    AND attendance_date BETWEEN %s AND %s
-    AND docstatus = 1
-    GROUP BY status
-""", ("HR-EMP-001", "2024-01-01", "2024-01-31"), as_dict=True)
+Attendance = frappe.qb.DocType("Attendance")
+attendance = (
+    frappe.qb.from_(Attendance)
+    .select(Attendance.status, Count(Attendance.name).as_("count"))
+    .where(Attendance.employee == "HR-EMP-001")
+    .where(Attendance.attendance_date.between("2024-01-01", "2024-01-31"))
+    .where(Attendance.docstatus == 1)
+    .groupby(Attendance.status)
+    .run(as_dict=True)
+)
 ```
 
 ### Auto-attendance flow (source-verified)
@@ -653,6 +657,8 @@ tr.submit()
 ### Common Queries
 
 ```python
+from frappe.query_builder.functions import Count
+
 # Get employee hierarchy
 def get_reporting_chain(employee):
     chain = []
@@ -668,12 +674,15 @@ def get_reporting_chain(employee):
 
 # Get department headcount
 def get_department_stats(department):
-    return frappe.db.sql("""
-        SELECT designation, COUNT(*) as count
-        FROM `tabEmployee`
-        WHERE department = %s AND status = 'Active'
-        GROUP BY designation
-    """, department, as_dict=True)
+    Employee = frappe.qb.DocType("Employee")
+    return (
+        frappe.qb.from_(Employee)
+        .select(Employee.designation, Count(Employee.name).as_("count"))
+        .where(Employee.department == department)
+        .where(Employee.status == "Active")
+        .groupby(Employee.designation)
+        .run(as_dict=True)
+    )
 
 # Get leave summary
 def get_leave_summary(employee, year):
@@ -734,3 +743,4 @@ Verified against HRMS 16.4.1 (`apps/hrms/hrms/__init__.py`) and ERPNext/Frappe 1
 - `hr/doctype/shift_type/shift_type.py` (`process_auto_attendance`, `process_auto_attendance_for_all_shifts`, `update_last_sync_of_checkin`, `get_attendance`)
 - `hr/doctype/shift_assignment/shift_assignment.json` (`shift_type` field), `hr/doctype/employee_checkin/employee_checkin.py` (`mark_attendance_and_link_log`, `calculate_working_hours`)
 - `controllers/employee_boarding_controller.py` (`EmployeeBoardingController`, `update_employee_boarding_status`, `update_task`)
+- Query builder: `apps/frappe/frappe/query_builder/functions.py:4` (re-exports `pypika.functions.Count`), `env/lib/python3.14/site-packages/pypika/terms.py:192` (`Field.between`)

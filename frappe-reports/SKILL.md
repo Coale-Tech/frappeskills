@@ -1,0 +1,127 @@
+---
+name: frappe-reports
+description: Create Frappe reports using Report Builder, Query Reports (SQL), and Script Reports (Python plus JS), and visualize data with charts, dashboards, and Insights. Use when building data analysis views or dashboards.
+---
+
+# Frappe Reports & Visualization
+
+Turn stored data into answers — report first, chart second.
+
+## When to use
+
+- Building a tabular report for users
+- Writing a Query or Script Report with computed columns
+- Adding dashboard charts or number cards
+- Choosing between Frappe Charts and Frappe Insights
+
+## Inputs required
+
+- The question the report answers, and who asks it
+- Source DocTypes and the filters users need
+- Whether computation is pure SQL or needs Python
+- Roles allowed to run it
+
+## Procedure
+
+### 0) Choose the report type
+
+| Need | Type |
+|---|---|
+| Ad-hoc columns and filters, no code | Report Builder |
+| Fixed SQL with parameters | Query Report |
+| Computed rows, conditional formatting, charts | Script Report |
+| Exploration and BI | Frappe Insights |
+
+See [references/reports.md](references/reports.md).
+
+### 1) Script Report — Python side
+
+```python
+import frappe
+from frappe import _
+
+def execute(filters=None):
+    filters = filters or {}
+    columns = [
+        {"label": _("Customer"), "fieldname": "customer", "fieldtype": "Link", "options": "Customer", "width": 200},
+        {"label": _("Total"), "fieldname": "total", "fieldtype": "Currency", "width": 140},
+    ]
+    data = frappe.db.sql("""
+        SELECT customer, SUM(grand_total) AS total
+        FROM `tabSales Order`
+        WHERE docstatus = 1 AND company = %(company)s
+        GROUP BY customer ORDER BY total DESC
+    """, filters, as_dict=True)
+    return columns, data
+```
+
+Parameters are bound with `%(name)s` — never interpolated.
+
+### 2) Script Report — JS filters
+
+```javascript
+frappe.query_reports["Customer Totals"] = {
+    filters: [
+        {fieldname: "company", label: __("Company"), fieldtype: "Link", options: "Company", reqd: 1},
+    ],
+};
+```
+
+### 3) Add visualization
+
+Embedded charts, number cards and dashboard wiring:
+[references/data-visualization.md](references/data-visualization.md). Reach for
+Insights when users need to explore rather than read a fixed view.
+
+### 4) Register and permit
+
+Report record fields (`ref_doctype`, `report_type`, roles) control who can run
+it. Ship the report as part of the app module, and migrate.
+
+## Verification
+
+- [ ] Report runs with no filters and with each required filter
+- [ ] Totals reconcile against the source documents
+- [ ] Only permitted roles can run it
+- [ ] Large date ranges complete without timeout
+- [ ] Column types render correctly (Currency, Date, Link)
+- [ ] Chart reflects the same numbers as the table
+
+## Failure modes / debugging
+
+- **Report not listed**: missing `ref_doctype`, wrong module, or roles not granted
+- **`Unknown column`**: DocType field renamed; column names are table columns, not labels
+- **Empty result**: `docstatus` filter excludes drafts, or the filter default is unset
+- **Slow report**: missing index on the filtered column, or per-row Python queries
+- **Wrong totals**: joins duplicating rows — aggregate before joining
+- **Currency shows raw numbers**: column `fieldtype` not set to `Currency`
+
+## Escalation
+
+- Query performance and indexing → [`frappe-api-development`](../frappe-api-development/SKILL.md) → `database.md`
+- Printable output instead of a screen report → [`frappe-printing-templates`](../frappe-printing-templates/SKILL.md)
+- Domain semantics of the numbers → [`frappe-erpnext-hrms`](../frappe-erpnext-hrms/SKILL.md)
+
+## References
+
+- [references/reports.md](references/reports.md) - Report Builder, Query and Script Reports
+- [references/data-visualization.md](references/data-visualization.md) - Frappe Charts, dashboards, Insights
+
+## Guardrails
+
+- **Parameterized SQL only**: `%(name)s`, never f-strings
+- **Translate column labels**: `_("Total")`
+- **Set `fieldtype` on every column**: it drives formatting and links
+- **Respect permissions**: reports expose data — grant roles deliberately
+- **Aggregate in SQL, not Python loops**: per-row queries do not scale
+
+## Common Mistakes
+
+| Mistake | Why It Fails | Fix |
+|---------|--------------|-----|
+| String-interpolated SQL | Injection risk | Bound parameters |
+| Untyped columns | No formatting or links | Set `fieldtype` |
+| Including drafts unintentionally | Inflated totals | Filter `docstatus = 1` |
+| Joins before aggregation | Duplicated rows | Aggregate, then join |
+| Python loop over rows for sums | Slow reports | SQL aggregation |
+| Chart disagreeing with the table | Two query paths | Derive both from one dataset |

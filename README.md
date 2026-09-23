@@ -3,11 +3,11 @@
 
   <h1>frappeskills</h1>
 
-  <p><b>One Agent Skill for full-stack Frappe Framework / ERPNext work — build, research, operate.</b></p>
+  <p><b>Agent Skills for full-stack Frappe Framework / ERPNext development.</b></p>
 
   <p>
     <img src="https://img.shields.io/badge/frappe-v16-2490EF" alt="frappe v16" />
-    <img src="https://img.shields.io/badge/skill-frappe--app--dev-1467B1" alt="skill" />
+    <img src="https://img.shields.io/badge/skills-19-1467B1" alt="19 skills" />
     <img src="https://img.shields.io/badge/references-64-555" alt="64 references" />
   </p>
 </div>
@@ -15,31 +15,43 @@
 ## Why
 
 Frappe work spans schema, controllers, permissions, jobs, Desk customization,
-Vue SPAs, design tokens, bench operations and ERPNext domain logic. Split across
-several skills, that guidance drifts: duplicated rules, conflicting versions,
-and an agent that has to guess which skill owns the question.
+Vue SPAs, design tokens, bench operations and ERPNext domain logic. One skill
+covering all of it is either shallow or enormous — and an agent loads the whole
+thing to answer one question.
 
-This repo keeps **one** skill — `frappe-app-dev` — with a single routing spine
-and on-demand references. Progressive disclosure does the job that skill
-splitting was supposed to: `SKILL.md` is always loaded, everything else is read
-only when the task needs it.
+These are **task-scoped skills**: each owns one kind of work, states its
+procedure in the same nine sections, and carries only the references that work
+needs. [`frappe-router`](frappe-router/SKILL.md) is the entry point that maps a
+task to its skill.
 
 Every deep reference is source-verified against installed framework source and
 ends with a `## Sources` section naming the files it was checked against.
 **Installed source outranks this repo**; a reference that disagrees with
 `apps/frappe` on disk is a bug.
 
-## What's inside
+## Skills
 
-| Area | Covers |
-| --- | --- |
-| **Backend** | DocTypes, field types, child tables, naming, virtual DocTypes, controllers, `hooks.py`, whitelisted APIs, REST/Python client, webhooks, OAuth, rate limiting, server scripts, `frappe.db` / `frappe.qb`, permissions, authentication, background jobs, caching, realtime, fixtures, translations, testing, semgrep rules |
-| **Frontend** | Desk forms and client scripts, desk interaction patterns, list views, workspaces, portal pages, web forms, frappe-ui Vue SPAs, SPA architecture, component / page / app-shell / mobile patterns, Espresso design system and tokens, print formats, reports, charts and Insights |
-| **Domain** | ERPNext (sales, purchase, stock, accounting, manufacturing), HRMS (leave, attendance, payroll, recruitment), enterprise CRM/Helpdesk-scale architecture, workflows, SLA, queues, integrations, advanced permissions |
-| **Operations** | Project triage, bench CLI and site management, Frappe Manager (Docker), broken-bench recovery, whole-app standards audit, v15 ↔ v16 deltas, deep-research pipeline, learned-patterns log |
-
-Plus `templates/` (backend, frontend, and a runnable `mini-app` skeleton) and
-`scripts/validate-compatibility.py`.
+| Skill | Use it for | Refs |
+| --- | --- | ---: |
+| [frappe-router](frappe-router/SKILL.md) | Entry point — route a task to the right skill | 0 |
+| [frappe-project-triage](frappe-project-triage/SKILL.md) | Project type, versions, installed apps, v15↔v16 deltas | 3 |
+| [frappe-app-development](frappe-app-development/SKILL.md) | App scaffolding, `hooks.py`, fixtures, jobs, cache, realtime, i18n | 9 |
+| [frappe-doctype-development](frappe-doctype-development/SKILL.md) | DocTypes, field types, child tables, naming, controllers, permissions, workflows | 9 |
+| [frappe-api-development](frappe-api-development/SKILL.md) | Whitelisted APIs, REST, webhooks, OAuth, rate limiting, ORM | 9 |
+| [frappe-desk-customization](frappe-desk-customization/SKILL.md) | Form scripts, list views, workspaces, desk interactions | 4 |
+| [frappe-frontend-development](frappe-frontend-development/SKILL.md) | frappe-ui Vue SPAs, portal pages, SPA architecture | 7 |
+| [frappe-ui-patterns](frappe-ui-patterns/SKILL.md) | App shells and UX patterns from CRM/Helpdesk/HRMS, mobile | 2 |
+| [frappe-design-tokens](frappe-design-tokens/SKILL.md) | Espresso design system, color/type/spacing tokens | 2 |
+| [frappe-printing-templates](frappe-printing-templates/SKILL.md) | Print formats, email templates, Jinja, PDFs | 1 |
+| [frappe-reports](frappe-reports/SKILL.md) | Report Builder, Query/Script reports, charts, Insights | 2 |
+| [frappe-web-forms](frappe-web-forms/SKILL.md) | Public data collection without a frontend | 1 |
+| [frappe-testing](frappe-testing/SKILL.md) | Unit tests, factories, CI, Cypress | 4 |
+| [frappe-enterprise-patterns](frappe-enterprise-patterns/SKILL.md) | CRM/Helpdesk-scale architecture, service layers, SLAs | 2 |
+| [frappe-bench-operations](frappe-bench-operations/SKILL.md) | Bench CLI, site management, broken-bench recovery | 2 |
+| [frappe-manager](frappe-manager/SKILL.md) | Docker dev environments with `fm` | 1 |
+| [frappe-erpnext-hrms](frappe-erpnext-hrms/SKILL.md) | Sales, purchase, stock, accounting, payroll, leave | 2 |
+| [frappe-app-audit](frappe-app-audit/SKILL.md) | Whole-app standards and security audit | 2 |
+| [frappe-deep-research](frappe-deep-research/SKILL.md) | "How does Frappe do X" against installed source; pattern log | 2 |
 
 ## Installation
 
@@ -48,44 +60,51 @@ git clone git@github.com:Coale-Tech/frappeskills.git ~/.claude/skills-src/frappe
 ~/.claude/skills-src/frappeskills/install.sh
 ```
 
-`install.sh` symlinks `frappe-app-dev/` into `~/.claude/skills/`, discovered by
-both Claude Code and omp. Edit in the clone, commit from there — the symlink
-means exactly one copy exists on disk.
+`install.sh` symlinks every `frappe-*` skill into `~/.claude/skills` (and
+`~/.omp/agent/skills` when present), both discovered by Claude Code and omp.
+Edit in the clone, commit from there — the symlinks mean exactly one copy exists
+on disk.
 
-For any other agent runtime, point its skill root at the same directory, or copy
-`frappe-app-dev/` into it.
+For any other agent runtime, point its skill root at this directory or copy the
+skill folders into it.
 
 ## How it works
 
-1. **Trigger** — the `description` in the skill's YAML frontmatter matches the
-   user's request (DocType, hook, whitelisted API, bench, workspace, audit…).
-2. **Route** — `SKILL.md` triages mode (Build · Deep Research · Operate · Audit)
-   and starting point (new app · existing app), then maps the task to references.
-3. **Load on demand** — only the references the task needs are read.
-4. **Verify** — every procedure ends in migrate + clear-cache + exercising the
-   real path, with a checklist and a failure-mode table for when it goes wrong.
+1. **Route** — `frappe-router` maps the task to one skill (and names the
+   combinations complex work needs).
+2. **Trigger** — each skill's `description` frontmatter matches the request
+   directly, so an agent can also enter without the router.
+3. **Load on demand** — a skill's `SKILL.md` is ~100–200 lines; its
+   `references/` are read only when that step needs them.
+4. **Verify** — every skill ends its procedure in migrate + clear-cache +
+   exercising the real path, with a Verification checklist and a Failure-modes
+   table.
 
 ## Skill structure
 
+Every skill follows the same nine sections:
+
 ```
-frappe-app-dev/
-  SKILL.md              When to use · Inputs required · Procedure ·
-                        Verification · Failure modes · Escalation ·
-                        References · Guardrails · Common Mistakes ·
-                        Decision Frameworks · Self-Enhancement Protocol
-  references/           64 topic files, loaded on demand
-  templates/backend/    DocType, controller, api, hooks, fixtures, workspace
-  templates/frontend/   App.vue, ListPage, DetailPage, FormWizard, page.js
-  templates/mini-app/   runnable skeleton — doctypes (child / Single /
-                        submittable / tree), report, workflow, dashboard,
-                        background job, connector, service + util layers
-  scripts/              validate-compatibility.py
+<skill>/
+  SKILL.md        When to use · Inputs required · Procedure ·
+                  Verification · Failure modes / debugging · Escalation ·
+                  References · Guardrails · Common Mistakes
+  references/     topic files owned by this skill, loaded on demand
+  assets/         templates for this skill's work (where applicable)
+  scripts/        executable checks (where applicable)
 ```
+
+Assets ship where they are used: DocType and controller templates in
+`frappe-doctype-development/assets`, the Vue templates and Tailwind preset in
+`frappe-frontend-development/assets`, the runnable `mini-app/` skeleton in
+`frappe-app-development/assets`, and `validate-compatibility.py` in
+`frappe-project-triage/scripts`.
 
 ## Compatibility
 
-Target is **v16** — frappe 16.27.x, erpnext 16.6.x, hrms 16.4.x — with v15
-notes throughout and a dedicated `references/v15-v16-compatibility.md`.
+Target is **v16** — frappe 16.27.x, erpnext 16.6.x, hrms 16.4.x — with v15 notes
+throughout and a dedicated
+[v15-v16-compatibility.md](frappe-project-triage/references/v15-v16-compatibility.md).
 
 Verify the versions on any bench rather than trusting this line:
 
@@ -99,27 +118,34 @@ The repo is machine-agnostic on purpose: no absolute paths, no bench topology,
 no client app names, no host-specific tooling. A host that wants local
 conventions — bench cluster layout, delegation policy, process management,
 code-search tooling — puts them in its own agent context file (`AGENTS.md` /
-`CLAUDE.md`) or an appended system prompt. `SKILL.md` states explicitly that
-such host directives win over its guardrails.
+`CLAUDE.md`) or an appended system prompt, which wins over a skill's Guardrails.
 
 ## Authoring guidelines
 
-- Keep it to **one skill**. New topics become a reference, not a sibling skill.
-- Every deep reference ends with `## Sources` citing installed framework files.
-- Adopted third-party material carries an inline provenance note naming its
-  source file.
-- New discoveries go into `references/learned-patterns.md` in the entry format
-  defined in `SKILL.md`, and get promoted into the matching topic reference once
-  confirmed (`confidence: high` and used twice, or user-confirmed).
-- Run `scripts/validate-compatibility.py <app>` before claiming an app is clean.
+- **One skill per kind of work.** New topics become a reference inside the
+  owning skill, or a new skill with its own references — never a second skill
+  covering the same work.
+- **Keep `SKILL.md` lean** (~100–200 lines) and in the nine-section order. Depth
+  belongs in `references/`.
+- **Every deep reference ends with `## Sources`** citing installed framework
+  files.
+- **Adopted third-party material carries inline provenance** naming its source
+  file.
+- **Cross-skill links are relative**: `../frappe-x/SKILL.md`,
+  `../frappe-x/references/y.md`.
+- New discoveries go into
+  [learned-patterns.md](frappe-deep-research/references/learned-patterns.md) in
+  the format defined by `frappe-deep-research`, and get promoted into the owning
+  skill's reference once confirmed.
 
 ## Credits
 
-- Routing spine and the first terse references derive from
+- Structure, SKILL.md section format, router pattern, and a large share of the
+  procedures and references are adopted from
+  [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) —
+  full licence text in `LICENSES/frappe-skills-lubusIN-MIT.txt`.
+- Earlier routing material derives from
   [frappe/skills](https://github.com/frappe/skills) (Frappe Technologies).
-- Fourteen skills' worth of procedures, references and the SKILL.md section
-  format adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills),
-  MIT — full licence text in `LICENSES/frappe-skills-lubusIN-MIT.txt`.
 - Everything else is source-verified against installed Frappe / ERPNext / HRMS v16.
 
 See [`NOTICE`](NOTICE) for full attribution.

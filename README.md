@@ -143,8 +143,9 @@ code-search tooling — puts them in its own agent context file (`AGENTS.md` /
 - **Cross-skill links are relative**: `../frappe-x/SKILL.md`,
   `../frappe-x/references/y.md`.
 - New discoveries go into
-  [learned-patterns.md](frappe-deep-research/references/learned-patterns.md) in
-  the format defined by `frappe-deep-research`, and get promoted into the owning
+  [learned-patterns.md](frappe-deep-research/references/learned-patterns.md) or
+  [learned-patterns-ops.md](frappe-deep-research/references/learned-patterns-ops.md)
+  (by category, see `frappe-deep-research`), and get promoted into the owning
   skill's reference once confirmed.
 - **A new skill directory needs `./install.sh` re-run.** Symlinking is not
   automatic — the script only links what exists in each root at run time, so

@@ -43,7 +43,8 @@ Never `import erpnext` on a Frappe-only site.
 | People | Employee → Attendance / Leave Application → Salary Slip → Payroll Entry |
 
 Details: [references/erpnext-workflows.md](references/erpnext-workflows.md),
-[references/hrms-patterns.md](references/hrms-patterns.md).
+[references/hrms-patterns.md](references/hrms-patterns.md),
+[references/hrms-payroll-and-talent.md](references/hrms-payroll-and-talent.md).
 
 ### 2) Extend, never edit
 
@@ -103,7 +104,8 @@ than mocking them — validation depends on them.
 - [references/erpnext-manufacturing.md](references/erpnext-manufacturing.md) - BOM, Work Order, Job Card, Production Plan, Subcontracting
 - [references/erpnext-projects-assets-support.md](references/erpnext-projects-assets-support.md) - Projects, Assets and depreciation, Quality Management, Support, Maintenance
 - [references/erpnext-extending.md](references/erpnext-extending.md) - Hook points ERPNext uses to extend itself: `extend_doctype_class`, `doc_events`, `scheduler_events`, `regional_overrides`
-- [references/hrms-patterns.md](references/hrms-patterns.md) - Employee, leave, attendance, payroll, recruitment
+- [references/hrms-patterns.md](references/hrms-patterns.md) - Organization, Employee, Leave, Attendance
+- [references/hrms-payroll-and-talent.md](references/hrms-payroll-and-talent.md) - Payroll, Recruitment, Performance, Expense Claims
 
 ## Guardrails
 

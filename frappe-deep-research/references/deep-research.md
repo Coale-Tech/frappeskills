@@ -65,8 +65,10 @@ Lead with the answer. Then evidence, each claim cited (source path/line or URL).
   and enforce `frappe-app-standards` (no core edits, Espresso, security).
 
 ### 7. Persist
-Log durable, reusable findings to `references/learned-patterns.md` (entry
-template there) and/or `retain` to memory. Optionally save a report via the wiki.
+Log durable, reusable findings to `references/learned-patterns.md` (Debugging,
+API & ORM, Frontend, Version Compatibility) or `references/learned-patterns-ops.md`
+(Build & Deployment, Permissions, Caching & Asset) — entry template there — and/or
+`retain` to memory. Optionally save a report via the wiki.
 
 ## Tooling notes (faster + safer)
 

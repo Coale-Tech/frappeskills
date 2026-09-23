@@ -96,7 +96,7 @@ Notes (verified against `frappe/www/*.py` and `templates/`):
 - **Web Page** DocType (`frappe/website/doctype/web_page/`) is the no-code alternative: content authored in the DB, rendered via the website router — use it for CMS-style pages, `www/` + `get_context` for code-driven ones.
 - For DocType-backed portal listing/detail, ERPNext uses `Web Form` and the generic `www/list.py` / portal item views rather than hand-written templates.
 
-### Sources
+## Sources
 
 - `apps/frappe/frappe/public/js/frappe/ui/page.js` — `frappe.ui.Page`, `frappe.ui.make_app_page`, page action API
 - `apps/frappe/frappe/core/page/permission_manager/permission_manager.js` — real `frappe.pages[...].on_page_load` example

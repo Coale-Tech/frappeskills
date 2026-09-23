@@ -60,7 +60,7 @@ decides it. Note version sensitivity explicitly.
 ### 5) Capture the discovery
 
 If the answer was non-obvious and another agent would hit the same wall, append
-an entry to [references/learned-patterns.md](references/learned-patterns.md):
+an entry to the file matching its category:
 
 ```
 ### [category] Short title
@@ -72,8 +72,13 @@ an entry to [references/learned-patterns.md](references/learned-patterns.md):
 - **Evidence**: error message, source file, or test that confirmed it
 ```
 
-Categories: Debugging · API & ORM · Frontend · Version Compatibility · Build &
-Deployment.
+| Category | File |
+|---|---|
+| Debugging, API & ORM, Frontend, Version Compatibility | [references/learned-patterns.md](references/learned-patterns.md) |
+| Build & Deployment, Permissions, Caching & Asset | [references/learned-patterns-ops.md](references/learned-patterns-ops.md) |
+
+Split by size, not meaning — if either file nears the 600-line reference cap,
+split its categories further and update this table.
 
 ### 6) Promote when proven
 
@@ -89,7 +94,7 @@ low-confidence entries older than 90 days with zero uses.
 - [ ] The behaviour was executed, not only read
 - [ ] Version sensitivity stated where it exists
 - [ ] Contradicting reference files were corrected, not left stale
-- [ ] Worthwhile discoveries recorded in `learned-patterns.md`
+- [ ] Worthwhile discoveries recorded in the matching `learned-patterns*.md` file
 
 ## Failure modes / debugging
 
@@ -108,7 +113,8 @@ low-confidence entries older than 90 days with zero uses.
 ## References
 
 - [references/deep-research.md](references/deep-research.md) - Research pipeline and source precedence
-- [references/learned-patterns.md](references/learned-patterns.md) - Discovered patterns log
+- [references/learned-patterns.md](references/learned-patterns.md) - Discovered patterns log: Debugging, API & ORM, Frontend, Version Compatibility
+- [references/learned-patterns-ops.md](references/learned-patterns-ops.md) - Discovered patterns log: Build & Deployment, Permissions, Caching & Asset
 
 ## Guardrails
 
@@ -118,7 +124,7 @@ low-confidence entries older than 90 days with zero uses.
 - **Read whole functions**, not fragments — early returns change everything
 - **Fix the reference that was wrong** instead of leaving both versions alive
 - **Record sparingly**: one strong reusable lesson beats several vague ones
-- **Genericize before recording**: no client/bench/app names, hostnames, or machine topology in `learned-patterns.md` entries — write "a custom app" or "a site", not the real name
+- **Genericize before recording**: no client/bench/app names, hostnames, or machine topology in `learned-patterns*.md` entries — write "a custom app" or "a site", not the real name
 
 ## Common Mistakes
 

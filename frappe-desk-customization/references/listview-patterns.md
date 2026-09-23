@@ -21,7 +21,7 @@ Based on the Hotel Reservations ListView design with comprehensive features:
 The full Vue template (header, dashboard stats, tabs, search/filter, error
 state, `<ListView>` with column slots, loading/empty states, bulk-select
 banner, and pagination) is the frappe-ui "List Page" pattern — see
-**[frappe-ui-spa-page-patterns.md § List Page template](../../frappe-frontend-development/references/frappe-ui-spa-page-patterns.md#list-page-template)**
+**[frappe-ui-spa-page-patterns.md § Pattern: List Page](../../frappe-frontend-development/references/frappe-ui-spa-page-patterns.md#pattern-list-page)**
 for the complete, maintained copy. The style rules extracted from it are
 summarized below.
 
@@ -201,7 +201,7 @@ it only wins when none of steps 1-5 match.
 
 `apps/erpnext/erpnext/stock/doctype/delivery_note/delivery_note_list.js` defines `frappe.listview_settings["Delivery Note"]` with `add_fields`, a multi-branch `get_indicator` (To Bill / Partially Billed / Completed / Return / Closed), and an `onload` that adds a "Delivery Trip" bulk action using `doclist.get_checked_items()`.
 
-### Sources
+## Sources
 
 - `apps/frappe/frappe/public/js/frappe/list/list_view.js` — `frappe.views.ListView`, `this.settings.*`
 - `apps/frappe/frappe/public/js/frappe/list/base_list.js` — base list controller

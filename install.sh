@@ -7,8 +7,9 @@ shopt -s nullglob
 SKILLS=("$REPO"/frappe-*/)
 [ "${#SKILLS[@]}" -gt 0 ] || { echo "no skills found in $REPO" >&2; exit 1; }
 
+ROOTS=("$HOME/.claude/skills" "$HOME/.agents/skills" "$HOME/.omp/agent/skills")
 roots=0
-for root in "$HOME/.claude/skills" "$HOME/.omp/agent/skills"; do
+for root in "${ROOTS[@]}"; do
   [ -d "$root" ] || continue
   roots=$((roots + 1))
   for src in "${SKILLS[@]}"; do
@@ -25,7 +26,7 @@ for root in "$HOME/.claude/skills" "$HOME/.omp/agent/skills"; do
 done
 
 # Drop the pre-split monolith if a previous install left it behind.
-for root in "$HOME/.claude/skills" "$HOME/.omp/agent/skills"; do
+for root in "${ROOTS[@]}"; do
   [ -L "$root/frappe-app-dev" ] && rm -f "$root/frappe-app-dev" && echo "removed stale link $root/frappe-app-dev"
 done
 

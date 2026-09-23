@@ -60,8 +60,9 @@ git clone git@github.com:Coale-Tech/frappeskills.git ~/.claude/skills-src/frappe
 ~/.claude/skills-src/frappeskills/install.sh
 ```
 
-`install.sh` symlinks every `frappe-*` skill into `~/.claude/skills` (and
-`~/.omp/agent/skills` when present), both discovered by Claude Code and omp.
+`install.sh` symlinks every `frappe-*` skill into each skill root that exists:
+`~/.claude/skills` (Claude Code), `~/.agents/skills` (Codex and other
+`.agents`-aware runtimes) and `~/.omp/agent/skills` (omp).
 Edit in the clone, commit from there — the symlinks mean exactly one copy exists
 on disk.
 

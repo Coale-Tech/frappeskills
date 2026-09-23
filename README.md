@@ -7,8 +7,8 @@
 
   <p>
     <img src="https://img.shields.io/badge/frappe-v16-2490EF" alt="frappe v16" />
-    <img src="https://img.shields.io/badge/skills-19-1467B1" alt="19 skills" />
-    <img src="https://img.shields.io/badge/references-64-555" alt="64 references" />
+    <img src="https://img.shields.io/badge/skills-20-1467B1" alt="20 skills" />
+    <img src="https://img.shields.io/badge/references-69-555" alt="69 references" />
   </p>
 </div>
 
@@ -50,6 +50,7 @@ ends with a `## Sources` section naming the files it was checked against.
 | [frappe-bench-operations](frappe-bench-operations/SKILL.md) | Bench CLI, site management, broken-bench recovery | 2 |
 | [frappe-manager](frappe-manager/SKILL.md) | Docker dev environments with `fm` | 1 |
 | [frappe-erpnext-hrms](frappe-erpnext-hrms/SKILL.md) | Sales, purchase, stock, accounting, payroll, leave | 2 |
+| [frappe-crm-app](frappe-crm-app/SKILL.md) | Frappe CRM: Lead/Deal pipeline, org-hierarchy permissions, SLAs, telephony/WhatsApp integrations | 5 |
 | [frappe-app-audit](frappe-app-audit/SKILL.md) | Whole-app standards and security audit | 2 |
 | [frappe-deep-research](frappe-deep-research/SKILL.md) | "How does Frappe do X" against installed source; pattern log | 2 |
 
@@ -69,8 +70,8 @@ on disk.
 For omp it also links two extras from `omp/` into `~/.omp/agent/`:
 
 - `/frappe <task>`: loads `frappe-router` and the skills it routes the task
-  to. If the task includes the word `all`, it reads all 19 skills instead.
-- `frappe-dev` agent: a task agent with all 19 skills preloaded, for large
+  to. If the task includes the word `all`, it reads all 20 skills instead.
+- `frappe-dev` agent: a task agent with all 20 skills preloaded, for large
   implementation work.
 
 For any other agent runtime, point its skill root at this directory or copy the

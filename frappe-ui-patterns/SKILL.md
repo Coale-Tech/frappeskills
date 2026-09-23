@@ -89,6 +89,7 @@ affordances before shipping.
 - Implementing the components → [`frappe-frontend-development`](../frappe-frontend-development/SKILL.md)
 - Token values and scales → [`frappe-design-tokens`](../frappe-design-tokens/SKILL.md)
 - Data and workflow modelling → [`frappe-enterprise-patterns`](../frappe-enterprise-patterns/SKILL.md)
+- Frappe CRM's actual DocTypes, permissions, SLAs and integrations behind the "Pipeline / deals" pattern → [`frappe-crm-app`](../frappe-crm-app/SKILL.md)
 
 ## References
 

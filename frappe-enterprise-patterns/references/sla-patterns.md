@@ -11,8 +11,14 @@ concept in this ecosystem:
   Priority`, `Service Day`, `Pause SLA On Status`, and `SLA Fulfilled On
   Status` child tables, wired into the `Issue` doctype.
 - **Frappe Helpdesk** ships its own `HD Service Level Agreement`.
+- **Frappe CRM** ships its own `CRM Service Level Agreement`, generic over
+  `apply_on` (any DocType, not hardcoded to one), with a `condition`/
+  `condition_json` dual-field pattern worth reusing even outside CRM — see
+  [SLA condition builder pattern](#sla-condition-builder-pattern) below and
+  [frappe-crm-app/references/crm-permissions-sla.md](../../frappe-crm-app/references/crm-permissions-sla.md)
+  for full details.
 
-**If either app is installed, reuse its doctype** — do not reinvent SLA
+**If any of these apps is installed, reuse its doctype** — do not reinvent SLA
 tracking against a doctype name (`Service Level Agreement`) that may already
 exist in the site with a different shape than the one below.
 
@@ -66,6 +72,37 @@ it is not a made-up option.
 `Duration` is a real Frappe fieldtype (stored as seconds); `Link` `options`
 should point at your own priority doctype/Select, not a doctype that doesn't
 exist in your app.
+
+## SLA condition builder pattern
+
+A `condition` field typed `Code`/`PythonExpression` (as above) is powerful
+but not user-friendly to hand-edit. Frappe CRM's real
+`CRM Service Level Agreement` doctype pairs it with a second, parallel
+field: `condition_json` (also `Code`), populated by a visual rule-builder
+widget in its frontend. Verified from the installed app
+(`crm/fcrm/doctype/crm_service_level_agreement/`):
+
+- The visual builder writes both fields: it compiles whatever rule tree the
+  user assembles into a plain Python boolean expression string, saved to
+  `condition` — and separately serializes its own JSON rule-tree
+  representation to `condition_json`, purely so the widget can rehydrate
+  itself when the record is reopened.
+- **Only `condition` is ever evaluated server-side.** CRM's
+  `validate_condition()` calls `frappe.safe_eval(self.condition, None,
+  get_context(temp_doc))` at save time — `condition_json` never reaches
+  `safe_eval` anywhere in the app. Editing `condition_json` directly (e.g.
+  via the API or a data migration) with no matching `condition` update has
+  no effect on SLA behaviour.
+- The same doctype reuses the identical pair on `Assignment Rule`: CRM's own
+  `install.py` adds `assign_condition_json`/`unassign_condition_json`
+  custom fields alongside Assignment Rule's real, evaluated
+  `assign_condition`/`unassign_condition` fields
+  (`crm/install.py:558-608`).
+
+**Reuse this shape** whenever a condition field needs a visual builder: add
+one hidden `<fieldname>_json` `Code` field next to the real evaluated
+expression field, have the builder widget write both, and never evaluate
+the `_json` field server-side — it is UI state, not logic.
 
 ## SLA application logic
 
@@ -329,3 +366,7 @@ gets filters, export, and permission enforcement for free.
   `frappe/email/doctype/notification`).
 - Real SLA schema for reference: ERPNext Support module
   (`erpnext/support/doctype/service_level_agreement`) and Frappe Helpdesk.
+- Frappe CRM `condition`/`condition_json` pattern verified against
+  `crm/fcrm/doctype/crm_service_level_agreement/crm_service_level_agreement.py`
+  (`validate_condition`) and `crm/install.py:558-608`
+  (`Assignment Rule` custom fields).

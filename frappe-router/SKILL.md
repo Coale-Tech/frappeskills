@@ -36,6 +36,7 @@ erpnext 16.6.x, hrms 16.4.x) with v15 notes throughout.
 | Docker dev environments with `fm` | → `frappe-manager` |
 | Bench CLI, site management, broken bench recovery | → `frappe-bench-operations` |
 | ERPNext or HRMS domain workflows | → `frappe-erpnext-hrms` |
+| Frappe CRM app: Lead/Deal pipeline, org-hierarchy permissions, telephony/WhatsApp | → `frappe-crm-app` |
 | Assess a whole app against framework standards | → `frappe-app-audit` |
 | "How does Frappe actually do X" against installed source | → `frappe-deep-research` |
 
@@ -73,6 +74,7 @@ Proof it works?                       → frappe-testing
 Bench broken or site ops?             → frappe-bench-operations
 Docker dev env?                       → frappe-manager
 Sales / stock / payroll semantics?    → frappe-erpnext-hrms
+Frappe CRM Lead/Deal pipeline?        → frappe-crm-app
 Whole-app quality question?           → frappe-app-audit
 "How does Frappe do X?"               → frappe-deep-research
 ```

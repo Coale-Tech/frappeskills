@@ -1,0 +1,50 @@
+// composables/useVersion.js
+// Version detection composable for v15/v16 compatibility
+
+import { ref, computed } from 'vue'
+import { call } from 'frappe-ui'
+
+export function useVersion() {
+  const version = ref(null)
+
+  async function fetchVersion() {
+    try {
+      const res = await call('frappe.version.get_version')
+      version.value = res
+    } catch (error) {
+      console.error('Failed to fetch Frappe version:', error)
+      // Default to v15 if unable to fetch
+      version.value = '15.0.0'
+    }
+  }
+
+  const isV16 = computed(() => {
+    if (!version.value) return false
+    const major = parseInt(version.value.split('.')[0])
+    return major >= 16
+  })
+
+  const isV15 = computed(() => {
+    if (!version.value) return false
+    const major = parseInt(version.value.split('.')[0])
+    return major === 15
+  })
+
+  const majorVersion = computed(() => {
+    if (!version.value) return 15
+    return parseInt(version.value.split('.')[0])
+  })
+
+  const versionString = computed(() => {
+    return version.value || '15.0.0'
+  })
+
+  return {
+    version,
+    isV16,
+    isV15,
+    majorVersion,
+    versionString,
+    fetchVersion
+  }
+}

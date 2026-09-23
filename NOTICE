@@ -1,0 +1,21 @@
+frappeskills
+Copyright (c) 2026 Coale Tech
+
+This repository contains one merged Agent Skill, `frappe-app-dev`.
+
+Portions of the skill's routing spine and the terse backend/frontend reference
+guidance are derived from the upstream Frappe skills published by Frappe
+Technologies at https://github.com/frappe/skills — specifically the
+`frappe-app-dev` skill (Global Rules, flow selection, and the initial
+references for doctypes, controllers, api, database, caching, realtime,
+background-jobs, hooks, permissions, testing, frontend and bench operations).
+That material has since been merged with, and substantially extended by,
+source-verified references written against installed Frappe v16, ERPNext v16
+and HRMS v16 source.
+
+Code examples cite Frappe Framework, ERPNext, HRMS, Frappe CRM and Frappe
+Insights source, all published by Frappe Technologies under the GNU General
+Public License v3 / MIT depending on the project. Those citations are
+references for verification, not redistribution of those works.
+
+This repository is private and not published under an open-source license.

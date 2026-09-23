@@ -1,0 +1,105 @@
+import frappe
+
+@frappe.whitelist()
+def get_{{ snake_doctype }}(name):
+    """
+    Get single document by name
+
+    Args:
+        name (str): Document name
+
+    Returns:
+        dict: Document data
+    """
+    return frappe.get_doc("{{ doctype }}", name).as_dict()
+
+
+@frappe.whitelist()
+def get_{{ plural_snake }}_list(filters=None, fields=None, limit_start=0, limit_page_length=20):
+    """
+    Get list of documents with filters
+
+    Args:
+        filters (dict): Filter conditions
+        fields (list): Fields to fetch
+        limit_start (int): Pagination start
+        limit_page_length (int): Page size
+
+    Returns:
+        list: List of documents
+    """
+    default_fields = ["name", "status", "creation", "modified", "owner"]
+
+    return frappe.get_all(
+        "{{ doctype }}",
+        fields=fields or default_fields,
+        filters=filters or {},
+        order_by="creation desc",
+        limit_start=limit_start,
+        limit_page_length=limit_page_length
+    )
+
+
+@frappe.whitelist()
+def create_{{ snake_doctype }}(data):
+    """
+    Create new document
+
+    Args:
+        data (dict): Document data
+
+    Returns:
+        dict: Created document
+    """
+    doc = frappe.new_doc("{{ doctype }}")
+    doc.update(data)
+    doc.save()
+    return doc.as_dict()
+
+
+@frappe.whitelist()
+def update_{{ snake_doctype }}(name, data):
+    """
+    Update existing document
+
+    Args:
+        name (str): Document name
+        data (dict): Data to update
+
+    Returns:
+        dict: Updated document
+    """
+    doc = frappe.get_doc("{{ doctype }}", name)
+    doc.update(data)
+    doc.save()
+    return doc.as_dict()
+
+
+@frappe.whitelist()
+def delete_{{ snake_doctype }}(name):
+    """
+    Delete document
+
+    Args:
+        name (str): Document name
+
+    Returns:
+        dict: Success status
+    """
+    frappe.delete_doc("{{ doctype }}", name)
+    return {"success": True}
+
+
+@frappe.whitelist()
+@frappe.whitelist_methods
+def get_{{ plural_snake }}_count(filters=None):
+    """
+    Get count of documents matching filters
+
+    Args:
+        filters (dict): Filter conditions
+
+    Returns:
+        int: Count of documents
+    """
+    return frappe.db.count("{{ doctype }}", filters=filters or {})

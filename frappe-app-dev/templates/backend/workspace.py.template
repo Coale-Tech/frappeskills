@@ -1,0 +1,136 @@
+"""
+v16 Workspace Setup for {{ app_name }}
+
+This module creates v16 workspaces for the app with proper
+shortcuts, links, and sidebar configuration.
+"""
+
+import frappe
+
+
+def setup_workspace():
+    """
+    Create v16 workspace for the module
+
+    This function creates a Workspace document with shortcuts and links
+    that appear in the v16 desk interface.
+    """
+    workspace_name = "{{ module_title }}"
+
+    # Check if workspace already exists
+    if frappe.db.exists("Workspace", workspace_name):
+        return
+
+    workspace = frappe.new_doc("Workspace")
+    workspace.title = workspace_name
+    workspace.module = "{{ module }}"
+    workspace.public = 1
+    workspace.icon = "{{ workspace_icon|default('layers') }}"
+    workspace.indicator_color = "{{ workspace_color|default('blue') }}"
+
+    # Add shortcuts
+    for shortcut in get_workspace_shortcuts():
+        workspace.append("shortcuts", shortcut)
+
+    # Add links (sidebar items)
+    for link in get_workspace_links():
+        workspace.append("links", link)
+
+    # Add number cards (optional stats)
+    for card in get_number_cards():
+        workspace.append("cards", card)
+
+    workspace.save()
+
+
+def get_workspace_shortcuts():
+    """
+    Define shortcuts for workspace
+
+    Shortcuts appear as cards at the top of the workspace
+    """
+    return [
+        {
+            "type": "DocType",
+            "link_to": "{{ doctype }}",
+            "label": "New {{ doctype }}",
+            "icon": "{{ icon_add|default('plus') }}",
+            "color": "green",
+            "description": "Create a new {{ doctype }}",
+            "format": "{}",
+            "doc_view": "New",
+        },
+        {
+            "type": "DocType",
+            "link_to": "{{ doctype }}",
+            "label": "All {{ plural_doctype }}",
+            "icon": "{{ icon_list|default('list') }}",
+            "color": "blue",
+            "description": "View all {{ plural_doctype_lower }}",
+            "format": "{}",
+            "doc_view": "List",
+        },
+        ]
+
+
+def get_workspace_links():
+    """
+    Define sidebar links for workspace
+
+    Links appear in the sidebar of the workspace
+    """
+    return [
+        {
+            "type": "DocType",
+            "link_to": "{{ doctype }}",
+            "label": "{{ doctype }}",
+            "icon": "{{ icon_doctype|default('file') }}",
+            "description": "Manage {{ doctype_lower }}",
+        },
+    ]
+
+
+def get_number_cards():
+    """
+    Define number cards for workspace
+
+    Number cards show statistics at the top of the workspace
+    """
+    return [
+        {
+            "label": "Total {{ plural_doctype }}",
+            "count": "{{ app_name }}.api.get_{{ plural_snake }}_count",
+            "route": "",
+            "is_target": False,
+            "indicator": "blue",
+            "card_type": "Custom",
+            "hidden": 0,
+        },
+        ]
+
+
+def get_quick_list():
+    """
+    Define quick list for workspace
+
+    Quick lists show a filtered list view
+    """
+    return [
+        {
+            "label": "Recent {{ plural_doctype }}",
+            "doctype": "{{ doctype }}",
+            "filters": {"status": ["Active", "Draft"]},
+            "limit": 10,
+            "route": "",
+            "is_target": False,
+        },
+    ]
+
+
+def get_charts():
+    """
+    Define charts for workspace (optional)
+
+    Charts show visual data representations
+    """
+    return []

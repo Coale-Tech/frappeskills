@@ -1,0 +1,32 @@
+from frappe.model.document import Document
+
+class {{ Doctype }}(Document):
+    def validate(self):
+        """Validation before save"""
+        self.validate_status()
+        self.validate_duplicate()
+
+    def before_save(self):
+        """Before save hook"""
+        pass
+
+    def on_submit(self):
+        """When document is submitted"""
+        pass
+
+    def on_cancel(self):
+        """When document is cancelled"""
+        pass
+
+    def on_update_after_submit(self):
+        """When submitted document is updated"""
+        pass
+
+    def validate_status(self):
+        """Validate status field"""
+        if self.status == "Active" and not self.name:
+            frappe.throw("Name is required for Active records")
+
+    def validate_duplicate(self):
+        """Check for duplicates based on business rules"""
+        pass

@@ -1,0 +1,483 @@
+<template>
+  <div class="p-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-2">
+      <div>
+        <h1 class="text-xl font-bold text-gray-900">{{ page_title }}</h1>
+        <p class="text-sm text-gray-600">{{ page_description }}</p>
+      </div>
+      <div class="flex gap-2">
+        <Button
+          variant="solid"
+          theme="blue"
+          size="sm"
+          @click="$router.push('/{{ route_base }}/new')"
+        >
+          <template #prefix>
+            <FeatherIcon name="plus" class="w-4 h-4" />
+          </template>
+          New {{ doctype }}
+        </Button>
+        <Button
+          variant="solid"
+          theme="gray"
+          size="sm"
+          :loading="loading"
+          @click="loadData"
+        >
+          <template #prefix>
+            <FeatherIcon name="refresh-ccw" class="w-4 h-4" />
+          </template>
+          Refresh
+        </Button>
+      </div>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div class="bg-white rounded-lg shadow mb-2">
+      <div class="p-3 border-b">
+        <h3 class="text-md font-semibold text-gray-900">{{ dashboard_title }}</h3>
+      </div>
+      <div class="p-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <NumberChart
+            v-for="stat in stats"
+            :key="stat.key"
+            :config="stat.config"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs Section -->
+    <div class="bg-white rounded-lg shadow mb-2">
+      <div class="border-b">
+        <nav class="flex overflow-x-auto">
+          <button
+            v-for="tab in tabs"
+            :key="tab.key"
+            @click="activeTab = tab.key"
+            :class="[
+              'px-4 sm:px-6 py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 flex-shrink-0',
+              activeTab === tab.key
+                ? 'border-blue-500 text-blue-600 bg-blue-50'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            ]"
+          >
+            <FeatherIcon :name="tab.icon" class="w-4 h-4" />
+            {{ tab.label }}
+            <span
+              :class="[
+                'ml-2 px-2 py-0.5 text-xs font-semibold rounded-full',
+                activeTab === tab.key
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600'
+              ]"
+            >
+              {{ getTabCount(tab.key) }}
+            </span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Search & Filter Row -->
+      <div class="p-3 border-b bg-gray-50">
+        <div class="flex gap-4 items-center flex-wrap">
+          <!-- Search Field -->
+          <div class="flex-1 min-w-[200px]">
+            <FormControl
+              type="text"
+              v-model="filters.search"
+              placeholder="Search..."
+              @input="handleSearchInput"
+            />
+          </div>
+
+          <!-- Filters -->
+          <div class="flex gap-2">
+            <FormControl
+              type="select"
+              v-model="filters.status"
+              :options="statusOptions"
+              @change="applyFilters"
+            />
+            <Button
+              variant="outline"
+              theme="gray"
+              size="sm"
+              @click="clearFilters"
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error Banner -->
+      <div v-if="error" class="bg-red-50 border-b border-red-200 p-4">
+        <div class="flex items-center">
+          <FeatherIcon name="alert-circle" class="w-5 h-5 text-red-500 mr-2" />
+          <div class="text-red-800 font-medium">Error loading data</div>
+        </div>
+        <div class="text-red-600 text-sm mt-1">{{ error }}</div>
+        <Button
+          variant="outline"
+          theme="red"
+          size="sm"
+          class="mt-2"
+          @click="loadData"
+        >
+          Try Again
+        </Button>
+      </div>
+
+      <!-- List Header -->
+      <div class="p-4 border-b">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold text-gray-900">
+            {{ getActiveTabLabel() }} ({{ filteredItems.length }})
+          </h3>
+        </div>
+      </div>
+
+      <!-- ListView -->
+      <ListView
+        class="min-h-[400px]"
+        :columns="columns"
+        :rows="transformedRows"
+        :options="listOptions"
+      >
+        <ListHeader>
+          <ListHeaderItem
+            v-for="column in columns"
+            :key="column.key"
+            :item="column"
+          >
+            <template #prefix="{ item }">
+              <FeatherIcon :name="item.icon" class="h-4 w-4" />
+            </template>
+          </ListHeaderItem>
+        </ListHeader>
+
+        <ListRows>
+          <ListRow
+            v-for="row in transformedRows"
+            :key="row.id"
+            :row="row"
+          >
+            <template #default="{ column, item }">
+              <ListRowItem
+                :item="item"
+                :align="column.align || 'left'"
+              />
+            </template>
+          </ListRow>
+        </ListRows>
+      </ListView>
+
+      <!-- Loading State -->
+      <div v-if="loading" class="text-center py-12">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p class="text-gray-500">Loading...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div v-if="!loading && filteredItems.length === 0" class="text-center py-12">
+        <FeatherIcon name="inbox" class="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No items found</h3>
+        <p class="text-gray-500 mb-4">{{ getEmptyStateMessage() }}</p>
+        <Button
+          variant="solid"
+          theme="blue"
+          @click="$router.push('/{{ route_base }}/new')"
+        >
+          Create Your First {{ doctype }}
+        </Button>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="!loading && filteredItems.length > 0" class="border-t bg-gray-50 px-6 py-3">
+        <div class="flex items-center justify-between">
+          <div class="text-sm text-gray-700">
+            Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ Math.min(currentPage * pageSize, filteredItems.length) }} of {{ filteredItems.length }} items
+          </div>
+
+          <div class="flex items-center gap-2">
+            <Button
+              variant="outline"
+              theme="gray"
+              size="sm"
+              :disabled="currentPage === 1"
+              @click="currentPage = 1"
+            >
+              <FeatherIcon name="chevrons-left" class="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              theme="gray"
+              size="sm"
+              :disabled="currentPage === 1"
+              @click="currentPage = currentPage - 1"
+            >
+              <FeatherIcon name="chevron-left" class="w-4 h-4" />
+            </Button>
+
+            <span class="px-2 text-sm text-gray-700">
+              Page {{ currentPage }} of {{ totalPages }}
+            </span>
+
+            <Button
+              variant="outline"
+              theme="gray"
+              size="sm"
+              :disabled="currentPage === totalPages"
+              @click="currentPage = currentPage + 1"
+            >
+              <FeatherIcon name="chevron-right" class="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              theme="gray"
+              size="sm"
+              :disabled="currentPage === totalPages"
+              @click="currentPage = totalPages"
+            >
+              <FeatherIcon name="chevrons-right" class="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { Button, FeatherIcon, FormControl, ListView, NumberChart } from 'frappe-ui'
+import { ListHeader, ListHeaderItem, ListRow, ListRowItem, ListRows } from 'frappe-ui'
+import { call, createResource } from 'frappe-ui'
+import { computed, ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+// Config
+const page_title = ref("{{ page_title }}")
+const page_description = ref("{{ page_description }}")
+const route_base = ref("{{ route_base }}")
+const doctype = ref("{{ doctype }}")
+const dashboard_title = ref("Overview")
+
+// State
+const data = ref([])
+const loading = ref(false)
+const error = ref(null)
+const activeTab = ref("all")
+const currentPage = ref(1)
+const pageSize = ref(25)
+
+// Filters
+const filters = ref({
+  search: "",
+  status: ""
+})
+
+// Tabs configuration
+const tabs = [
+  { key: "all", label: "All", icon: "list" },
+  { key: "active", label: "Active", icon: "check-circle" },
+  { key: "draft", label: "Draft", icon: "file" },
+]
+
+// Status options
+const statusOptions = [
+  { label: "All Statuses", value: "" },
+  { label: "Active", value: "Active" },
+  { label: "Draft", value: "Draft" },
+  { label: "Inactive", value: "Inactive" },
+]
+
+// Stats configuration
+const stats = computed(() => [
+  {
+    key: "total",
+    config: {
+      title: "Total {{ doctype }}",
+      value: data.value.length,
+      delta: 0,
+      deltaSuffix: ""
+    }
+  },
+  {
+    key: "active",
+    config: {
+      title: "Active",
+      value: data.value.filter(i => i.status === "Active").length,
+      delta: 0,
+      deltaSuffix: ""
+    }
+  },
+  {
+    key: "draft",
+    config: {
+      title: "Draft",
+      value: data.value.filter(i => i.status === "Draft").length,
+      delta: 0,
+      deltaSuffix: ""
+    }
+  },
+  {
+    key: "inactive",
+    config: {
+      title: "Inactive",
+      value: data.value.filter(i => i.status === "Inactive").length,
+      delta: 0,
+      deltaSuffix: ""
+    }
+  }
+])
+
+// Columns configuration
+const columns = [
+  {
+    label: "Name",
+    key: "name",
+    width: 3,
+    icon: "file-text"
+  },
+  {
+    label: "Status",
+    key: "status",
+    width: "120px",
+    icon: "check-circle"
+  },
+  {
+    label: "Modified",
+    key: "modified",
+    width: "150px",
+    icon: "clock"
+  },
+  {
+    label: "Actions",
+    key: "actions",
+    width: "100px",
+    icon: "more-horizontal"
+  }
+]
+
+// List options
+const listOptions = {
+  onRowClick: (row) => {
+    router.push(`/${route_base.value}/${row.id}`)
+  },
+  selectable: true,
+  showTooltip: true
+}
+
+// API Resource
+const resource = createResource({
+  url: "{{ app_name }}.api.get_{{ plural_snake }}_list",
+  params: {
+    limit_page_length: 0
+  },
+  auto: true,
+  onSuccess: (response) => {
+    data.value = response.message || response || []
+    loading.value = false
+    error.value = null
+  },
+  onError: (err) => {
+    error.value = err.message || "Failed to load data"
+    loading.value = false
+  }
+})
+
+// Computed
+const filteredItems = computed(() => {
+  if (!Array.isArray(data.value)) return []
+
+  let filtered = data.value
+
+  // Apply tab filter
+  if (activeTab.value !== "all") {
+    filtered = filtered.filter(item => item.status === activeTab.value.charAt(0).toUpperCase() + activeTab.value.slice(1))
+  }
+
+  // Apply search
+  if (filters.value.search) {
+    const search = filters.value.search.toLowerCase()
+    filtered = filtered.filter(item =>
+      (item.name || "").toLowerCase().includes(search)
+    )
+  }
+
+  // Apply status filter
+  if (filters.value.status) {
+    filtered = filtered.filter(item => item.status === filters.value.status)
+  }
+
+  return filtered
+})
+
+const transformedRows = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return filteredItems.value.slice(start, end).map(item => ({
+    id: item.name,
+    name: { label: item.name },
+    status: { label: item.status },
+    modified: { label: formatDate(item.modified) }
+  }))
+})
+
+const totalPages = computed(() => {
+  return Math.ceil(filteredItems.value.length / pageSize.value)
+})
+
+// Methods
+function loadData() {
+  loading.value = true
+  error.value = null
+  resource.fetch()
+}
+
+function handleSearchInput() {
+  currentPage.value = 1
+}
+
+function applyFilters() {
+  currentPage.value = 1
+}
+
+function clearFilters() {
+  filters.value.search = ""
+  filters.value.status = ""
+  currentPage.value = 1
+}
+
+function getTabCount(tabKey) {
+  if (tabKey === "all") return data.value.length
+  const status = tabKey.charAt(0).toUpperCase() + tabKey.slice(1)
+  return data.value.filter(i => i.status === status).length
+}
+
+function getActiveTabLabel() {
+  const tab = tabs.find(t => t.key === activeTab.value)
+  return tab ? tab.label : "Items"
+}
+
+function getEmptyStateMessage() {
+  if (filters.value.search) {
+    return `No items found matching "${filters.value.search}"`
+  }
+  return "Get started by creating your first item"
+}
+
+function formatDate(dateString) {
+  if (!dateString) return "-"
+  return new Date(dateString).toLocaleDateString()
+}
+
+onMounted(() => {
+  loadData()
+})
+</script>

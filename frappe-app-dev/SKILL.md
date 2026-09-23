@@ -9,9 +9,9 @@ description: >-
   applying Espresso design tokens, writing custom-field fixtures, writing
   background jobs or scheduled tasks, managing permissions or roles, writing
   Frappe tests, auditing an app against framework standards, or working with
-  frappe.db / frappe.qb. Also applies to ERPNext and HRMS domain workflows
-  (sales, purchase, stock, accounting, payroll, leave), v15 to v16 migration
-  questions, and "how does Frappe do X" deep-research questions. Triggers on
+  frappe.db / frappe.qb. Also covers ERPNext/HRMS workflows (sales, purchase,
+  stock, accounting, payroll, leave), v15 to v16 migration, and "how does
+  Frappe do X" deep research. Triggers on
   phrases like "how do I hook into save", "add a field to a DocType", "create a
   REST endpoint in Frappe", "run bench migrate", "install an app on a site",
   "why is my job failing", or "audit this app" — even without the word Frappe.

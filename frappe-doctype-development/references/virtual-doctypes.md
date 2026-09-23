@@ -62,31 +62,31 @@ import requests
 
 class ExternalProduct(Document):
     @staticmethod
-    def get_list(args):
-        """Return list of documents for list view."""
+    def get_list(**kwargs):
+        """Return list of documents for list view. (v16 signature — see note below.)"""
         products = fetch_from_api()
-        
+
         # Apply filters if provided
-        if args.get("filters"):
-            products = apply_filters(products, args["filters"])
-        
+        if kwargs.get("filters"):
+            products = apply_filters(products, kwargs["filters"])
+
         # Apply pagination
-        start = args.get("start", 0)
-        page_length = args.get("page_length", 20)
+        start = kwargs.get("start", 0)
+        page_length = kwargs.get("page_length", 20)
         products = products[start:start + page_length]
-        
+
         return products
-    
+
     @staticmethod
-    def get_count(args):
+    def get_count(**kwargs):
         """Return total count for pagination."""
         products = fetch_from_api()
-        if args.get("filters"):
-            products = apply_filters(products, args["filters"])
+        if kwargs.get("filters"):
+            products = apply_filters(products, kwargs["filters"])
         return len(products)
-    
+
     @staticmethod
-    def get_stats(args):
+    def get_stats(**kwargs):
         """Return stats for sidebar."""
         return {}
 
@@ -133,19 +133,35 @@ def get_api_key():
 
 ## Required Methods
 
-### get_list(args)
-Returns list of documents. Called for list view and `frappe.get_list()`.
+`validate_controller` (`frappe/model/virtual_doctype.py`) checks at doctype-load time that
+`get_list`, `get_count`, `get_stats` are `@staticmethod`s and that `db_insert`, `db_update`,
+`load_from_db`, `delete` are overridden from `Document` — printing a `msgprint` warning
+(not a hard error) if any are missing.
+
+**(v16) Signature change**: the `VirtualDoctype` protocol takes `**kwargs`, not a single
+positional `args` dict (v15 was `get_list(args)` / `get_count(args)` / `get_stats(args)`).
+Callers (`frappe/desk/reportview.py`, `frappe/model/db_query.py`) build one `args` dict and
+invoke `frappe.call(controller.get_list, args=that_dict, **that_dict)` — `frappe.call` uses
+`get_newargs()` to match the callee's parameters, so a v16 `**kwargs` signature receives both
+the whole dict under the key `args` and every individual key (`filters`, `fields`, `start`,
+`page_length`, `order_by`, `doctype`, ...) spread as kwargs. A v15-style `def get_list(args):`
+still works unchanged in v16 (`get_newargs` filters kwargs down to the one parameter named
+`args`), but new code should use `**kwargs` to match the current `Protocol`.
+
+### get_list(**kwargs)
+Returns list of documents. Called for list view, `frappe.get_list()`, and REST `GET /api/resource/<doctype>`.
 
 ```python
 @staticmethod
-def get_list(args):
+def get_list(**kwargs):
     """
-    args contains:
+    kwargs contains (among others):
     - filters: List of filter conditions
     - fields: List of fields to return
     - start: Pagination start index
     - page_length: Number of records
     - order_by: Sort field and direction
+    - args: the same values collected into one dict, for v15-style code
     """
     return [
         {"name": "PROD-001", "product_name": "Widget", "price": 99.99},
@@ -153,21 +169,21 @@ def get_list(args):
     ]
 ```
 
-### get_count(args)
+### get_count(**kwargs)
 Returns total count for pagination.
 
 ```python
 @staticmethod
-def get_count(args):
+def get_count(**kwargs):
     return 100  # Total records
 ```
 
-### get_stats(args)
-Returns statistics for sidebar filters.
+### get_stats(**kwargs)
+Returns statistics for sidebar filters. Called with `stats` and `filters` keys.
 
 ```python
 @staticmethod
-def get_stats(args):
+def get_stats(**kwargs):
     return {
         "status": {"Active": 50, "Inactive": 30}
     }
@@ -183,26 +199,30 @@ class ExternalProduct(Document):
         """Load document from external source."""
         product_id = self.name
         product = fetch_single_product(product_id)
-        
+
         if not product:
             frappe.throw(_("Product not found"))
-        
+
         # Set document attributes
         self.product_id = product["id"]
         self.product_name = product["name"]
         self.price = product["price"]
         self.stock = product["stock"]
-    
-    def db_insert(self):
-        """Create in external source."""
+
+    def db_insert(self, *args, **kwargs):
+        """Create in external source. `Document.insert()` always calls this as
+        `self.db_insert(ignore_if_duplicate=...)` — a bare `def db_insert(self):`
+        raises TypeError. Accept `*args, **kwargs` even if unused."""
         create_product_in_api(self.as_dict())
-    
+
     def db_update(self):
-        """Update in external source."""
+        """Update in external source. Called with no arguments."""
         update_product_in_api(self.name, self.as_dict())
-    
+
     def delete(self):
-        """Delete from external source."""
+        """Delete from external source. `frappe.delete_doc` calls this directly for
+        virtual doctypes and skips `on_trash`/`on_change`/`after_delete` entirely
+        (`frappe/model/delete_doc.py`) — run any cleanup here, not in `on_trash`."""
         delete_product_from_api(self.name)
 
 def fetch_single_product(product_id):
@@ -211,6 +231,11 @@ def fetch_single_product(product_id):
         return response.json()
     return None
 ```
+
+`frappe.delete_doc` also refuses to run at all if `delete()` is not overridden — it raises
+`"{doctype} is a Virtual DocType and must implement its own delete() method."` when the
+controller still uses the base `Document.delete` (which would otherwise recurse into
+`frappe.delete_doc` and loop).
 
 ## Virtual DocType from Database
 
@@ -227,14 +252,17 @@ class ExternalCustomer(Document):
             with conn.cursor(pymysql.cursors.DictCursor) as cursor:
                 sql = "SELECT id as name, name as customer_name, email FROM customers"
                 
+                values = []
                 if args.get("filters"):
                     where_clauses = []
-                    for f in args["filters"]:
+                    for f in args["filters"]:  # whitelist f[0] against known columns
                         where_clauses.append(f"{f[0]} = %s")
+                        values.append(f[-1])
                     sql += " WHERE " + " AND ".join(where_clauses)
-                
-                sql += f" LIMIT {args.get('start', 0)}, {args.get('page_length', 20)}"
-                cursor.execute(sql)
+
+                sql += " LIMIT %s, %s"
+                values += [int(args.get("start", 0)), int(args.get("page_length", 20))]
+                cursor.execute(sql, values)
                 return cursor.fetchall()
         finally:
             conn.close()
@@ -322,6 +350,9 @@ def invalidate_cache():
 - No transactions across virtual and real DocTypes
 - Links to Virtual DocTypes need manual handling
 - Report Builder may not work (use Script Reports)
+- Child tables (`Table`/`TableMultiSelect` fields) are never auto-persisted — `Document.insert()`
+  skips the children `db_insert()` loop entirely for virtual doctypes (`frappe/model/document.py`);
+  serialize/restore child rows yourself inside `db_insert`/`db_update`/`load_from_db`
 
 ## Best Practices
 
@@ -332,4 +363,7 @@ def invalidate_cache():
 5. **Log errors** — Use `frappe.log_error()` for debugging
 6. **Validate on write** — If supporting writes, validate before sending
 
-Sources: Virtual DocType, Custom Data Sources (official docs)
+Sources: Virtual DocType, Custom Data Sources (official docs). `VirtualDoctype` protocol and
+`validate_controller` verified against `apps/frappe/frappe/model/virtual_doctype.py`; dispatch
+and call signatures against `apps/frappe/frappe/desk/reportview.py`, `apps/frappe/frappe/model/db_query.py`,
+and `apps/frappe/frappe/model/delete_doc.py` (Frappe v16.35.0).

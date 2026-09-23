@@ -18,14 +18,14 @@ Fixtures are the recommended way to add custom fields to standard DocTypes. They
 | **Manual UI** | Visual | Not replicable, hard to track |
 | **Fixtures** | Migration-safe, version controlled, replicable | Requires setup |
 
-## Recommended: `create_custom_fields` (framework helper)
+## Recommended: `create_custom_fields` / `delete_custom_fields` (framework helpers)
 
-Rather than hand-rolling the create/update/exists loop shown later, use Frappe's built-in helper — this is how
-ERPNext and HRMS register their own custom fields. It creates **or updates** in one idempotent call and rebuilds
-the DB schema for you.
+Rather than hand-rolling the create/update/exists loop shown later, use Frappe's built-in helpers — this is
+how ERPNext and HRMS register their own custom fields. `create_custom_fields` creates **or updates** in one
+idempotent call and rebuilds the DB schema for you; `delete_custom_fields` is its cleanup counterpart.
 
 ```python
-from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+from frappe.custom.doctype.custom_field.custom_field import create_custom_fields, delete_custom_fields
 
 def setup_custom_fields():
     create_custom_fields({
@@ -39,11 +39,17 @@ def setup_custom_fields():
                  label="Delivery Notes", insert_after="terms"),
         ],
     }, update=True)
+
+def remove_custom_fields():
+    delete_custom_fields({"Customer": ["custom_region"]})
 ```
 
-Signature (verified): `create_custom_fields(custom_fields: dict, ignore_validate=False, update=True)`. Pass
-`update=True` (default) to keep existing fields in sync on every run — safe to call from `after_install` **and**
-`after_migrate`. The verbose manual pattern below remains valid if you need per-field control.
+Signatures (verified): `create_custom_fields(custom_fields: dict, ignore_validate=False, update=True)`.
+Pass `update=True` (default) to keep existing fields in sync on every run — safe to call from
+`after_install` **and** `after_migrate`. `delete_custom_fields(custom_fields: dict, bypass_hooks: bool = False)`
+accepts either a list of fieldname strings or a list of `{"fieldname": ...}` dicts per doctype;
+`bypass_hooks=True` does a fast raw `frappe.db.delete` that skips `on_trash` doc events. The verbose
+manual pattern below remains valid if you need per-field control.
 
 ## Fixture Pattern
 
@@ -223,24 +229,36 @@ before_uninstall = [
 # }
 ```
 
-### Method 2: Using Fixtures Hook
+### Method 2: Using the `fixtures` Hook (export/import, not generation)
+
+`fixtures` does not run a generator function — it tells `bench export-fixtures` which already-existing
+records to dump to JSON under `my_app/fixtures/`, and those JSON files are re-imported automatically on
+`bench migrate`. Create the records first (e.g. via `create_custom_fields()` in `after_install`, or once
+through the UI in developer mode), then list them here so they ship with the app:
 
 ```python
 # hooks.py
-
-# Fixtures for custom fields
 fixtures = [
+    "Custom Field",  # exports every Custom Field record
     {
         "dt": "Custom Field",
-        "dn": "my_app.fixtures.custom_fields.get_custom_fields",
-        "condition": "my_app.fixtures.custom_fields.custom_field_condition"
-    }
+        "filters": [["module", "=", "My App"]],
+    },
+    {
+        "doctype": "Role",
+        "or_filters": [["name", "in", ["Expense Manager", "Expense Approver"]]],
+        "prefix": "roles",  # filename becomes roles_role.json
+    },
 ]
-
-# Optional condition function
-# def custom_field_condition():
-#     return True
 ```
+
+Each entry is either a bare doctype name (string) or a dict with `dt`/`doctype` plus optional `filters`,
+`or_filters`, and `prefix` (source: `frappe/utils/fixtures.py::export_fixtures`, which reads exactly these
+keys and calls `frappe.core.doctype.data_import.data_import.export_json(doctype, path, filters=filters,
+or_filters=or_filters, ...)`). There is no `dn` or `condition` key — that shape does not exist in the
+framework; a dict without a resolvable doctype fails export. Set `fixture_auto_order = True` in `hooks.py`
+to prefix exported filenames with a zero-padded index matching declaration order, so imports apply in a
+predictable sequence.
 
 ## Field Properties Reference
 
@@ -477,6 +495,10 @@ make_property_setter("Sales Invoice", "status", "options",
 make_property_setter("Sales Invoice", "currency", "default", "KES", "Data")
 ```
 
+Cleanup counterparts: `delete_property_setter(doc_type, property=None, field_name=None, row_name=None)`
+removes matching property setters on a single field/doctype; `bulk_delete_property_setters(property_setters:
+list[dict], bypass_hooks=False)` removes many at once (`frappe/custom/doctype/property_setter/property_setter.py`).
+
 ---
 
 ## Export / Import Fixtures
@@ -504,7 +526,8 @@ fixtures = [
 ]
 ```
 
-Fixtures are auto-imported during `bench --site <site> migrate`.
+Fixtures are auto-imported during `bench --site <site> migrate`. Pass `--skip-fixtures` (v16) to skip that
+step for one run — the v15 baseline has no such flag (`frappe/commands/site.py`).
 
 ---
 
@@ -541,7 +564,14 @@ def before_uninstall():
 
 ## Sources
 
-Verified against Frappe v16.27.1 at `<bench>/apps/frappe`:
-- `apps/frappe/frappe/custom/doctype/custom_field/custom_field.py` — `create_custom_fields(custom_fields, ignore_validate=False, update=True)`
-- `apps/frappe/frappe/custom/doctype/property_setter/property_setter.py` — `make_property_setter(doctype, fieldname, property, value, property_type, ...)`
-- `apps/frappe/frappe/commands/utils.py` — `export-fixtures` CLI (`--app` option); `apps/frappe/frappe/utils/fixtures.py`
+Verified against Frappe v16.35.0 at `<bench>/apps/frappe`, cross-checked against the v15.120.0 baseline:
+- `apps/frappe/frappe/custom/doctype/custom_field/custom_field.py` — `create_custom_fields(custom_fields, ignore_validate=False, update=True)`, `delete_custom_fields(custom_fields, bypass_hooks=False)`
+- `apps/frappe/frappe/custom/doctype/property_setter/property_setter.py` — `make_property_setter(doctype, fieldname, property, value, property_type, ...)`, `delete_property_setter(...)`, `bulk_delete_property_setters(...)`
+- `apps/frappe/frappe/commands/utils.py` — `export-fixtures` CLI (`--app` option); `apps/frappe/frappe/commands/site.py` — `migrate --skip-fixtures` (v16)
+- `apps/frappe/frappe/utils/fixtures.py` — `export_fixtures`/`sync_fixtures`, the `fixtures` hook's `dt`/`doctype`, `filters`, `or_filters`, `prefix` keys, and `fixture_auto_order`
+- `apps/frappe/frappe/utils/fixtures.py::import_fixtures` — actually imports each JSON via
+  `frappe.core.doctype.data_import.data_import.import_doc`, not `frappe/modules/import_file.py`.
+  `import_file.py` is a separate mechanism: it syncs module-bundled record JSON (Reports, Print
+  Formats, Workspaces, …) shipped inside `<app>/<module>/<doctype>/<name>/<name>.json` via the
+  `importable_doctypes` hook and `frappe/model/sync.py` during `bench migrate` — unrelated to the
+  `fixtures` hook / `<app>/fixtures/` folder covered in this file.

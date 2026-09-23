@@ -12,6 +12,8 @@ For feature-wise tests, place in the tests directory:
 apps/<app>/<app>/tests/test_<feature>.py
 ```
 
+Discovery only picks up files named `test_*.py` (`frappe/testing/discovery.py`).
+
 ## Writing tests
 
 ```python
@@ -30,8 +32,18 @@ class TestExpense(IntegrationTestCase):
 ```
 
 Key patterns:
-- Inherit from `frappe.tests.IntegrationTestCase` (not `unittest.TestCase`). `frappe.tests.utils.FrappeTestCase` is a deprecated alias for the same class — use `IntegrationTestCase` in new code.
+- Inherit from `frappe.tests.IntegrationTestCase` (not `unittest.TestCase`), defined in
+  `frappe/tests/classes/integration_test_case.py`. It handles site connection, test-record
+  loading, and rollback for you.
+- `frappe.tests.utils.FrappeTestCase` is a deprecated compatibility shim (deprecated
+  2024-08-20, removed in v17) — a standalone copy of the old pre-split base class, not the
+  same object as `IntegrationTestCase`. It is "overwhelmingly API-compatible" per its own
+  docstring, but new code should inherit `IntegrationTestCase`/`UnitTestCase` from
+  `frappe.tests` directly (`frappe/deprecation_dumpster.py`). Tests still inheriting
+  `FrappeTestCase` are silently bucketed into a legacy `old-frappe-test-class-category` by the
+  runner and emit a `DeprecationWarning` (`frappe/testing/discovery.py`).
 - Tests run inside a transaction that rolls back — no manual cleanup needed
+  (`IntegrationTestCase.setUpClass` registers `frappe.db.rollback` as a class cleanup).
 
 ## Unit tests (no database)
 
@@ -45,7 +57,79 @@ class TestExpenseUtils(UnitTestCase):
         self.assertEqual(calculate_tax(100, 0.1), 10)
 ```
 
-`UnitTestCase` is faster — no DB setup/teardown. Use for utility functions, calculations, parsing logic.
+`UnitTestCase` (`frappe/tests/classes/unit_test_case.py`) only sets `frappe.set_user`
+in `setUpClass` — no `frappe.init()`/DB connection/test-record loading, unlike
+`IntegrationTestCase`. Use it for utility functions, calculations, parsing logic.
+`IntegrationTestCase` extends `UnitTestCase`, so integration tests get its assertions too.
+
+The `--test-category {unit,integration,all}` flag on `run-tests` filters by which base class a
+test inherits (`frappe/testing/discovery.py`), so `UnitTestCase` subclasses can be run alone
+for a fast pre-check.
+
+## Frappe-specific assertions
+
+Beyond stdlib `unittest` assertions, `UnitTestCase` adds (`frappe/tests/classes/unit_test_case.py`):
+
+```python
+self.assertDocumentEqual(expected, actual)   # dict/BaseDocument vs. a Document, field-by-field
+self.assertQueryEqual(sql_a, sql_b)          # compares normalized (formatted) SQL strings
+self.assertSequenceSubset(larger, smaller)   # smaller is a subset of larger
+```
+
+`IntegrationTestCase` adds DB-connection-dependent context managers
+(`frappe/tests/classes/integration_test_case.py`):
+
+```python
+with self.assertQueryCount(5):                    # fails if more than 5 SQL queries run
+    ...
+with self.assertRowsRead(100):                     # fails if more than 100 rows are read
+    ...
+with self.assertRedisCallCounts(3):                 # fails on a different Redis call count
+    ...
+with self.primary_connection():                     # switch to the primary DB connection
+    ...
+with self.secondary_connection():                    # open/switch to a secondary DB connection
+    ...
+```
+
+## Test context managers
+
+`frappe/tests/classes/context_managers.py` registers these as both instance/static methods on
+`UnitTestCase`/`IntegrationTestCase` (`self.<name>(...)`) and as free functions importable from
+`frappe.tests`:
+
+```python
+from frappe.tests import change_settings, set_user, freeze_time, patch_hooks, timeout
+
+class TestExpense(IntegrationTestCase):
+    def test_over_limit_blocked(self):
+        with self.change_settings("Expense Settings", max_amount=1000):
+            ...
+
+    def test_as_restricted_user(self):
+        with self.set_user("test_user@example.com"):
+            self.assertFalse(frappe.has_permission("Expense", "delete"))
+        # user is restored automatically on exit
+
+    def test_uses_frozen_time(self):
+        with self.freeze_time("2024-01-01 12:00:00"):
+            self.assertEqual(frappe.utils.now_datetime().year, 2024)
+```
+
+| Context manager | Scope | Purpose |
+|---|---|---|
+| `change_settings(doctype, /, commit=False, **fields)` | `IntegrationTestCase` | Temporarily set fields on a Settings singleton, restored on exit |
+| `set_user(user)` | `UnitTestCase` | Temporarily switch `frappe.session.user`, restored on exit |
+| `freeze_time(time_to_freeze, is_utc=False)` | `UnitTestCase` | Freeze time via `freezegun` |
+| `patch_hooks(overridden_hooks)` | `UnitTestCase` | Temporarily override `frappe.get_hooks()` results |
+| `switch_site(site)` | `IntegrationTestCase` | Drop the current connection and connect to a different site |
+| `enable_safe_exec()` | `UnitTestCase` | Temporarily enable server scripts for the test |
+| `debug_on(*exceptions)` | `UnitTestCase` | Drop into `pdb` when one of `exceptions` is raised (default `AssertionError`) |
+| `timeout(seconds=30)` / `timeout_context(seconds=30)` | `UnitTestCase` | Decorator / context manager that raises if the block exceeds the timeout |
+| `trace_fields(...)` | `UnitTestCase` | Trace reads/writes of specific Document fields for debugging |
+
+Prefer these over ad hoc `try/finally` restoration blocks — they are the idiomatic pattern and
+are what `run-tests --debug` hooks into (it wraps every test method with `debug_on`).
 
 ## Test fixtures
 
@@ -61,9 +145,10 @@ Fixture helpers below insert with `ignore_permissions=True` because factory setu
 any permission scenario is under test; that bypass is expected in test code and does not need
 a comment on every call (unlike application code, where each bypass needs its own justification).
 
-### JSON test records
+### JSON/TOML test records
 
-Automatically loaded before tests run, from `<app>/<module>/doctype/<doctype>/test_records.json`:
+Automatically loaded before tests run, from `<app>/<module>/doctype/<doctype>/test_records.json`
+or, (v16), `test_records.toml` (`frappe/tests/utils/generators.py`):
 
 ```json
 [
@@ -79,14 +164,31 @@ class TestSampleDoc(IntegrationTestCase):
         self.assertIsNotNone(doc)
 ```
 
+Loading priority for a doctype's records (`_generate_records_for` in `generators.py`):
+1. A `_make_test_records()` function in the doctype's `test_<doctype>.py` — full escape hatch.
+2. A `test_records` list attribute in the same module.
+3. `test_records.toml` next to the doctype (v16).
+4. `test_records.json` (legacy format, still read if the above are absent).
+
+Any `IntegrationTestCase` subclass can read already-loaded global test records without
+re-querying the DB via `self.globalTestRecords["Sample Doc"]` (a `MappingProxyType` populated
+in `setUpClass`, `frappe/tests/classes/integration_test_case.py`).
+
 ### Dependency fixtures
 
 Declare DocTypes that must be loaded first:
 
 ```python
 # my_app/doctype/sales_order/test_sales_order.py
-test_dependencies = ["Customer", "Item", "Warehouse"]
+EXTRA_TEST_RECORD_DEPENDENCIES = ["Customer", "Item", "Warehouse"]
+IGNORE_TEST_RECORD_DEPENDENCIES = ["Territory"]  # skip auto-discovered link-field dependencies
 ```
+
+The older names `test_dependencies`/`test_ignore` still work but are deprecated (target
+removal v17, migration script linked in the warning) — use `EXTRA_TEST_RECORD_DEPENDENCIES`/
+`IGNORE_TEST_RECORD_DEPENDENCIES` in new code (`frappe/tests/utils/generators.py`,
+`get_missing_records_module_overrides`). `frappe/tests/__init__.py` also declares
+`global_test_dependencies = ["User"]` — `User` test records are always available.
 
 ### Factory functions
 
@@ -232,6 +334,7 @@ Convention: if the dev site is `expense.localhost`, create `expense-test.localho
 ```bash
 bench new-site expense-test.localhost --admin-password admin
 bench --site expense-test.localhost install-app <app-name>
+bench --site expense-test.localhost set-config allow_tests 1 --parse
 ```
 
 Always run tests against the test site:
@@ -253,25 +356,58 @@ bench --site <site> run-tests --module <app>.<module>.doctype.<doctype>.test_<do
 
 # Specific test method
 bench --site <site> run-tests --module <app>.<module>.doctype.<doctype>.test_<doctype> --test test_expense_creation
+
+# Only unit tests (UnitTestCase, no DB) or only integration tests
+bench --site <site> run-tests --app <app-name> --test-category unit
+bench --site <site> run-tests --app <app-name> --test-category integration
 ```
+
+`--doctype`, `--doctype-list-path`, `--module-def`, and `--module` are mutually exclusive
+(`frappe/commands/testing.py`).
+
+Other `run-tests` flags worth knowing (`frappe/commands/testing.py`):
+
+| Flag | Effect |
+|---|---|
+| `--case <TestCaseClass>` | Run only the named `TestCase` class |
+| `--profile` | Run under `cProfile`, print cumulative stats |
+| `--coverage` | Produce a coverage report via `frappe.coverage.CodeCoverage` |
+| `--junit-xml-output <path>` | Write a JUnit XML report |
+| `--failfast` | Stop on first failure |
+| `--debug` | Disable output buffering, drop into `pdb` on any exception |
+| `--skip-before-tests` | Skip the app's `before_tests` hook |
+| `--lightmode` | Skip most environment setup for a faster, less isolated run |
+| `--skip-test-records` | DEPRECATED, no longer has an effect |
+
+### Parallel tests
+
+`bench run-parallel-tests` splits an app's test files across N build shards by weight
+(`frappe/parallel_test_runner.py`):
+
+```bash
+bench --site <site> run-parallel-tests --app <app-name> \
+  --build-number 1 --total-builds 4
+```
+
+Flags: `--build-number`, `--total-builds`, `--with-coverage` (env `CAPTURE_COVERAGE`),
+`--use-orchestrator` (delegate splitting to Frappe Cloud's parallel test orchestrator),
+`--dry-run`, `--lightmode`.
 
 UI tests: [references/cypress.md](cypress.md).
 
 ## Testing permissions
 
-Switch user context to exercise role-based access, and always restore it:
+Switch user context to exercise role-based access, using the `set_user` context manager so the
+original user is always restored, even on failure:
 
 ```python
 class TestPermissions(IntegrationTestCase):
     def test_permission_denied(self):
         doc = frappe.get_doc({"doctype": "Sales Order", "customer": "_Test Customer"}).insert()
-        try:
-            frappe.set_user("test_user@example.com")
+        with self.set_user("test_user@example.com"):
             self.assertFalse(frappe.has_permission("Sales Order", "delete"))
             doc.customer = "Other"
             self.assertRaises(frappe.PermissionError, doc.save)
-        finally:
-            frappe.set_user("Administrator")
 ```
 
 ## Common pitfalls
@@ -282,3 +418,5 @@ class TestPermissions(IntegrationTestCase):
 - Asserting on internal method calls or field wiring instead of observable behaviour makes tests brittle.
 - Hardcoded fixed test-record names collide with existing or parallel test data — use unique names.
 - Testing only as `Administrator` skips permission bugs — assert role-restricted behaviour too.
+- `EXTRA_TEST_RECORD_DEPENDENCIES`/`test_dependencies` only affects fixture loading order, not
+  test execution order; don't rely on it for anything else.

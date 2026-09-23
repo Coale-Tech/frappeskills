@@ -57,7 +57,7 @@ website_route_rules = [
 # App installation hooks
 after_install = [
     "{{ app_name }}.install.setup_custom_fields",
-    "{{ app_name }}.install.setup_workspace",  # v16 only, safe for v15
+    "{{ app_name }}.install.setup_workspace",
 ]
 
 before_uninstall = [
@@ -65,15 +65,19 @@ before_uninstall = [
 ]
 
 # ==========================================================================
-# FIXTURES (v15/v16 Compatible)
+# FIXTURES
 # ==========================================================================
 
+# Ship already-created Custom Field / Property Setter records with the app. Create the
+# records first (create_custom_fields() in after_install); `fixtures` only controls what
+# `bench export-fixtures` dumps to `{{ app_name }}/fixtures/*.json` for re-import on migrate.
+# There is no "dn"/"condition" key — entries are a doctype name or a dict of
+# dt/doctype + filters/or_filters/prefix (frappe/utils/fixtures.py::export_fixtures).
 fixtures = [
     {
         "dt": "Custom Field",
-        "dn": "{{ app_name }}.fixtures.custom_fields.get_custom_fields",
-        "condition": "{{ app_name }}.fixtures.custom_fields.custom_field_condition"
-    }
+        "filters": [["module", "=", "{{ module }}"]],
+    },
 ]
 
 # ==========================================================================
@@ -105,27 +109,4 @@ override_whitelisted_methods = {
 #     "monthly": [
 #         "{{ app_name }}.tasks.monthly_report"
 #     ]
-# }
-
-# ==========================================================================
-# EXPRESSIONS
-# ==========================================================================
-
-# DocType extended expressions
-# {{ doctype }}_item_code_variants = "{{ app_name }}.utils.get_item_code_variants"
-
-# ==========================================================================
-# DESK PAGE ICONS (v15)
-# ==========================================================================
-
-# desk_icons = {
-#     "{{ module_name }}": "{{ app_name }}/assets/icons/{{ module_name }}.svg"
-# }
-
-# ==========================================================================
-# JINJA CONTEXT PROCESSORS
-# ==========================================================================
-
-# jinja_context_processors = {
-#     "{{ app_name }}.context.get_context_data"
 # }

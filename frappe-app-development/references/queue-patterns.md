@@ -31,20 +31,24 @@ frappe.enqueue(
 ```python
 frappe.enqueue(
     "my_app.tasks.process_data",
-    queue="long",           # short, default, long
-    timeout=600,            # seconds
+    queue="long",           # short, default, long (custom names must be declared in
+                             # common_site_config.json under "workers" first)
+    timeout=600,            # seconds; defaults to the queue's timeout otherwise
     is_async=True,          # default True
-    now=False,              # Run synchronously if True
-    job_name="unique_name", # For deduplication
-    at_front=False,         # Priority
-    deduplicate=True,       # Prevent duplicate jobs
-    enqueue_after_commit=True,  # Wait for transaction commit
-    
+    now=False,              # now=True calls frappe.call() inline, synchronously
+    at_front=False,         # priority
+    job_id="process_data::123",  # required for deduplicate
+    deduplicate=True,       # skip enqueue if job_id is already QUEUED/STARTED
+    enqueue_after_commit=True,  # wait for transaction commit
+
     # Job arguments
     data_id="123",
     option="value"
 )
 ```
+
+> `job_name` is deprecated in v16 (`frappe/utils/background_jobs.py`) — it only sets
+> the RQ job description, it is not a dedup key. Use `job_id` + `deduplicate=True`.
 
 ## Queue Types
 
@@ -61,24 +65,24 @@ frappe.enqueue(generate_report, queue="long")
 ```
 
 ### Custom Queues
-```python
-## In hooks.py
-scheduler_events = {
-    "all": [
-        "my_app.tasks.process_custom_queue"
-    ]
-}
 
-## In tasks.py
-def process_custom_queue():
-    """Process jobs from custom queue"""
-    from frappe.utils.background_jobs import get_queue
-    
-    queue = get_queue("my_custom_queue")
-    job = queue.dequeue()
-    
-    if job:
-        job.perform()
+Queue names are validated against `get_queues_timeout()` — `frappe.enqueue(queue=...)`
+raises unless the name is `short`/`default`/`long` or declared under `workers` in
+`common_site_config.json` (`frappe/utils/background_jobs.py::validate_queue`):
+
+```json
+{
+  "workers": {
+    "my_custom_queue": { "timeout": 900 }
+  }
+}
+```
+
+A worker process must then be started against that queue explicitly — nothing
+dequeues it automatically:
+
+```bash
+bench worker --queue my_custom_queue
 ```
 
 ## Scheduled Jobs
@@ -162,8 +166,8 @@ def enqueue_bulk_operation(items):
             items=chunk,
             chunk_number=i // chunk_size,
             queue="long",
+            job_id=f"bulk_op_chunk_{i}",
             deduplicate=True,
-            job_name=f"bulk_op_chunk_{i}"
         )
 
 def process_chunk(items, chunk_number):
@@ -304,37 +308,56 @@ def update_job_status(job_status_name, processed, status=None):
     })
 ```
 
-## Distributed Locking
+## Locking
 
-### Prevent Concurrent Execution
+### Single-host: frappe.utils.synchronization.filelock
+
+For jobs that must not run concurrently on one bench, use the framework's own
+lockfile helper (`frappe/utils/synchronization.py`) rather than hand-rolling one:
+
+```python
+from frappe.utils.synchronization import filelock
+
+def sync_inventory():
+    """Only one instance runs at a time, across processes on this bench."""
+    with filelock("sync_inventory", timeout=30):
+        perform_sync()
+```
+
+`filelock(lock_name, *, timeout=30, is_global=False)` creates `{lock_name}.lock` under
+the site's `locks/` directory (or the bench `config/` directory if `is_global=True`)
+and raises `frappe.utils.file_lock.LockTimeoutError` if it can't acquire the lock
+within `timeout` seconds. This only coordinates processes on the same machine.
+
+### Multi-host: Redis `SET NX`
+
+Across multiple worker hosts, use Redis directly. Namespace the key with
+`frappe.cache.make_key()` so it doesn't collide with another site sharing the same
+Redis database:
+
 ```python
 import frappe
-from frappe.utils.redis_wrapper import RedisWrapper
 
 def run_with_lock(lock_name, timeout=300):
-    """Decorator for jobs requiring exclusive access"""
+    """Decorator for jobs requiring exclusive access across hosts."""
     def decorator(func):
         def wrapper(*args, **kwargs):
-            redis = frappe.cache()
-            lock_key = f"lock:{lock_name}"
-            
-            # Try to acquire lock
-            acquired = redis.set(lock_key, "1", ex=timeout, nx=True)
-            
+            lock_key = frappe.cache.make_key(f"lock:{lock_name}")
+            acquired = frappe.cache.set(lock_key, "1", ex=timeout, nx=True)
+
             if not acquired:
                 frappe.log_error(f"Could not acquire lock: {lock_name}")
                 return None
-            
+
             try:
                 return func(*args, **kwargs)
             finally:
-                redis.delete(lock_key)
+                frappe.cache.delete(lock_key)
         return wrapper
     return decorator
 
 @run_with_lock("sync_inventory")
 def sync_inventory():
-    """Only one instance runs at a time"""
     perform_sync()
 ```
 
@@ -379,4 +402,7 @@ def get_queue_stats():
     return stats
 ```
 
-Sources: Frappe Background Jobs, RQ (Redis Queue), Python-RQ
+Sources: `frappe/utils/background_jobs.py`, `frappe/utils/synchronization.py`,
+`frappe/utils/redis_wrapper.py`; see also [background-jobs.md](background-jobs.md)
+for verified `enqueue`/scheduler signatures. RQ (Redis Queue) / python-rq for queue
+internals (`failed_job_registry`, `scheduled_job_registry`).

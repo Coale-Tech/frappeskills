@@ -224,11 +224,14 @@ Light-mode samples:
 ```
 
 > Legacy layout aliases (`--fg-color`, `--bg-color`, `--border-color`,
-> `--control-bg`, `--btn-primary`, `--text-color`, …) are defined in
+> `--control-bg`, `--btn-primary`, …) are defined in
 > `apps/frappe/frappe/public/scss/common/css_variables.scss` (light) and
-> `apps/frappe/frappe/public/scss/desk/dark.scss` (dark). They resolve to the
+> `apps/frappe/frappe/public/scss/desk/dark.scss` (dark), resolving to the
 > espresso gray/color tokens (e.g. `--fg-color: white`, `--border-color: var(--gray-200)`,
-> `--text-color: var(--gray-800)`, `--btn-primary: var(--gray-900)`).
+> `--btn-primary: var(--gray-900)`). `--text-color` and the other font-color
+> aliases (`--heading-color`, `--text-muted`, `--text-light`, `--text-dark`,
+> `--text-neutral`) are defined in `espresso/_typography.scss` instead (light),
+> and re-pointed in `desk/dark.scss` (dark) — see [Font color aliases](#font-color-aliases) below.
 
 ---
 

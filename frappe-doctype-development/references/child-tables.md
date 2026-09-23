@@ -217,14 +217,19 @@ Every child table row has these system fields:
 
 ### Accessing Parent
 ```python
-## From child row
+## From child row — always fetches the current DB state
 def get_parent_doc(child_row):
     return frappe.get_doc(child_row.parenttype, child_row.parent)
 
-## In controller context
+## In controller context — `parent_doc` is a property on every Document
+## (`frappe/model/base_document.py`); it holds a weak reference to the in-memory
+## parent set by `append()`/`db_query` loading, not a DB fetch. It is None if the
+## row was constructed without a parent (e.g. `frappe.get_doc("Sales Order Item", name)`
+## standalone). There is no `self.get_parent()` method on child rows — that name is
+## a NestedSet (tree DocType) method with an unrelated meaning.
 class SalesOrderItem(Document):
     def validate(self):
-        parent = self.get_parent()
+        parent = self.parent_doc or frappe.get_doc(self.parenttype, self.parent)
         if parent.status == "Closed":
             frappe.throw(_("Cannot modify closed order"))
 ```
@@ -327,4 +332,5 @@ frappe.ui.form.on("Parent DocType", {
 - Don't modify `idx` outside of controlled scenarios
 - Don't use child tables for many-to-many (use Table MultiSelect or link tables)
 
-Sources: Child Table, Table Field, Child DocType (official docs)
+Sources: Child Table, Table Field, Child DocType (official docs). Python child-row API
+(`append`, `remove`, `parent_doc`) verified against `apps/frappe/frappe/model/base_document.py`.

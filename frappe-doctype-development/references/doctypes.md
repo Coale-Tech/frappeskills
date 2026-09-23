@@ -178,7 +178,7 @@ Working example DocType JSON in this skill's sibling app scaffold
 
 ## Sources
 
-Verified against Frappe v16.27.1 (`frappe/__init__.py` `__version__`):
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
 
 - `apps/frappe/frappe/model/document.py` — `insert`, `save`/`_save`, `run_before_save_methods`, `run_post_save_methods`, `run_method`, `_submit`/`_cancel`, `_validate`, `Document.__init__`, `load_from_db`
 - `apps/frappe/frappe/model/delete_doc.py` — `on_trash` / `on_change` / `after_delete` ordering

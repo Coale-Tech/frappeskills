@@ -27,16 +27,16 @@ ship a session/user store of its own; client-side patterns build one on
 
 ## Sources
 
-Verified against Frappe framework v16.27.1 (`frappe.__version__ == "16.27.1"`,
+Verified against Frappe framework v16.35.0 (`frappe.__version__ == "16.35.0"`,
 `apps/frappe/frappe/__init__.py:58`):
 
-- `apps/frappe/frappe/permissions.py` — `has_permission` (l.80), `get_doc_permissions` (l.227), `get_role_permissions` (l.282), `has_user_permission` (l.351), `has_controller_permissions` (l.481), `get_valid_perms` (l.505), `get_roles` (l.535)
-- `apps/frappe/frappe/__init__.py` — `whitelist` (l.439), `is_whitelisted` (l.479), `only_for` (l.548), `has_permission` wrapper (l.600), `get_roles` (l.406), `get_installed_apps` (l.924), `generate_hash` (l.707), `_`/`_lt` import (l.45)
+- `apps/frappe/frappe/permissions.py` — `has_permission` (l.81), `get_doc_permissions` (l.229), `get_role_permissions` (l.284), `has_user_permission` (l.353), `has_controller_permissions` (l.483), `get_valid_perms` (l.507), `get_roles` (l.537)
+- `apps/frappe/frappe/__init__.py` — `whitelist` (l.439), `is_whitelisted` (l.479), `only_for` (l.548), `has_permission` wrapper (l.600), `get_roles` (l.406), `get_installed_apps` (l.924), `generate_hash` (l.707), `ping` (l.1555), `_`/`_lt` import (l.45)
 - `apps/frappe/frappe/rate_limiter.py` — `rate_limit` decorator (l.104), site-wide `apply` (l.15)
 - `apps/frappe/frappe/utils/messages.py` — `throw` (l.138), `msgprint` (l.11)
-- `apps/frappe/frappe/utils/translations.py` — `_` (l.4), `_lt` (l.40)
+- `apps/frappe/frappe/utils/translations.py` — `_` (l.4), `_lt` (l.56)
 - `apps/frappe/frappe/auth.py` — `UNSAFE_HTTP_METHODS` (l.29), `validate_csrf_token` (l.81), `is_allowed_referrer` (l.102)
 - `apps/frappe/frappe/sessions.py` — `get_csrf_token` (l.197), `generate_csrf_token` (l.204)
-- `apps/frappe/frappe/model/db_query.py` — `get_permission_query_conditions` (l.1157)
-- `apps/frappe/frappe/model/document.py` — `check_permission` (l.395), `has_permission` (l.400), `insert`/`save`/`delete` `ignore_permissions` (l.456, 566, 1372)
+- `apps/frappe/frappe/model/db_query.py` — `get_permission_query_conditions` (l.1159)
+- `apps/frappe/frappe/model/document.py` — `check_permission` (l.397), `has_permission` (l.402, `ignore_permissions` short-circuit l.409), `insert`/`save`/`delete` `ignore_permissions` (l.438/463, l.555/573, l.1380)
 - `apps/frappe/frappe/website/page_renderers/base_template_page.py` (l.20-22), `apps/frappe/frappe/public/js/frappe/request.js` (l.267), `apps/frappe/frappe/public/js/frappe/desk.js` — client CSRF token exposure (`frappe.csrf_token`)

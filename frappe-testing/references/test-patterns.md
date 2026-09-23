@@ -20,7 +20,9 @@ class TestMyDocType(IntegrationTestCase):
 
 ### UnitTestCase
 For pure logic that needs no database. `frappe.tests.utils.FrappeTestCase` is a deprecated
-alias for `IntegrationTestCase` — use `IntegrationTestCase`/`UnitTestCase` from `frappe.tests`.
+(removed in v17) compatibility copy of the pre-v16 base class, not literally the same object
+as `IntegrationTestCase` — import `UnitTestCase`/`IntegrationTestCase` from `frappe.tests` in
+new code (`frappe/deprecation_dumpster.py`).
 
 ```python
 from frappe.tests import UnitTestCase
@@ -29,6 +31,22 @@ class TestCalcUtils(UnitTestCase):
     def test_pure_function(self):
         pass
 ```
+
+### Frappe-specific assertions
+
+`UnitTestCase` (and therefore `IntegrationTestCase`) adds these on top of stdlib `unittest`
+assertions (`frappe/tests/classes/unit_test_case.py`):
+
+```python
+self.assertDocumentEqual(expected, actual)   # dict/BaseDocument vs. a Document, field-by-field
+self.assertQueryEqual(sql_a, sql_b)          # normalized SQL string comparison
+self.assertSequenceSubset(larger, smaller)   # smaller is a subset of larger
+```
+
+`IntegrationTestCase` additionally provides `self.assertQueryCount(n)`,
+`self.assertRowsRead(n)`, and `self.assertRedisCallCounts(n)` as context managers
+(`frappe/tests/classes/integration_test_case.py`) — see
+[references/testing.md](testing.md) for full signatures.
 
 ## Common Test Patterns
 
@@ -120,16 +138,12 @@ def test_permission_denied(self):
         "customer": "_Test Customer"
     })
     doc.insert()
-    
-    # Switch to restricted user
-    frappe.set_user("guest@example.com")
-    
-    try:
-        # Attempt unauthorized action
+
+    # Switch to restricted user; self.set_user restores the caller on exit,
+    # including on assertion failure (frappe/tests/classes/context_managers.py)
+    with self.set_user("test_user@example.com"):
         doc.customer = "Other"
         self.assertRaises(frappe.PermissionError, doc.save)
-    finally:
-        frappe.set_user("Administrator")
 ```
 
 ### Testing API Methods
@@ -283,6 +297,9 @@ class TestWithFixtures(IntegrationTestCase):
 ```
 
 ### Parameterized Tests
+`parameterized` is not a Frappe dependency — add it to the app's own dev requirements to use
+this pattern. Frappe's own dev dependencies ship `hypothesis` instead for property-based tests
+(`pyproject.toml`); stdlib `subTest` is a dependency-free alternative:
 ```python
 from parameterized import parameterized
 
@@ -335,4 +352,4 @@ self.assertLessEqual(a, b)
 self.assertEqual(len(collection), expected_length)
 ```
 
-Sources: Testing, Unit Tests, pytest (official docs)
+Sources: `frappe/tests/classes/`, `frappe/tests/utils/generators.py`, `frappe/deprecation_dumpster.py`, Python `unittest` docs (Frappe 16.35.0).

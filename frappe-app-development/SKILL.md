@@ -94,7 +94,9 @@ Queues, retries, deduplication, failure handling:
 ### 4) Cache deliberately
 
 ```python
-@frappe.cache.cached(ttl=300)
+from frappe.utils.caching import redis_cache
+
+@redis_cache(ttl=300)  # site_cache(ttl=...) for per-process memory
 def get_active_price_list():
     return frappe.get_all("Price List", filters={"enabled": 1}, pluck="name")
 ```

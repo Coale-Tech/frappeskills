@@ -6,13 +6,29 @@ filtering, User Permissions, and Document Sharing.
 
 ## Permission layers
 
-For a given request, Frappe evaluates permissions in this order:
+For a single-document check (`frappe.has_permission(doctype, ptype, doc=doc)` /
+`doc.check_permission()`), `frappe/permissions.py` evaluates in this order:
 
-1. **Authentication** — is the request authenticated?
-2. **Role permissions** — does the user's role allow this action on the DocType?
-3. **User Permissions** — can the user access this specific linked record?
-4. **`has_permission`** — custom permission logic on the document (controller method or hooks.py override)
-5. **Share permissions** — is the document explicitly shared with the user?
+1. **Administrator bypass** — `user == "Administrator"` always passes.
+2. **`has_permission` hooks.py controller hook** (`has_controller_permissions`) — runs
+   first and can only **deny**, never grant: any registered function that returns a
+   falsy value fails the whole check immediately; a truthy return just continues to
+   the next layer. See below.
+3. **Role permissions** (DocPerm / Custom DocPerm), with `if_owner` applied on top —
+   `get_role_permissions`.
+4. **User Permissions** — if the doctype/link fields are restricted and the document
+   isn't in the allowed set, permissions collapse to the `if_owner` subset (if the
+   user is the owner) or to nothing at all — `has_user_permission`.
+5. **Document Sharing fallback** — only consulted if steps 3-4 produced no permission
+   for `ptype`; an explicit `frappe.share` grant on the document (or DocType, for
+   list access) is then accepted — `false_if_not_shared` in `has_permission()`.
+6. **`select` fallback** — if `ptype == "select"` is still denied, `has_permission()`
+   retries the same check with `ptype="read"`, since `select` is implied by `read`.
+
+A **child table** doctype's own DocPerm rows are ignored; `has_permission` detects
+`frappe.is_table(doctype)` and delegates to `has_child_permission`, which checks the
+**parent** doctype's permission (plus the parent field's `permlevel`) instead
+(`frappe/permissions.py` `has_child_permission`).
 
 REST endpoints enforce this automatically:
 
@@ -37,20 +53,37 @@ Whitelisted RPC methods (`@frappe.whitelist()`) do **not** get these checks for
 free — see [permissions-checks.md](permissions-checks.md) for enforcing them
 explicitly.
 
-## `has_permission` controller hook
+## `has_permission` controller override (Document method)
+
+`Document.has_permission(self, permtype="read", *, debug=False, user=None)`
+(`frappe/model/document.py`) is called by `doc.check_permission()`, which in turn
+backs `insert()`, `save()`, `submit()`, `cancel()`, and `frappe.get_doc(dt, name,
+check_permission=...)`. Overriding it on your controller **replaces** the default
+role-based check for those call sites — it can grant access a role wouldn't
+otherwise have, but only for code paths that go through `doc.check_permission()` /
+`doc.has_permission()` directly. It is not consulted by `frappe.has_permission()`
+called elsewhere with a plain doctype/doc, nor by list-view SQL filtering:
 
 ```python
 class Expense(Document):
-    def has_permission(self, permtype, user=None):
+    def has_permission(self, permtype="read", *, debug=False, user=None):
         if permtype == "read" and self.department == get_user_department(user):
             return True
-        return False
+        return super().has_permission(permtype, debug=debug, user=user)
 ```
 
-## `has_permission` hooks.py override
+Call `super().has_permission(...)` for the fallback case (as above) unless you
+intend to fully replace the role-based check for this DocType.
 
-An alternative to the controller method — register a module-level function per
-DocType instead (`frappe.get_hooks("has_permission")`, `frappe/permissions.py`):
+## `has_permission` hooks.py dispatch (deny-only)
+
+A separate mechanism: register a module-level function per DocType in `hooks.py`
+(`frappe.get_hooks("has_permission")`). Unlike the controller override above, this
+*is* consulted by every `frappe.has_permission()` / `frappe.permissions.has_permission()`
+call routed through `get_doc_permissions` (including REST document reads), but
+`has_controller_permissions` in `frappe/permissions.py` only honors a **falsy**
+return as an explicit deny — a truthy return does **not** grant anything beyond
+what role permissions already allow:
 
 ```python
 # hooks.py
@@ -61,24 +94,33 @@ has_permission = {
 
 ```python
 # my_app/permissions.py
-def sales_order_permission(doc, ptype, user):
+def sales_order_permission(doc, ptype, user, debug=False):
     if not user:
         user = frappe.session.user
-    if "System Manager" in frappe.get_roles(user):
-        return True
-    if ptype == "read":
-        return doc.assigned_to == user
-    if ptype == "write":
-        return doc.assigned_to == user
-    if ptype in ("submit", "cancel"):
-        return "Sales Manager" in frappe.get_roles(user)
-    return False
+    if ptype in ("submit", "cancel") and "Sales Manager" not in frappe.get_roles(user):
+        return False  # deny: caller lacks role permission is not enough to submit/cancel
+    return True  # do not deny; role-based permissions still apply
 ```
 
 ## Row-level filtering on list views (`permission_query_conditions`)
 
-To restrict which records appear in list views and `get_list` calls, define
-`permission_query_conditions` in `hooks.py`:
+`DatabaseQuery.build_match_conditions` (`frappe/model/db_query.py`) builds the SQL
+`WHERE` fragment applied to every `get_list`/`get_all`/report-view query, in this
+order:
+
+1. If the role has neither `select` nor `read` at all (and no User Permission grants
+   access), the query is restricted to only explicitly shared documents — or throws
+   `frappe.PermissionError` if nothing is shared.
+2. Else if `if_owner` is enabled and the role has no unconditional `select`/`read`
+   (`requires_owner_constraint`), the query is restricted to `owner = <user>`.
+3. Else, User Permission conditions are added per restricted Link field
+   (`add_user_permissions`).
+4. The `permission_query_conditions` hook result (below) is AND-ed in.
+5. If the DocType has any documents shared with the user, an `OR (name in (shared
+   names))` clause is added on top of the above.
+
+Define `permission_query_conditions` in `hooks.py` to add your own condition on
+top of this pipeline:
 
 ```python
 # hooks.py
@@ -91,7 +133,7 @@ permission_query_conditions = {
 # myapp/permissions.py
 import frappe
 
-def expense_query_conditions(user=None):
+def expense_query_conditions(user=None, doctype=None):
     if not user:
         user = frappe.session.user
     if "Expense Manager" in frappe.get_roles(user):
@@ -99,8 +141,11 @@ def expense_query_conditions(user=None):
     return f"`tabExpense`.`owner` = {frappe.db.escape(user)}"
 ```
 
-Return a SQL WHERE clause fragment (string), `""` for no restriction, or a
-falsy value like `"1=0"` to deny all access.
+The condition method is called as `frappe.call(method, user, doctype=doctype)`
+(`get_permission_query_conditions`); the `doctype` kwarg is optional — `frappe.call`
+drops kwargs your function signature doesn't declare. Return a SQL WHERE clause
+fragment (string), `""` for no restriction, or a falsy value like `"1=0"` to deny
+all access.
 
 Pair with `has_permission` for complete coverage — `permission_query_conditions`
 filters lists, `has_permission` guards individual documents.
@@ -166,3 +211,10 @@ is_shared = "PROJ-001" in frappe.share.get_shared("Project", user="contractor@ex
 # Remove
 frappe.share.remove("Project", "PROJ-001", "contractor@example.com")
 ```
+
+`frappe.share.add` only accepts `read`, `write`, `submit`, `share`, and `everyone`
+as grantable flags (`frappe/share.py` `add`/`add_docshare`) — there is no `delete`,
+`cancel`, `create`, `import`, or `export` share right. `print` and `email` piggyback
+on `read` once a document is shared for read; `share` itself is globally disabled
+when System Settings' `disable_document_sharing` is checked, at which point
+`has_permission(..., ptype="share")` always returns `False`.

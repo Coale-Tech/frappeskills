@@ -30,6 +30,7 @@ Turn stored data into answers — report first, chart second.
 | Ad-hoc columns and filters, no code | Report Builder |
 | Fixed SQL with parameters | Query Report |
 | Computed rows, conditional formatting, charts | Script Report |
+| Saved columns/filters over an existing report | Custom Report |
 | Exploration and BI | Frappe Insights |
 
 See [references/reports.md](references/reports.md).
@@ -55,7 +56,9 @@ def execute(filters=None):
     return columns, data
 ```
 
-Parameters are bound with `%(name)s` — never interpolated.
+Parameters are bound with `%(name)s` — never interpolated. The full return is
+`columns, data, message, chart, report_summary, skip_total_row`; trailing
+items may be omitted.
 
 ### 2) Script Report — JS filters
 
@@ -75,8 +78,10 @@ Insights when users need to explore rather than read a fixed view.
 
 ### 4) Register and permit
 
-Report record fields (`ref_doctype`, `report_type`, roles) control who can run
-it. Ship the report as part of the app module, and migrate.
+A user can run it only if `frappe.has_permission(ref_doctype, "report")` passes
+**and** the Report's Roles table is empty or contains one of their roles. Ship
+the report as part of the app module, and migrate. Slow reports: enable
+`prepared_report` (runs on the `long` queue).
 
 ## Verification
 

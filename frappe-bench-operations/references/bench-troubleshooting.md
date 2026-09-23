@@ -45,15 +45,25 @@ on any job importing the new app's `hooks.py` — which is every job, via
 
 **Cause.** `Document.queue_action()` calls `self.lock()` — a pure filesystem
 lock at `sites/<site>/locks/<signature>.lock`, no DB or Redis state (see
-`frappe/model/document.py`'s `is_locked` and `frappe/utils/file_lock.py`) —
-**before** enqueuing the job. If the job later crashes (for example on the
-`ModuleNotFoundError` above), `unlock()` never runs and the lock is permanently
-stale. Every later `queue_action` on that document throws immediately, before
-reaching a worker.
+`frappe/model/document.py`'s `is_locked`/`lock`/`unlock` and
+`frappe/utils/file_lock.py`) — **before** enqueuing the job. If the job later
+crashes (for example on the `ModuleNotFoundError` above), `unlock()` never runs
+and the lock file is left behind. It is not permanent, though: `DOCUMENT_LOCK_EXPIRY`
+(3 hours, `frappe/model/document.py`) auto-clears it the next time anything calls
+`lock()` on that document (e.g. the next `queue_action`), and after
+`DOCUMENT_LOCK_SOFT_EXPIRY` (30 minutes) `check_if_locked()` offers a "Force Unlock"
+primary action in the Desk error dialog, calling the whitelisted
+`frappe.model.document.unlock_document` — no filesystem access needed for a user
+with access to the document. Every `queue_action` attempt within that window still
+throws immediately, before reaching a worker.
 
-**Fix.** Safe to clear whenever the lock is a self-inflicted leftover from a
-crashed job. On a shared or production-like site, first confirm no legitimate
-long-running edit is in flight.
+**Fix.** On a shared or production-like site, first confirm no legitimate
+long-running edit is in flight, then prefer the in-app path: open the locked
+document after the 30-minute soft expiry and use "Force Unlock" (or call
+`frappe.model.document.unlock_document(doctype, name)` from
+`bench --site <site> console`). Clearing the lock file directly is only
+necessary before the 30-minute soft expiry, or when you cannot reach the Desk UI —
+safe to do whenever the lock is a self-inflicted leftover from a crashed job:
 
 ```bash
 rm -f sites/<site>/locks/*.lock

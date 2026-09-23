@@ -7,6 +7,9 @@ def enqueue_sample_job(docname: str):
         method="your_app.background_jobs.sample_job.run_sample_job",
         queue="default",
         timeout=300,
+        job_id=f"sample_job::{docname}",
+        deduplicate=True,  # skip if the same job_id is already queued/running
+        enqueue_after_commit=True,
         docname=docname,
     )
 

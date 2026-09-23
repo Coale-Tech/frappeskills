@@ -1,6 +1,6 @@
 ---
 name: frappe-web-forms
-description: Build public-facing Frappe Web Forms for data collection including field configuration, validation, payments, and submission handling. Use when collecting data from users without Desk access.
+description: Build public-facing Frappe Web Forms for data collection including field configuration, validation, and submission handling. Use when collecting data from users without Desk access.
 ---
 
 # Frappe Web Forms
@@ -18,7 +18,7 @@ Collect data from people who do not have Desk access, without writing a frontend
 - Target DocType receiving the submission
 - Whether the form is public (guest) or login-required
 - Fields, required flags, and validation rules
-- Post-submission behaviour: redirect, message, payment
+- Post-submission behaviour: success message or redirect
 
 ## Procedure
 
@@ -61,8 +61,9 @@ abuse is plausible
 
 ### 4) Handle submission
 
-Configure the success message or redirect, and any payment gateway integration,
-on the Web Form record. Notifications go through `doc_events` or a Notification.
+Configure the success message and redirect on the Web Form record — core Web Form
+has no payment fields (`web_form.json`, v15 and v16); take payment via a separate
+app. Notifications go through `doc_events` or a Notification.
 
 ### 5) Ship it as code
 
@@ -94,7 +95,7 @@ Export the Web Form with the app module so it survives a fresh site.
 
 ## References
 
-- [references/web-forms.md](references/web-forms.md) - Web Form configuration, validation, payments
+- [references/web-forms.md](references/web-forms.md) - Web Form configuration, validation, client scripting
 
 ## Guardrails
 

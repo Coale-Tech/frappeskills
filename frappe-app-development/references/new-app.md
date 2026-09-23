@@ -21,20 +21,37 @@ See [bench.md](../../frappe-bench-operations/references/bench.md) for finding or
 
 ## Step 4: Create app
 
-The `bench new-app` command MUST use piped `printf`. No heredoc (`<<EOF`). No `--no-input`. No `--no-git`. No bare `bench new-app <name>` without pipe.
+The `bench new-app` command MUST use piped `printf`. No heredoc (`<<EOF`). No `--no-input`
+(that flag does not exist). No bare `bench new-app <name>` without pipe.
 
 App name must be lowercase with underscores — a valid Python identifier, since it is also the top-level module name.
 
-Ask user for: app name, title, description, publisher, email, license.
+`bench new-app` delegates straight to `frappe.utils.boilerplate._get_user_inputs`, which prompts for
+exactly **7** values in this order — title, description, publisher, email, license, a
+yes/no GitHub Actions prompt, and a git branch name (defaulting to the current `frappe` app's branch):
+
+1. App Title (text, defaults to the title-cased app name)
+2. App Description (text)
+3. App Publisher (text)
+4. App Email (text, validated as an email)
+5. App License (choice, defaults to `mit`)
+6. Create GitHub Workflow action for unittests (`y`/`N`, defaults to `N`)
+7. Branch Name (text, defaults to the `frappe` app's current git branch — press Enter/leave blank to accept it)
+
+Ask user for: app title, description, publisher, email, license. Default the GitHub Actions prompt to `N`
+unless the user asks for CI, and leave the branch name blank to accept the default.
 
 ```bash
-printf '<title>\n<description>\n<publisher>\n<email>\n<license>\nN\nN\nN\n' | bench new-app <app-name>
+printf '<title>\n<description>\n<publisher>\n<email>\n<license>\nN\n\n' | bench new-app <app-name>
 ```
 
 Example:
 ```bash
-printf 'Expense Tracker\nTrack expenses\nJohn\njohn@example.com\nmit\nN\nN\nN\n' | bench new-app expense_tracker
+printf 'Expense Tracker\nTrack expenses\nJohn\njohn@example.com\nmit\nN\n\n' | bench new-app expense_tracker
 ```
+
+`--no-git` (skip git init) is the only other flag `bench new-app` accepts; avoid it — a fresh git repo is
+expected by the generated `.pre-commit-config.yaml` and README.
 
 ## Step 5: Install app on site
 
@@ -50,16 +67,32 @@ Keep DocType controllers thin — validation and orchestration only — and put 
 system connectors in `integrations/`, and async handlers in `background_jobs/`. See
 `assets/mini-app/` for a runnable skeleton of this layout.
 
-The app structure after `bench new-app myapp`:
+The app structure after `bench new-app myapp` (`frappe/utils/boilerplate.py::_create_app_boilerplate`):
 ```
 apps/myapp/
   myapp/
-    myapp/          ← module directory (same name as app)
+    myapp/          ← default module directory: scrub(App Title), usually == app name
       __init__.py
+    templates/
+      pages/
+      includes/
+    www/
+    config/
+    public/css/  public/js/
+    patches/
     hooks.py
+    patches.txt
     __init__.py
   pyproject.toml
+  README.md
+  license.txt
+  .pre-commit-config.yaml
+  .gitignore                 ← omitted with --no-git
 ```
+
+The module directory name is `scrub(App Title)`, not literally `app_name` — they only match when the App
+Title prompt is left at its default (title-cased app name). A custom title produces a differently-named
+module directory.
 
 `hooks.py` keys, resolution order, and the `override_doctype_class` /
 `extend_doctype_class` (v16+, preferred — extends rather than replaces the base
@@ -124,7 +157,11 @@ Background jobs, caching, and translations each have their own reference:
 
 ## Sources
 
-Verified against Frappe v16.27.1 at `<bench>/apps/frappe`:
-- `apps/frappe/frappe/utils/boilerplate.py:160` — `bench new-app` writes `pyproject.toml` (not `setup.py`); template at `:339`
-- `apps/frappe/frappe/model/base_document.py:190` — `extend_doctype_class` hook resolution
+Verified against Frappe v16.35.0 at `<bench>/apps/frappe`, cross-checked against v15.120.0:
+- `apps/frappe/frappe/utils/boilerplate.py:34` — `_get_user_inputs`, the exact 7-prompt sequence and defaults
+- `apps/frappe/frappe/utils/boilerplate.py:136` — `_create_app_boilerplate`, generated file/folder layout; `pyproject.toml` write at `:160`, template at `:339`
+- `apps/frappe/frappe/commands/utils.py:868` — `make-app` CLI (what `bench new-app` delegates to via `bench/app.py::new_app`)
+- `apps/frappe/frappe/commands/testing.py:285` — `run-tests --app`
+- `apps/frappe/frappe/utils/data.py:1844` — `get_url` (re-exported at `frappe.utils.get_url`)
+- `apps/frappe/frappe/model/base_document.py:190` — `extend_doctype_class` hook resolution (v16-only, absent from v15 baseline)
 - `apps/frappe/frappe/__init__.py:1579` — `override_whitelisted_methods` resolution

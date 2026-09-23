@@ -2,8 +2,10 @@
 
 ## What Espresso is
 
-**Espresso** is Frappe's design system for **Desk** (the `/app` admin UI),
-introduced in v15 and current in v16 (`frappe.__version__` 16.9.0). It defines the
+**Espresso** is Frappe's design system for **Desk** (the `/desk` admin UI in
+v16; `/app` in v15, still supported as a redirect — see `website_redirects`
+in `apps/frappe/frappe/hooks.py`),
+introduced in v15 and current in v16 (`frappe.__version__` 16.35.0). It defines the
 design-token source of truth — colors, typography, spacing, shadows, borders/radii
 — as **SCSS variables + `:root` CSS custom properties**, plus an SVG **icon set**.
 Every Desk page, form, list, report, and workspace is styled against these tokens,
@@ -79,10 +81,12 @@ flipping the number).
 
 Bridged in `common/css_variables.scss` / `desk/dark.scss`:
 `--primary-color: var(--gray-900)`, `--brand-color: var(--primary)`,
-`--text-color: var(--gray-800)`, `--fg-color`/`--bg-color` (surfaces),
-`--border-color: var(--gray-200)`, `--btn-primary: var(--gray-900)`,
-alert/status pairs like `--alert-bg-danger`/`--alert-text-danger`. `$danger`
-(`#e03636`) is the canonical error color.
+`--fg-color`/`--bg-color` (surfaces), `--border-color: var(--gray-200)`,
+`--btn-primary: var(--gray-900)`, alert/status pairs like
+`--alert-bg-danger`/`--alert-text-danger`. `$danger` (`#e03636`) is the
+canonical error color. `--text-color: var(--gray-800)` and the other font-color
+aliases (`--heading-color`, `--text-muted`, `--text-light`, `--text-dark`) live
+in `espresso/_typography.scss` instead, re-pointed in `desk/dark.scss` for dark mode.
 
 ## Dark mode
 
@@ -262,7 +266,7 @@ Two runtimes, **one shared token vocabulary, two independent implementations**:
 
 | | Espresso (Desk) | frappe-ui (Vue SPA) |
 |--|-----------------|---------------------|
-| Where | `/app` Desk, jQuery/Bootstrap templates | standalone SPAs (e.g. HRMS `frontend/`, roster) mounted at custom routes |
+| Where | `/desk` (v16) / `/app` (v15) Desk, jQuery/Bootstrap templates | standalone SPAs (e.g. HRMS `frontend/`, roster) mounted at custom routes |
 | Source of truth | hand-maintained SCSS partials in `apps/frappe/frappe/public/scss/espresso/` | Figma `espresso-2.0` file, synced to `tailwind/generated/*.json` (v1 only; see [frappe-ui-tailwind-tokens.md](frappe-ui-tailwind-tokens.md)) |
 | Styling | espresso SCSS partials → `:root` CSS vars, Bootstrap classes | Tailwind v3 preset (`frappe-ui/tailwind`) + frappe-ui Vue components |
 | Tokens | `--gray-*`, `--ink-*`, `--surface-*`, `--outline-*`, `--text-*`, `--border-radius-*` | same **names**, independently generated as Tailwind utilities: `text-ink-gray-8`, `bg-surface-white`, `border-outline-gray-2`, `rounded-lg` |

@@ -2,7 +2,7 @@
 
 This guide covers the complete ListView design pattern used throughout the application.
 
-> **Scope.** The template above is the **frappe-ui (Vue) `<ListView>`** pattern for standalone SPA frontends. The **Desk** list view (`/app/<doctype>`) is customized differently — via `frappe.listview_settings` in a `<doctype>_list.js` file. See **"Desk ListView Settings"** at the bottom of this file. The two are unrelated APIs.
+> **Scope.** The template above is the **frappe-ui (Vue) `<ListView>`** pattern for standalone SPA frontends. The **Desk** list view (`/desk/<doctype>` (v16); `/app/<doctype>` on v15, and still redirects to `/desk/...` on v16) is customized differently — via `frappe.listview_settings` in a `<doctype>_list.js` file. See **"Desk ListView Settings"** at the bottom of this file. The two are unrelated APIs.
 
 ## Reference Design
 
@@ -95,7 +95,7 @@ summarized below.
 
 ## Desk ListView Settings (`frappe.listview_settings`)
 
-The Desk list view at `/app/<doctype>` is the vanilla-JS `frappe.views.ListView` (source: `apps/frappe/frappe/public/js/frappe/list/list_view.js`, extends `base_list.js`). Customize it by assigning a settings object in `{app}/{module}/doctype/{doctype}/{doctype}_list.js`. This is **not** frappe-ui.
+The Desk list view at `/desk/<doctype>` (v16; `/app/<doctype>` on v15, redirected on v16 — see `hooks.py:website_redirects`) is the vanilla-JS `frappe.views.ListView` (source: `apps/frappe/frappe/public/js/frappe/list/list_view.js`, extends `base_list.js`). Customize it by assigning a settings object in `{app}/{module}/doctype/{doctype}/{doctype}_list.js`. This is **not** frappe-ui.
 
 ```javascript
 frappe.listview_settings["Task"] = {
@@ -144,7 +144,7 @@ frappe.listview_settings["Task"] = {
   primary_action() { frappe.new_doc("Task"); },
 
   // Override the row link target
-  get_form_link(doc) { return `/app/task/${encodeURIComponent(doc.name)}`; },
+  get_form_link(doc) { return `/desk/task/${encodeURIComponent(doc.name)}`; },  // (v16) — was `/app/task/...` on v15
 
   before_render() {},   // before each render pass
   refresh(listview) {}, // after each refresh
@@ -162,8 +162,8 @@ All keys below are read directly in `list_view.js` (line refs approximate, v16):
 | `hide_name_column` | `boolean` | Suppresses the Name column when `title_field` set (~L456) |
 | `get_indicator(doc)` | `fn → [label, color, condition]` | Row status pill; also drives `frappe.get_indicator` (`model/indicator.js`) |
 | `formatters` | `{ [field]: (value, df, doc) => html }` | Custom cell HTML (~L997); skipped for the Subject column |
-| `button` | `{ show, get_label, get_description, action }` | Inline row button (~L1148, action at ~L1590) |
-| `dropdown_button` | `{ get_label, buttons: [{ show, get_label, get_description, action }] }` | Inline row dropdown (~L1169) |
+| `button` | `{ show(doc), get_label(doc), get_description(doc), action(doc) }` | Inline row button; all four are functions (~L1191-1201, action at ~L1633) |
+| `dropdown_button` | `{ get_label: string, buttons: [{ show(doc), get_label: string, get_description(doc), action(doc) }] }` | Inline row dropdown (~L1169–1241). Unlike `button`, `get_label` here is a **plain string** rendered directly (not called as a function) at both the group and per-button level; `show`/`get_description`/`action` are still functions |
 | `onload(listview)` | `fn` | Called once after setup (~L338) |
 | `primary_action()` | `fn` | Replaces the default "+ Add" behavior (~L297, ~L1694) |
 | `get_form_link(doc)` | `fn → string` | Row link URL override (~L1253) |
@@ -171,14 +171,25 @@ All keys below are read directly in `list_view.js` (line refs approximate, v16):
 
 ### Indicator precedence (from `model/indicator.js`)
 
-`frappe.get_indicator(doc, doctype)` resolves in this order:
+`frappe.get_indicator(doc, doctype)` resolves in this order — the first
+matching branch returns; later branches never run:
 1. `doc.__unsaved` → "Not Saved" (orange)
-2. Workflow state (unless `override_status` / `show_workflow_state`)
+2. Workflow state field value, unless the workflow sets `override_status`
+   (and `show_workflow_state` isn't passed) or the state is in
+   `frappe.workflow.avoid_status_override[doctype]`
 3. Submittable + `docstatus==0` → "Draft" (red), unless `settings.has_indicator_for_draft`
 4. Submittable + `docstatus==2` → "Cancelled" (red), unless `settings.has_indicator_for_cancelled`
-5. `settings.get_indicator(doc)` return value
+5. `doc.status` matches a title in the DocType's own `states` table
+   (`meta.states`, the "Document States" grid on the DocType form) — uses
+   that state's configured color
+6. `settings.get_indicator(doc)` return value
+7. Submittable + `docstatus==1` → "Submitted" (blue)
+8. `doc.status` generic fallback (gray, best-effort)
+9. `enabled` / `disabled` field fallback
 
-So a custom `get_indicator` **does not** override the Draft/Cancelled pills for submittable doctypes unless you set `has_indicator_for_draft` / `has_indicator_for_cancelled`.
+So a custom `get_indicator` does **not** override the Not Saved / workflow /
+Draft / Cancelled pills, nor a DocType's own `states`-table pill (step 5) —
+it only wins when none of steps 1-5 match.
 
 ### Bulk actions & selection
 

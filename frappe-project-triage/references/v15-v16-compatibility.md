@@ -8,7 +8,7 @@ This guide covers the key differences between Frappe v15 and v16 and how to writ
 |------|-----|-----|-------------------|
 | **Workspace** | Page-based HTML | EditorJS JSON blocks | Conditional or page-based |
 | **Sidebar** | Menu items in hooks | Workspace Sidebar DocType | Use hooks, create sidebar via setup |
-| **Routing** | `/app/{workspace}` | `/app/{workspace}` (unchanged) | Same desk route; SPAs use `website_route_rules` |
+| **Routing** | `/app/{workspace}` (canonical) | `/desk/{workspace}` (canonical; `/app/*` redirects) | Link with `/desk/...` on v16; `/app/...` still resolves via redirect |
 | **API Calls** | `frappe.call()` + `frappe.xcall()` | `frappe.call()` + `frappe.xcall()` (both exist) | Use `createResource` from frappe-ui |
 | **Page Load** | `frappe.pages[name].on_page_load` | Via workspace links | Use v15 pattern, v16 links to it |
 | **Menus** | `app_header_menu` hooks | Workspace shortcuts | Register via hooks + setup script |
@@ -320,9 +320,9 @@ DocType JSON structure is identical in both versions:
 }
 ```
 
-## What Actually Changed in v16 (source-verified on bench 16.27.1)
+## What Actually Changed in v16 (source-verified on bench 16.35.0)
 
-> Verified against `apps/frappe/frappe/__init__.py` → `__version__ = "16.27.1"` and the DocType sources below.
+> Verified against `apps/frappe/frappe/__init__.py` → `__version__ = "16.35.0"` and the DocType sources below.
 
 **1. Workspace DocType gained navigation fields (`apps/frappe/frappe/desk/doctype/workspace/workspace.json`).**
 In v16 a Workspace row can itself be a navigation entry, not only a dashboard. New/relevant fields:
@@ -339,9 +339,15 @@ from Workspace `links`/module config. Mark any sidebar-DocType code as **v16-onl
 with `icon_type`, `link_type`, `parent_icon`, `sidebar`, `logo_url`, `app`. Combined with the `add_to_apps_screen`
 hook (`apps/frappe/frappe/hooks.py`), this drives the app tiles.
 
-**4. Desk route is unchanged (`/app/<workspace>`).** The desk SPA www page was renamed `app.py`→`desk.py`
-(`apps/frappe/frappe/www/desk.py`) but the router still accepts both `app` and `desk` prefixes
-(`apps/frappe/frappe/public/js/frappe/router.js`); URLs remain `/app/...`.
+**4. Desk URL prefix changed from `/app` to `/desk` (v16).** The desk SPA www page was
+renamed `app.py`→`desk.py` (`apps/frappe/frappe/www/desk.py`; `www/app.py`/`www/apps.py`
+no longer exist) and `website_route_rules` now serves `/desk/<path:app_path>`
+(`apps/frappe/frappe/hooks.py`). `website_redirects` sends `/app/*`, `/app`, and `/apps`
+to `/desk/*`/`/desk` (302, query params preserved) so old `/app/...` links and bookmarks
+still work, but `frappe.router.is_app_route()`/`frappe.set_route()`
+(`apps/frappe/frappe/public/js/frappe/router.js`) now generate and expect `/desk/...` —
+treat `/desk/<workspace>` as the canonical v16 URL and `/app/<workspace>` as a
+redirect-only legacy alias, reversed from v15 where `/app` was canonical.
 
 **5. Custom fields — prefer the framework helper.** Both v15 and v16 expose
 `frappe.custom.doctype.custom_field.custom_field.create_custom_fields(custom_fields, update=True)` — the idiomatic
@@ -349,6 +355,51 @@ way ERPNext/HRMS register fields. See `fixtures-guide.md`.
 
 **6. `extend_doctype_class` (v16+) is a safer alternative to `override_doctype_class`** — it extends the
 base controller instead of fully replacing it (`apps/frappe/frappe/model/base_document.py`).
+
+**7. Runtime requirements bumped.** v16 requires Python `>=3.14,<3.15` and Node `>=24`
+(`pyproject.toml`, `package.json`); v15 requires Python `>=3.10,<3.15` and Node `>=18`. A
+bench mixing a v15-only app with a v16 site still needs the v16 interpreter/Node bench-wide.
+
+**8. Deprecation system replaced.** v15 marks deprecated APIs with
+`frappe.utils.deprecations.deprecated`/`deprecation_warning` (plain `DeprecationWarning`).
+v16 replaces that module with `frappe.deprecation_dumpster`
+(`apps/frappe/frappe/deprecation_dumpster.py`): `deprecated(original, marked, graduation, msg)`
+and `deprecation_warning(marked, graduation, msg)` now carry a graduation version —
+`V15FrappeDeprecationWarning` (already graduated, raises as an error),
+`V16FrappeDeprecationWarning` (warns), `V17FrappeDeprecationWarning`/`PendingFrappeDeprecationWarning`
+(silenced). Code importing `frappe.utils.deprecations` on v16 should move to
+`frappe.deprecation_dumpster`.
+
+**9. Test runner rewritten (v16).** v15 runs tests via inline logic in `commands/utils.py`
+with no `frappe/testing/` package. v16 adds a dedicated `frappe/testing/` package
+(`TestConfig`, `TestRunner`, `discover_all_tests`, `discover_doctype_tests`,
+`discover_module_tests` — see `frappe/testing/README.md`) and moves `run-tests`,
+`run-parallel-tests`, `run-ui-tests` into their own `frappe/commands/testing.py` (v15 keeps
+them in `commands/utils.py`). `frappe.tests_runner.get_modules`/`make_test_records`/
+`make_test_objects` and related helpers are deprecated shims in `deprecation_dumpster.py`
+pointing at `frappe.tests.utils.*` and `frappe.tests.classes.context_managers.*`
+(`change_settings`, `patch_hooks`, `debug_on`, `timeout`).
+
+**10. SQLite added as a third database engine (v16).** `frappe/database/sqlite/` is new
+(`database.py`, `setup_db.py`, `schema.py`); `bench new-site --db-type sqlite` and
+`bench sqlite`/`bench db-console` work alongside `mariadb`/`postgres`. v15's
+`new-site --db-type` `click.Choice` only accepts `mariadb`/`postgres`
+(`apps/frappe/frappe/commands/site.py`). Code branching on `frappe.conf.db_type` should
+account for `"sqlite"`; `frappe.qb`/`frappe.get_all`/`get_list` emit SQLite-flavored SQL
+when a site is configured that way.
+
+**11. PDF generation default switched (v16).** The `pdf_generator` hook now defaults to
+`frappe.utils.pdf.get_chrome_pdf` (`apps/frappe/frappe/hooks.py`) instead of wkhtmltopdf;
+v15's `patches.txt` still carries
+`frappe.printing.doctype.print_format.patches.sets_wkhtmltopdf_as_default_for_pdf_generator_field`
+as its baseline default. Individual Print Formats can still opt into wkhtmltopdf; new sites
+on v16 default to the Chrome-based generator.
+
+**12. Hooks added/removed (v16).** New: `after_app_install`, `after_app_uninstall`
+(app-level install/uninstall lifecycle, distinct from the per-DocType `after_install`/
+`before_uninstall`), `app_home`, `web_include_icons` (SVG icon-sprite bundles), plus the
+already-noted `add_to_apps_screen`. Removed relative to v15's `hooks.py`: `leaderboards`
+and `standard_navbar_items` — registering either on v16 is silently ignored, not an error.
 
 REST API v2 (`/api/v2/`, since v15) and token-based REST API authentication (since v11.0.3) both work
 unchanged on v16 — prefer them over version-gating for API compatibility.
@@ -388,15 +439,26 @@ before applying the patterns below — they are `(v1)` breaking changes, not Fra
 
 ## Sources
 
-Verified against Frappe v16.27.1 at `<bench>/apps/frappe`:
-- `apps/frappe/frappe/__init__.py` (`__version__ = "16.27.1"`)
+Verified against Frappe v16.35.0 at `<bench>/apps/frappe`, diffed against a v15.120.0 baseline:
+- `apps/frappe/frappe/__init__.py` (`__version__ = "16.35.0"`)
+- `apps/frappe/pyproject.toml` (`requires-python`) and `apps/frappe/package.json` (`engines.node`)
+  for both versions
 - `apps/frappe/frappe/public/js/frappe/request.js` (`frappe.call`, `frappe.xcall` both defined)
 - `apps/frappe/frappe/desk/doctype/workspace/workspace.json`
 - `apps/frappe/frappe/desk/doctype/workspace_sidebar/workspace_sidebar.json` (created 2025-08-12, v16-only)
 - `apps/frappe/frappe/desk/doctype/desktop_icon/desktop_icon.json`
-- `apps/frappe/frappe/www/desk.py` and `apps/frappe/frappe/public/js/frappe/router.js`
+- `apps/frappe/frappe/www/desk.py` (`www/app.py`/`www/apps.py` absent in v16) and
+  `apps/frappe/frappe/public/js/frappe/router.js` (`is_app_route`, `make_url`, `set_route`)
+- `apps/frappe/frappe/hooks.py` `website_route_rules`/`website_redirects` (both versions,
+  diffed for the `/app` -> `/desk` prefix change)
 - `apps/frappe/frappe/custom/doctype/custom_field/custom_field.py` (`create_custom_fields`)
-- `apps/frappe/frappe/hooks.py` (`add_to_apps_screen`)
+- `apps/frappe/frappe/hooks.py` (both versions, diffed for added/removed hook names)
 - `apps/frappe/frappe/utils/change_log.py` (`get_versions`, whitelisted)
+- `apps/frappe/frappe/deprecation_dumpster.py` (v16-only) vs `apps/frappe/frappe/utils/deprecations.py` (v15)
+- `apps/frappe/frappe/testing/` and `apps/frappe/frappe/commands/testing.py` (v16-only) vs
+  `apps/frappe/frappe/commands/utils.py` `run-tests`/`run-parallel-tests`/`run-ui-tests` (v15)
+- `apps/frappe/frappe/database/sqlite/` (v16-only) and `apps/frappe/frappe/commands/site.py`
+  `new-site --db-type` choices (both versions)
+- `apps/frappe/frappe/patches.txt` (both versions, diffed for framework patch deltas)
 - `frappe-ui` `v1-release/changelog.md` and `v1-release/deprecated-removals.md` (0.1.x -> 1.0 beta
   breaking changes and deprecation table)

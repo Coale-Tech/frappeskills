@@ -1,5 +1,18 @@
 # Database & ORM
 
+## Architecture note (v16)
+
+`frappe.get_list`/`frappe.get_all` (and therefore `frappe.db.get_list`/`frappe.db.get_all`,
+which just delegate to them) now build their query through `frappe.model.qb_query.DatabaseQuery`,
+which calls the same PyPika-based `frappe.qb.get_query()` Engine (`frappe/database/query.py`)
+used directly in the examples below — not the legacy `frappe.model.db_query.DatabaseQuery`
+used pre-v16. Practical effect: the nested `and`/`or` filter groups and doctype-qualified
+4-element filters documented under **Filters syntax** now work through `get_list`/`get_all`
+too, not just `frappe.qb.get_query`. The old `db_query.py` module still exists but is only
+used internally for a handful of standalone helpers (date-range filters, `mask_field_value`,
+etc.); its `DatabaseQuery` class itself is no longer the list-query code path.
+
+
 ## Reading data
 
 ```python
@@ -73,7 +86,22 @@ filters = [
 ]
 
 # Supported operators: =, !=, >, <, >=, <=, like, not like, in, not in, between, is (for NULL)
+
+# Nested AND/OR groups (v16) — join condition lists with "and"/"or" literals.
+# Works with frappe.get_list/get_all and frappe.qb.get_query alike (same Engine).
+filters = [
+    ["status", "=", "Open"],
+    "or",
+    ["status", "=", "Closed"],
+]
+
+# Doctype-qualified filters for joined/child tables (v16) — 4-element form
+# [doctype, fieldname, operator, value] instead of the usual 3-element form.
+filters = [
+    ["Sales Order Item", "item_code", "=", "ITEM-001"],
+]
 ```
+
 
 ## `frappe.qb.get_query` (preferred for complex queries)
 
@@ -217,7 +245,7 @@ data = frappe.db.get_value("Customer", "CUST-001",
 ### Get List
 
 ```python
-# Get all (respects permissions)
+# Get all — ignores permissions, returns every matching row unless limited
 docs = frappe.get_all("Customer",
     fields=["name", "customer_name", "territory"],
     filters={"status": "Active"},
@@ -226,12 +254,25 @@ docs = frappe.get_all("Customer",
     limit_page_length=20
 )
 
-# Get list (same as get_all but ignores permissions by default)
+# Get list — checks the caller's read permission on the doctype/rows
 docs = frappe.get_list("Customer",
     fields=["name", "customer_name"],
     filters={"disabled": 0}
 )
 ```
+
+`limit_start`/`limit_page_length` (and the `frappe.qb.get_query`-level `start`/`page_length`
+aliases) are deprecated in favor of `offset`/`limit` — passing the old names still works but
+emits a deprecation warning (`frappe/model/qb_query.py`, graduating in v17). Prefer:
+
+```python
+docs = frappe.get_list("Customer", filters={"disabled": 0}, limit=20, offset=0)
+```
+
+Omitting both the limit and offset args on `get_list`/`get_all` returns **every** matching
+row — there is no implicit page size, despite some framework docstrings saying "Default 20".
+Always pass an explicit `limit`/`limit_page_length` on endpoints backed by user input.
+
 
 ### Set Value
 
@@ -303,6 +344,50 @@ results = frappe.db.sql("""
 # Single value
 value = frappe.db.sql("SELECT COUNT(*) FROM `tabCustomer`")[0][0]
 ```
+
+### Bulk Operations & DDL
+
+```python
+# Multi-row UPDATE with per-row differing values in one query (CASE-based).
+# doc_updates is a dict keyed by docname, not a list of dicts.
+frappe.db.bulk_update("Customer", {
+    "CUST-001": {"territory": "Kenya"},
+    "CUST-002": {"territory": "Uganda"},
+}, chunk_size=100)
+
+# Bulk INSERT of raw rows (bypasses controller hooks and validation entirely)
+frappe.db.bulk_insert("Customer", fields=["name", "customer_name"], values=[
+    ("CUST-101", "Acme"), ("CUST-102", "Globex"),
+])
+
+# Single-query DELETE — no on_trash/after_delete hooks fire
+frappe.db.delete("Customer", filters={"status": "Disabled"})
+
+# Drop all rows without logging individual deletes (DDL, not transactional in most engines)
+frappe.db.truncate("Log Table")
+
+# Multi-database-compatible SQL when frappe.qb can't express the query
+results = frappe.db.multisql({
+    "mariadb": "SELECT name FROM `tabCustomer` LIMIT %s",
+    "postgres": '''SELECT name FROM "tabCustomer" LIMIT %s''',
+}, (10,))
+
+# DDL statements (CREATE/ALTER/DROP) — separate from frappe.db.sql for clarity
+frappe.db.sql_ddl("ALTER TABLE `tabCustomer` ADD INDEX idx_territory (territory)")
+```
+
+A module-level `savepoint` context manager (`frappe.database.savepoint`) is also available
+as an alternative to the string-based `frappe.db.savepoint("label")` /
+`frappe.db.rollback(save_point="label")` pair shown under **Transactions** — note it is
+imported directly, not called as `frappe.db.savepoint(...)`:
+
+```python
+from frappe.database import savepoint
+
+with savepoint(catch=Exception):
+    doc.save()
+```
+
 
 ### Transaction Management
 
@@ -463,11 +548,13 @@ query = (
 
 ## Sources
 
-Verified against Frappe v16.27.1 (`frappe/__init__.py` `__version__ = "16.27.1"`):
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__ = "16.35.0"`):
 
 - `apps/frappe/frappe/__init__.py` — `whitelist`, `get_list`/`get_all`/`get_value`, `delete_doc`, `rename_doc`, `get_hooks`, and the `frappe.model.document` re-exports (`get_doc`, `new_doc`, `get_cached_doc`, `get_cached_value`, `get_single_value`, `get_last_doc`, `get_single`, `get_lazy_doc`); `cache` / `client_cache` globals
 - `apps/frappe/frappe/model/document.py` — `get_doc` (singledispatch), `new_doc`, `get_cached_doc`, `get_single_value`, `get_last_doc`, `db_set`
-- `apps/frappe/frappe/database/database.py` — `get_value`, `set_value`, `get_single_value`, `exists`, `count`
+- `apps/frappe/frappe/model/qb_query.py` — `DatabaseQuery.execute()`, the v16 `get_list`/`get_all` code path, and the `limit_start`/`limit_page_length`/`start`/`page_length` deprecation warnings
+- `apps/frappe/frappe/database/query.py` — `Engine.get_query()`/`Engine.apply_filters()` (nested AND/OR groups, 4-element doctype-qualified filters, `ignore_permissions` default, `for_update`/`skip_locked`/`wait`)
+- `apps/frappe/frappe/database/database.py` — `get_value`, `set_value`, `get_single_value`, `exists`, `count`, `bulk_update`, `bulk_insert`, `delete`, `truncate`, `multisql`, `sql_ddl`, `savepoint`
 - `apps/frappe/frappe/query_builder/` — `frappe.qb`, `DocType`, `get_query`
 - `apps/frappe/frappe/utils/background_jobs.py` — `enqueue`/`enqueue_doc` signatures, `get_queues_timeout` (short/default=300s, long=1500s), `is_job_enqueued`, `job_name` deprecation
 - `apps/frappe/frappe/hooks.py` — framework `doc_events`, `scheduler_events`, and hook-key surface

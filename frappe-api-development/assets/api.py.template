@@ -1,73 +1,82 @@
 import frappe
 
+
 @frappe.whitelist()
-def get_{{ snake_doctype }}(name):
+def get_{{ snake_doctype }}(name: str) -> dict:
     """
     Get single document by name
 
     Args:
-        name (str): Document name
+        name: Document name
 
     Returns:
-        dict: Document data
+        Document data
     """
+    frappe.has_permission("{{ doctype }}", "read", doc=name, throw=True)
     return frappe.get_doc("{{ doctype }}", name).as_dict()
 
 
 @frappe.whitelist()
-def get_{{ plural_snake }}_list(filters=None, fields=None, limit_start=0, limit_page_length=20):
+def get_{{ plural_snake }}_list(
+    filters: dict | None = None,
+    fields: list | None = None,
+    limit_start: int = 0,
+    limit_page_length: int = 20,
+) -> list:
     """
-    Get list of documents with filters
+    Get list of documents with filters. Uses frappe.get_list (not get_all)
+    so the query is restricted to records the caller can read.
 
     Args:
-        filters (dict): Filter conditions
-        fields (list): Fields to fetch
-        limit_start (int): Pagination start
-        limit_page_length (int): Page size
+        filters: Filter conditions
+        fields: Fields to fetch
+        limit_start: Pagination start
+        limit_page_length: Page size. Omitting both limit args returns
+            every matching row - always pass one for list endpoints.
 
     Returns:
-        list: List of documents
+        List of documents
     """
     default_fields = ["name", "status", "creation", "modified", "owner"]
 
-    return frappe.get_all(
+    return frappe.get_list(
         "{{ doctype }}",
         fields=fields or default_fields,
         filters=filters or {},
         order_by="creation desc",
         limit_start=limit_start,
-        limit_page_length=limit_page_length
+        limit_page_length=limit_page_length,
     )
 
 
-@frappe.whitelist()
-def create_{{ snake_doctype }}(data):
+@frappe.whitelist(methods=["POST"])
+def create_{{ snake_doctype }}(data: dict) -> dict:
     """
-    Create new document
+    Create new document. insert() runs permission checks (create) itself.
 
     Args:
-        data (dict): Document data
+        data: Document data
 
     Returns:
-        dict: Created document
+        Created document
     """
     doc = frappe.new_doc("{{ doctype }}")
     doc.update(data)
-    doc.save()
+    doc.insert()
     return doc.as_dict()
 
 
-@frappe.whitelist()
-def update_{{ snake_doctype }}(name, data):
+@frappe.whitelist(methods=["PUT", "POST"])
+def update_{{ snake_doctype }}(name: str, data: dict) -> dict:
     """
-    Update existing document
+    Update existing document. save() runs permission checks (write) itself.
 
     Args:
-        name (str): Document name
-        data (dict): Data to update
+        name: Document name
+        data: Data to update
 
     Returns:
-        dict: Updated document
+        Updated document
     """
     doc = frappe.get_doc("{{ doctype }}", name)
     doc.update(data)
@@ -75,31 +84,36 @@ def update_{{ snake_doctype }}(name, data):
     return doc.as_dict()
 
 
-@frappe.whitelist()
-def delete_{{ snake_doctype }}(name):
+@frappe.whitelist(methods=["DELETE", "POST"])
+def delete_{{ snake_doctype }}(name: str) -> dict:
     """
-    Delete document
+    Delete document. delete_doc() runs the delete permission check itself.
 
     Args:
-        name (str): Document name
+        name: Document name
 
     Returns:
-        dict: Success status
+        Success status
     """
     frappe.delete_doc("{{ doctype }}", name)
     return {"success": True}
 
 
-@frappe.whitelist()
-@frappe.whitelist_methods
-def get_{{ plural_snake }}_count(filters=None):
+@frappe.whitelist(methods=["GET"])
+def get_{{ plural_snake }}_count(filters: dict | None = None) -> int:
     """
-    Get count of documents matching filters
+    Get count of documents matching filters.
+
+    frappe.db.count() does not filter by permission on its own - it counts
+    every row matching the filters regardless of caller access. Only expose
+    this endpoint where an unfiltered count is acceptable, or add an
+    explicit frappe.has_permission("{{ doctype }}", "read", throw=True) call.
 
     Args:
-        filters (dict): Filter conditions
+        filters: Filter conditions
 
     Returns:
-        int: Count of documents
+        Count of documents
     """
+    frappe.has_permission("{{ doctype }}", "read", throw=True)
     return frappe.db.count("{{ doctype }}", filters=filters or {})

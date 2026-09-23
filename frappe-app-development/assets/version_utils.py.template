@@ -1,104 +1,84 @@
 """
 Version Detection Utilities for {{ app_name }}
 
-This module provides utilities to detect Frappe version and
-handle v15/v16 compatibility.
+Utilities to detect the Frappe major version and gate v15/v16-only behavior.
 """
+
+import re
 
 import frappe
 
 
 def get_frappe_version():
     """
-    Get Frappe version as tuple (major, minor, patch)
+    Get Frappe version as a tuple (major, minor, patch).
+
+    `frappe.__version__` is a plain dotted string in released builds (e.g. "16.35.0").
+    Only the leading digits of each of the first three segments are parsed, so a
+    non-numeric suffix on a segment (e.g. a `-dev`/`-beta` tag) degrades to 0 for that
+    segment instead of raising.
 
     Returns:
-        tuple: Version tuple e.g., (15, 0, 0) or (16, 0, 0)
+        tuple: Version tuple e.g. (15, 120, 0) or (16, 35, 0)
     """
-    version = frappe.__version__
-    try:
-        return tuple(map(int, version.split('.')))
-    except ValueError:
-        # Handle versions like '15.x-dev'
-        major = int(version.split('.')[0])
-        return (major, 0, 0)
+    segments = frappe.__version__.split(".")[:3]
+    parsed = []
+    for segment in segments:
+        match = re.match(r"\d+", segment)
+        parsed.append(int(match.group()) if match else 0)
+    while len(parsed) < 3:
+        parsed.append(0)
+    return tuple(parsed)
 
 
 def is_v15():
-    """
-    Check if running on Frappe v15
-
-    Returns:
-        bool: True if v15.x
-    """
+    """Check if running on Frappe v15."""
     return get_frappe_version()[0] == 15
 
 
 def is_v16_or_later():
-    """
-    Check if running on Frappe v16 or later
-
-    Returns:
-        bool: True if v16+
-    """
+    """Check if running on Frappe v16 or later."""
     return get_frappe_version()[0] >= 16
 
 
 def get_version_string():
-    """
-    Get Frappe version as string
-
-    Returns:
-        str: Version string
-    """
+    """Get Frappe version as a string, e.g. "16.35.0"."""
     return frappe.__version__
+
+
+def get_installed_app_versions():
+    """
+    Title and version of every installed app, keyed by app name.
+
+    Wraps `frappe.utils.change_log.get_versions()`; example return shape:
+    `{"frappe": {"title": "Frappe Framework", "version": "16.35.0", ...}}`.
+    """
+    from frappe.utils.change_log import get_versions
+
+    return get_versions()
+
+
+# Genuinely version-gated framework behavior an app might need to branch on.
+# Verified against apps/frappe/frappe source; do not add speculative flags here.
+FEATURES = {
+    # extend_doctype_class hooks.py key — extends rather than replaces override_doctype_class
+    # (frappe/model/base_document.py; absent from the v15 baseline).
+    "extend_doctype_class": is_v16_or_later,
+    # Workspace Sidebar doctype backing the desk sidebar
+    # (frappe/desk/doctype/workspace_sidebar; absent from the v15 baseline).
+    "workspace_sidebar_doctype": is_v16_or_later,
+}
 
 
 def is_feature_available(feature):
     """
-    Check if a specific feature is available in current version
+    Check if a version-gated framework feature is available.
 
     Args:
-        feature (str): Feature name to check
+        feature (str): key in FEATURES.
 
     Returns:
-        bool: True if feature is available
-
-    Features:
-    - "workspace_v16": v16 workspace with EditorJS
-    - "sidebar_v2": v6 sidebar with Workspace Sidebar DocType
-    - "desk_v2": v6 desk interface
-    - "new_api": frappe.xcall() API
+        bool: True if available on the running version. False for an unknown key.
     """
-    features = {
-        "workspace_v16": is_v16_or_later(),
-        "sidebar_v2": is_v16_or_later(),
-        "desk_v2": is_v16_or_later(),
-        "new_api": is_v16_or_later(),
-    }
-
-    return features.get(feature, False)
-
-
-def get_compatible_api_method():
-    """
-    Get the appropriate API call method for the current version
-
-    Returns:
-        str: 'frappe.xcall' for v16+, 'frappe.call' for v15
-    """
-    if is_v16_or_later():
-        return "frappe.xcall"
-    return "frappe.call"
-
-
-def get_workspace_api():
-    """
-    Get the appropriate workspace API for the current version
-
-    Returns:
-        str: Module path for workspace API
-    """
-    if is_v16_or_later():
-        return "frappe.desk.doctype.workspace.workspace"
-    return "frappe.desk.desktop"
+    check = FEATURES.get(feature)
+    return bool(check and check())

@@ -9,23 +9,31 @@ is never correct on a multi-site bench.
 > `run-tests` are **Frappe commands** and accept `--site <site>` (or use
 > `bench use <site>` once to set a default). Commands like `bench init`,
 > `bench new-app`, `bench get-app`, `bench update`, `bench start`, `bench restart`,
-> `bench setup ...`, and `bench build` are **bench-tool** commands — they operate on
-> the whole bench, not one site, and do not take `--site`.
+> and `bench setup ...` are **bench-tool** commands, implemented in the separate
+> `bench` Python package (`bench/commands/`) — they operate on the whole bench,
+> not one site, and do not take `--site`. `bench build` and `bench watch` are
+> themselves **Frappe commands** (`apps/frappe/frappe/commands/utils.py`); they
+> just have no site-scoped behavior, so they are also called without `--site`.
 
 ---
 
 ## App & site lifecycle
 
 ```bash
-# New app (MUST pipe input — no heredoc, no --no-input)
-printf '<title>\n<desc>\n<publisher>\n<email>\n<license>\nN\nN\nN\n' | bench new-app <app-name>
+# New app (MUST pipe input — no heredoc, no --no-input). 7 prompts in order:
+# title, description, publisher, email, license, "create GitHub workflow?" (y/N),
+# branch name (blank = default). See frappe/utils/boilerplate.py:_get_user_inputs.
+printf '<title>\n<desc>\n<publisher>\n<email>\n<license>\nN\n\n' | bench new-app <app-name>
 
-# Get an app from a repo
-bench get-app <app-name> <git-url>
-bench get-app <app-name> <git-url> --branch <branch>
+# Get an app from a repo — the app name comes from the git URL, not a CLI arg
+# (`bench get-app --help`: `Usage: bench get-app [OPTIONS] [NAME]... GIT_URL`;
+# NAME is accepted only for backward compatibility and ignored)
+bench get-app <git-url>
+bench get-app <git-url> --branch <branch>
 
 # New site (set root_password in common_site_config first: bench set-config -g root_password '<pwd>')
 bench new-site <name>.localhost --admin-password admin
+bench new-site <name>.localhost --admin-password admin --db-type sqlite   # (v16) sqlite backend
 
 # Set default site (lets you drop --site on later commands)
 bench use <site>
@@ -111,7 +119,7 @@ bench --site <site> console
 # Execute a dotted method path with site context
 bench --site <site> execute frappe.utils.get_url
 
-# Execute with args / kwargs (Python literal or JSON)
+# Execute with args / kwargs (eval()'d Python literal syntax, not JSON — single quotes work, trailing commas don't)
 bench --site <site> execute my_app.api.rebuild --args "['Customer']"
 bench --site <site> execute my_app.api.rebuild --kwargs "{'doctype': 'Customer'}"
 bench --site <site> execute my_app.api.heavy --profile
@@ -226,18 +234,28 @@ bench --site <site> reload-doctype "Sales Invoice"
 
 ## What `migrate` actually does (v16)
 
-`SiteMigration.run` in `frappe/migrate.py`, per site:
+`SiteMigration.run` in `frappe/migrate.py`, per site. It first checks
+`redis_cache` is reachable (`required_services_running`) and acquires a
+`filelock("bench_migrate", timeout=1)` — a second concurrent `migrate` on the
+same site fails immediately with a lock-timeout error instead of queueing, so
+two migrate invocations racing on the same site is a real failure mode, not a
+theoretical one. Then, per site:
 
-1. **setUp** — clear cache, lower the DB lock timeout, set `frappe.flags.in_migrate`.
-2. **pre_schema_updates** — run every app's `before_migrate` hooks.
+1. **setUp** — clear cache, lower the DB lock timeout, best-effort kill idle
+   DB connections, set `frappe.flags.in_migrate`.
+2. **pre_schema_updates** — run every app's `before_migrate` hooks; warn if more
+   than one app overrides the same DocType's controller (`override_doctype_class`).
 3. **run_schema_updates** — `[pre_model_sync]` patches → `frappe.model.sync.sync_all()`
    (DocType JSON → DB tables/columns) → `[post_model_sync]` patches.
 4. **post_schema_updates** (atomic) — sync scheduled jobs, recreate missing sequences,
-   sync fixtures (unless `--skip-fixtures`), dashboards, customizations (Custom Fields,
-   Property Setters, Custom Permissions), languages, flush deferred inserts, remove
-   orphan DocTypes, then run `after_migrate` hooks.
+   sync fixtures (unless `--skip-fixtures`), sync standard navbar items, dashboards,
+   customizations (Custom Fields, Property Setters, Custom Permissions), languages,
+   flush deferred inserts, remove orphan DocTypes/entities, sync the Portal Settings
+   menu, update the `Installed Applications` singleton's version history, then run
+   `after_migrate` hooks.
 5. **tearDown** (always, even on failure) — clear translation, website and
-   notification caches; queue the website search-index rebuild on the `long` queue.
+   notification caches; write `sites/<site>/touched_tables.json`; queue the website
+   search-index rebuild on the `long` queue (unless `--skip-search-index`).
 
 Run it after hand-editing DocType JSON, pulling app updates with schema changes, or
 adding a `patches.txt` entry. A patch listed under the wrong section runs against
@@ -270,6 +288,7 @@ bench schedule
 # Health check and index maintenance
 bench --site <site> doctor
 bench --site <site> add-database-index --doctype "Sales Invoice" --column customer
+bench --site <site> describe-database-table --doctype "Sales Invoice"          # column/index stats for a DocType's table
 
 # Installed app versions (bench-level, not per site)
 bench version
@@ -288,8 +307,25 @@ bench --site <site> disable-user user@example.com
 ```bash
 bench --site <site> build-message-files
 bench --site <site> get-untranslated <lang> untranslated.txt
+bench --site <site> update-translations <lang> untranslated.txt translated.csv
 bench --site <site> import-translations <lang> /path/to/translations.csv
 bench --site <site> new-language <lang-code> <app-name>
+bench --site <site> migrate-translations <source-app> <target-app>
+```
+
+### PO-based translation workflow
+
+`frappe/commands/gettext.py` adds a PO/POT-based workflow alongside the CSV
+commands above. These need `--site` only when `--app` is omitted (they then
+connect to the first site to read translations from the database instead of
+from an app's `locale/` directory):
+
+```bash
+bench generate-pot-file --app <app-name>        # extract strings to a POT template
+bench create-po-file <locale> --app <app-name>  # create locale/<lang>.po
+bench update-po-files --app <app-name>          # sync PO files with the POT
+bench compile-po-to-mo --app <app-name>         # compile PO -> MO for runtime use
+bench migrate-csv-to-po --app <app-name>        # one-time: old CSV translations -> PO
 ```
 
 ## Production
@@ -391,23 +427,39 @@ git commit -m "Update fixtures"
 
 ## Sources
 
-Frappe CLI commands verified against Frappe v16.27.1 (`bench` proxies these):
+Frappe CLI commands verified against Frappe v16.35.0 (`bench` proxies these; the
+active site comes from `--site`, `$FRAPPE_SITE`, or `common_site_config.json`'s
+`default_site` — see `frappe/utils/bench_helper.py:get_sites`):
 
-- `apps/frappe/frappe/commands/site.py` — `new-site`, `drop-site`, `use`, `install-app`,
-  `uninstall-app`, `list-apps`, `list-sites`, `backup`, `restore`, `reinstall`, `migrate`,
-  `reload-doc`, `reload-doctype`, `set-admin-password`, `add-system-manager`, `disable-user`,
-  `add-database-index`, `describe-database-table`, `trim-database`, `trim-tables`,
-  `clear-log-table`, `bulk-rename`
+- `apps/frappe/frappe/commands/site.py` — `new-site` (`--db-type mariadb|postgres|sqlite`;
+  (v16) sqlite is new), `drop-site`, `use`, `install-app`, `uninstall-app`, `list-apps`,
+  `backup`, `restore`, `partial-restore`, `reinstall`, `migrate`, `run-patch`, `bypass-patch`,
+  `reload-doc`, `reload-doctype`, `set-password`, `set-admin-password`, `add-system-manager`,
+  `add-user`, `disable-user`, `add-database-index`, `describe-database-table`, `trim-database`,
+  `trim-tables`, `clear-log-table`, `browse`, `publish-realtime`, `sync-desktop-icons`
 - `apps/frappe/frappe/commands/utils.py` — `build`, `watch`, `clear-cache`,
-  `clear-website-cache`, `execute` (`--args`/`--kwargs`/`--profile`), `set-config`
-  (`-g`/`-p`), `show-config`, `console`, `run-tests`, `run-parallel-tests`, `run-ui-tests`,
+  `clear-website-cache`, `destroy-all-sessions`, `reset-perms`, `execute`
+  (`--args`/`--kwargs`/`--profile`), `set-config` (`-g`/`-p`), `show-config`, `console`,
   `export-fixtures`, `export-json`, `export-csv`, `export-doc`, `import-doc`, `data-import`,
-  `mariadb`, `version`
-- `apps/frappe/frappe/commands/scheduler.py` — `enable-scheduler`, `disable-scheduler`,
-  `scheduler`, `doctor`, `show-pending-jobs`, `purge-jobs`, `schedule`, `worker`, `worker-pool`
+  `bulk-rename`, `list-sites`, `db-console`/`mariadb`/`postgres`/`sqlite`, `jupyter`,
+  `transform-database`, `serve`, `request`, `make-app`, `create-patch`, `version`,
+  `rebuild-global-search`
+- `apps/frappe/frappe/commands/testing.py` — (v16) dedicated test-runner module, backed
+  by the new `frappe/testing/` package (`TestRunner`, `TestConfig`, `discover_all_tests`);
+  holds `run-tests`, `run-parallel-tests`, `run-ui-tests`. In v15 these three lived in
+  `commands/utils.py` and there was no `frappe/testing/` package.
+- `apps/frappe/frappe/commands/scheduler.py` — `trigger-scheduler-event`, `enable-scheduler`,
+  `disable-scheduler`, `scheduler`, `set-maintenance-mode`, `doctor`, `show-pending-jobs`,
+  `purge-jobs`, `schedule`, `worker`, `worker-pool`, `ready-for-migration`
 - `apps/frappe/frappe/commands/translate.py` — `build-message-files`, `new-language`,
   `get-untranslated`, `update-translations`, `import-translations`, `migrate-translations`
-- `bench init`, `new-app`, `get-app`, `update`, `start`, `restart`, `setup` are
-  bench-tool commands, not in Frappe's `frappe/commands/`. There is no
+- `apps/frappe/frappe/commands/gettext.py` — PO-based translation workflow:
+  `generate-pot-file`, `create-po-file`, `update-po-files`, `compile-po-to-mo`,
+  `migrate-csv-to-po`
+- `apps/frappe/frappe/commands/redis_utils.py` — `create-rq-users` (sets up Redis ACL
+  users and `rq_username`/`rq_password` in `common_site_config.json`)
+- `bench init`, `new-app`, `get-app`, `update`, `start`, `restart`, `setup ...`, `config`,
+  `install`, `completions` are bench-tool commands implemented in the separate `bench`
+  package (`bench/commands/`), not in Frappe's `frappe/commands/`. There is no
   `bench c`/`bench m`/`bench s` shortcut and no `bench clear-logs` or
   `bench clear-scheduler-priority-jobs` command.

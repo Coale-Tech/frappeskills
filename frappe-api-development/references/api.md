@@ -92,6 +92,18 @@ def public_endpoint():
     return {"message": "Hello"}
 ```
 
+### `frappe.whitelist()` parameters
+
+`whitelist(allow_guest=False, xss_safe=False, methods=None)`:
+
+- `methods` — if omitted, defaults to `["GET", "POST", "PUT", "DELETE"]` (all methods
+  allowed). Always pass an explicit list (see **Specify HTTP methods** below) instead of
+  relying on this default.
+- `xss_safe` — only relevant with `allow_guest=True`. By default, incoming guest request
+  data (`frappe.form_dict` string values) is HTML-escaped before the function runs.
+  `xss_safe=True` skips that sanitization. Leave it `False` unless the endpoint never
+  reflects guest input back as HTML.
+
 ## Argument handling
 
 - **Always add type hints** to whitelisted method parameters. Frappe validates and casts arguments based on type hints, preventing type-confusion attacks:
@@ -143,12 +155,30 @@ GET    /api/v2/doctype/<DocType>/count                     # count records
 Response includes `has_next_page` boolean for pagination.
 
 ### Bulk operations
+
+There is no `/api/v2/document/<DocType>/bulk_*` route — bulk operations are whitelisted
+RPC methods called via `/api/method/<dotted.path>`, not REST v2 document routes:
+
 ```
-POST /api/v2/document/<DocType>/bulk_delete   # body: {"names": [...]}
-POST /api/v2/document/<DocType>/bulk_update   # body: {"docs": [{"name": "...", ...fields}]}
+POST /api/method/frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs
+# body: {"doctype": "...", "docnames": "[...]", "action": "submit|cancel|update", "data": "{...}"}
 ```
 
-Large bulk operations (>20 items by default) are automatically enqueued as background jobs.
+`submit_cancel_or_update_docs` runs synchronously for fewer than 20 `docnames`; for 20-500
+it is enqueued as a background job (`frappe.msgprint("Bulk operation is enqueued in
+background.")`); above 500 it raises `frappe.throw("Bulk operations only support up to 500
+documents.")`.
+
+For saving several already-known documents with per-document field values in one RPC call,
+use `frappe.client.bulk_update` instead:
+
+```
+POST /api/method/frappe.client.bulk_update
+# body: {"docs": "[{\"doctype\": \"...\", \"name\": \"...\", \"field\": \"value\"}, ...]"}
+```
+
+It loops `frappe.get_doc(...).save()` per document (controller hooks and permission checks
+run per document) and returns `{"failed_docs": [...]}` for any that raised.
 
 Only create custom `@frappe.whitelist()` endpoints for logic that goes beyond CRUD.
 
@@ -296,8 +326,9 @@ GET /api/resource/Customer?order_by=creation desc
 # With child table fields
 GET /api/resource/Sales Invoice?fields=["name","items.item_code","items.qty"]
 
-# Group by
-GET /api/resource/Customer?group_by=territory&fields=["territory","count(name) as count"]
+# Group by — SQL function CALLS as field strings ("count(name) as count") are
+# rejected with a ValidationError (v16); use the dict aggregation syntax instead
+GET /api/resource/Customer?group_by=territory&fields=["territory",{"COUNT":"name","as":"count"}]
 ```
 
 ### Filter Operators
@@ -466,7 +497,7 @@ format_date("2024-01-15")          # "Jan 15, 2024"
 
 # URLs
 get_url()              # Site URL
-get_url("/app/customer")  # Full URL
+get_url("/desk/customer")  # Full URL — Desk prefix is /desk (v16); /app/customer still redirects
 
 # Misc
 random_string(10)      # Random alphanumeric
@@ -527,7 +558,7 @@ def check_job_status(job_id):
 
 ## Debugging
 
-For a 500 response, check the **Error Log** doctype (`/app/error-log`) for
+For a 500 response, check the **Error Log** doctype (`/desk/error-log`) for
 exceptions logged via `frappe.log_error`, or tail the bench's `logs/`
 directory (`web.log`, `worker.log`, `scheduler.log`).
 
@@ -548,10 +579,15 @@ directory (`web.log`, `worker.log`, `scheduler.log`).
 
 ## Sources
 
-Verified against Frappe v16.27.1 (`frappe/__init__.py` `__version__ = "16.27.1"`):
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__ = "16.35.0"`):
 
-- `apps/frappe/frappe/__init__.py` — `whitelist`, `get_list`/`get_all`/`get_value`, `delete_doc`, `rename_doc`, `get_hooks`, and the `frappe.model.document` re-exports (`get_doc`, `new_doc`, `get_cached_doc`, `get_cached_value`, `get_single_value`, `get_last_doc`, `get_single`, `get_lazy_doc`); `cache` / `client_cache` globals
+- `apps/frappe/frappe/__init__.py` — `whitelist` (default `methods`, `xss_safe`, `allow_guest`), `is_whitelisted`, `get_list`/`get_all`/`get_value`, `delete_doc`, `rename_doc`, `get_hooks`, and the `frappe.model.document` re-exports (`get_doc`, `new_doc`, `get_cached_doc`, `get_cached_value`, `get_single_value`, `get_last_doc`, `get_single`, `get_lazy_doc`); `cache` / `client_cache` globals
 - `apps/frappe/frappe/model/document.py` — `get_doc` (singledispatch), `new_doc`, `get_cached_doc`, `get_single_value`, `get_last_doc`, `db_set`
+- `apps/frappe/frappe/handler.py` — `execute_cmd`, `is_valid_http_method`, `upload_file`, `get_attr`, `run_doc_method`
+- `apps/frappe/frappe/client.py` — `get_list`, `get_count`, `get`, `get_value`, `set_value`, `insert`, `save`, `delete`, `bulk_update`, `rename_doc`, `submit`, `cancel`
+- `apps/frappe/frappe/api/v1.py`, `apps/frappe/frappe/api/v2.py` — REST v1/v2 `url_rules`, `document_list`, `execute_doc_method`, `handle_rpc_call`
+- `apps/frappe/frappe/desk/doctype/bulk_update/bulk_update.py` — `submit_cancel_or_update_docs` thresholds (sync <20, background enqueue <=500, throw >500)
+- `apps/frappe/frappe/database/query.py` — `Engine.parse_fields`/`parse_string_field`/`_validate_select_field` (rejects SQL function-call strings in SELECT), `FUNCTION_MAPPING`
 - `apps/frappe/frappe/database/database.py` — `get_value`, `set_value`, `get_single_value`, `exists`, `count`
 - `apps/frappe/frappe/query_builder/` — `frappe.qb`, `DocType`, `get_query`
 - `apps/frappe/frappe/utils/background_jobs.py` — `enqueue`/`enqueue_doc` signatures, `get_queues_timeout` (short/default=300s, long=1500s), `is_job_enqueued`, `job_name` deprecation

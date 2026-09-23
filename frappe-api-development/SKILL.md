@@ -89,11 +89,11 @@ See [references/database.md](references/database.md).
 
 ### 5) Wire external access
 
-- Resource API + Python client: [references/rest-api.md](references/rest-api.md)
+- REST resource API, v1 vs v2: [references/rest-api.md](references/rest-api.md)
 - Outbound webhooks: [references/webhooks.md](references/webhooks.md)
 - OAuth 2.0 and social login: [references/oauth.md](references/oauth.md)
 - Token/session mechanics: [references/authentication.md](references/authentication.md)
-- Throttling: [references/rate-limiting.md](references/rate-limiting.md)
+- Throttling: `@rate_limit` per request rate; `@concurrent_limit` (v16) caps in-flight calls — [references/rate-limiting.md](references/rate-limiting.md)
 
 ### 6) Connect a frontend
 
@@ -131,7 +131,7 @@ Third-party sync shapes: [references/integration-patterns.md](references/integra
 ## References
 
 - [references/api.md](references/api.md) - Whitelisted methods, arguments, responses
-- [references/rest-api.md](references/rest-api.md) - Resource API and Python client
+- [references/rest-api.md](references/rest-api.md) - REST resource API: v1 vs v2 routes, envelopes, query params
 - [references/database.md](references/database.md) - `frappe.db`, `frappe.qb`, transactions, performance
 - [references/authentication.md](references/authentication.md) - Sessions, API keys, tokens (index)
 - [references/authentication-server.md](references/authentication-server.md) - Server-side permission model, rate limiting, CSRF
@@ -166,3 +166,4 @@ Third-party sync shapes: [references/integration-patterns.md](references/integra
 | `allow_guest=True` by reflex | Public write endpoint | Remove it unless required |
 | `frappe.get_doc` inside a loop | N+1 queries | Batch via `frappe.get_all` |
 | Long work in the request | Gateway timeout | `frappe.enqueue` |
+| Client Credentials / password grant against Frappe OAuth | Only `authorization_code` + `refresh_token` supported | Auth Code (+PKCE) or API key/secret |

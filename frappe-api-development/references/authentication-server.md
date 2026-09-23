@@ -104,9 +104,9 @@ Frappe's permission system is layered (role permissions → User Permissions →
 shares → controller hooks). A check passes only if the relevant layer grants it.
 Critically, **controller `has_permission` hooks can only DENY, never grant**
 access that role permissions didn't already allow
-(`apps/frappe/frappe/permissions.py:481` `has_controller_permissions`).
+(`apps/frappe/frappe/permissions.py:483` `has_controller_permissions`).
 `Administrator` short-circuits to `True` in `has_permission`
-(`permissions.py:107-109`).
+(`permissions.py:108-110`).
 
 ### Core permission functions & signatures
 
@@ -128,31 +128,31 @@ frappe.permissions.has_permission(
 
 # Per-doc evaluated permission dict, e.g. {"read": 1, "write": 1}
 frappe.permissions.get_doc_permissions(doc, user=None, ptype=None, debug=False) -> dict
-# frappe/permissions.py:227
+# frappe/permissions.py:229
 
 # Role-permission dict for a DocType meta (does NOT include User Permissions)
 frappe.permissions.get_role_permissions(doctype_meta, user=None, is_owner=None, debug=False) -> dict
-# frappe/permissions.py:282
+# frappe/permissions.py:284
 
 # User Permission (document-level scoping) check
 frappe.permissions.has_user_permission(doc, user=None, debug=False, *, ptype=None) -> bool
-# frappe/permissions.py:351
+# frappe/permissions.py:353
 
 # Controllers can only DENY, never grant
 frappe.permissions.has_controller_permissions(doc, ptype, user=None, debug=False) -> bool
-# frappe/permissions.py:481
+# frappe/permissions.py:483
 
 # Roles of a user (includes automatic roles: All, Guest, Desk User)
 frappe.get_roles(username=None) -> list[str]                                # frappe/__init__.py:406
-frappe.permissions.get_roles(user=None, with_standard=True) -> list[str]    # permissions.py:535
+frappe.permissions.get_roles(user=None, with_standard=True) -> list[str]    # permissions.py:537
 
 # Raise frappe.PermissionError unless the user has ANY of the given roles.
 frappe.only_for(roles, message=False)                                       # frappe/__init__.py:548
 ```
 
 Document methods (`apps/frappe/frappe/model/document.py`):
-`doc.has_permission(permtype="read", *, debug=False, user=None) -> bool` (line 400)
-and `doc.check_permission(permtype="read", permlevel=None)` (line 395), which
+`doc.has_permission(permtype="read", *, debug=False, user=None) -> bool` (line 402)
+and `doc.check_permission(permtype="read", permlevel=None)` (line 397), which
 raises `frappe.PermissionError` on failure.
 
 ### Recommended patterns in whitelisted methods
@@ -186,7 +186,7 @@ the return value or pass `throw=True`.
 
 List queries (`frappe.get_list`/`get_all` when `ignore_permissions` is falsy)
 append extra `WHERE` conditions from the `permission_query_conditions` hook
-(`apps/frappe/frappe/model/db_query.py:1157` `get_permission_query_conditions`).
+(`apps/frappe/frappe/model/db_query.py:1159` `get_permission_query_conditions`).
 Hooks are resolved as `hooks.get(doctype, []) + hooks.get("*", [])`; each method
 is invoked as `method(user, doctype=doctype)` and must return a SQL condition
 string (Server Scripts of type "Permission Query" are also supported).
@@ -205,7 +205,7 @@ def todo_query_conditions(user, doctype=None):
 ```
 
 Document-level (not list) access can be denied via the `has_permission` hook,
-resolved in `has_controller_permissions` (`permissions.py:481`):
+resolved in `has_controller_permissions` (`permissions.py:483`):
 
 ```python
 # hooks.py
@@ -228,13 +228,13 @@ linked DocType, layered on top of role permissions
 
 `ignore_permissions` **bypasses all permission checks**. On a document,
 `doc.flags.ignore_permissions = True` makes `doc.has_permission()` return `True`
-unconditionally (`apps/frappe/frappe/model/document.py:400-407`). DB-op kwargs
+unconditionally (`apps/frappe/frappe/model/document.py:402-410`). DB-op kwargs
 set that flag:
 
 ```python
-doc.insert(ignore_permissions=True)            # document.py:456-457
-doc.save(ignore_permissions=True)              # document.py:566-567
-doc.delete(ignore_permissions=True)            # document.py:1372
+doc.insert(ignore_permissions=True)            # document.py:438,463-464
+doc.save(ignore_permissions=True)              # document.py:555,573-574
+doc.delete(ignore_permissions=True)            # document.py:1380,1385
 frappe.get_list("X", ignore_permissions=True)  # skips permission_query_conditions
 ```
 

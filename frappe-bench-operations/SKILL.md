@@ -26,7 +26,7 @@ Run and repair a bench: sites, migrations, workers, assets, backups.
 
 ```bash
 ls apps/ sites/
-cat sites/currentsite.txt
+grep default_site sites/common_site_config.json   # set by `bench use`; currentsite.txt is ignored
 bench --site <site> list-apps
 ```
 
@@ -83,7 +83,7 @@ re-run. Never leave a half-migrated site serving users.
 ## Failure modes / debugging
 
 - **`migrate` hangs**: stale RQ worker holding a lock, or a patch waiting on input
-- **`DocumentLockedError`**: stale lock from a killed process; clear it, then retry
+- **`DocumentLockedError`**: stale lock from a killed process; after 30 min Desk offers Force Unlock, after 3 h it expires — see [references/bench-troubleshooting.md](references/bench-troubleshooting.md)
 - **`ModuleNotFoundError` inside a job**: worker running pre-deploy code — restart workers
 - **Assets not updating**: `bench build --app <app>` missing, or browser cache
 - **Scheduler not firing**: disabled on the site, or the scheduler process is dead

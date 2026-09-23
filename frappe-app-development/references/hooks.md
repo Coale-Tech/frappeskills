@@ -220,15 +220,18 @@ All keys below are resolved via `frappe.get_hooks(...)` / `hooks.<key>` somewher
 
 **App metadata**
 `app_name`, `app_title`, `app_publisher`, `app_description`, `app_email`,
-`app_license`, `app_logo_url`, `app_home`, `home_page`, `role_home_page`,
-`required_apps`, `add_to_apps_screen`, `domains`, `source_link`, `develop_version`.
+`app_license`, `app_logo_url`, `app_color`, `app_home`, `home_page`, `role_home_page`,
+`required_apps`, `add_to_apps_screen`, `domains`, `develop_version`.
+(`app_color` tints the app in the version/changelog UI — `frappe/utils/change_log.py::get_versions`.)
 
 **Desk / web asset includes**
 `app_include_js`, `app_include_css`, `app_include_icons`, `web_include_js`,
 `web_include_css`, `web_include_icons`, `email_css`, `website_theme_scss`,
 `page_js`, `doctype_js`, `doctype_list_js`, `doctype_tree_js`,
 `doctype_calendar_js`, `webform_include_js`, `webform_include_css`.
-(Per-doctype JS is consumed in `frappe/form/meta.py::add_code_via_hook`.)
+(Per-doctype JS is consumed in `frappe/form/meta.py::add_code_via_hook`;
+`website_theme_scss` is only ever declared by `bench new-app`'s boilerplate comment — the
+actual mechanism is a fixed `public/scss/website.scss` file per app, not a `get_hooks` read.)
 
 **Document events & controller extension**
 `doc_events`, `override_doctype_class`, `extend_doctype_class` (v16 mixin),
@@ -242,10 +245,12 @@ All keys below are resolved via `frappe.get_hooks(...)` / `hooks.<key>` somewher
 **Request lifecycle**
 `before_request`, `after_request`.
 
-**Install / uninstall / migrate / test**
+**Install / uninstall / migrate / test / build**
 `before_install`, `after_install`, `before_uninstall`, `after_uninstall`,
 `before_app_install`, `after_app_install`, `before_app_uninstall`,
-`after_app_uninstall`, `before_migrate`, `after_migrate`, `before_tests`.
+`after_app_uninstall`, `before_migrate`, `after_migrate`, `before_tests`,
+`after_build` (v16 — `frappe/commands/utils.py::run_after_build_hook`, runs after `bench build`),
+`never_skip_patches` (v16 — `frappe/modules/patch_handler.py`).
 
 **Auth / session**
 `auth_hooks`, `on_session_creation`, `on_login`, `on_logout`,
@@ -254,19 +259,26 @@ All keys below are resolved via `frappe.get_hooks(...)` / `hooks.<key>` somewher
 
 **Permissions**
 `permission_query_conditions`, `has_permission`, `has_website_permission`,
-`has_comment_permission`, `standard_queries`.
+`has_comment_permission` (v16), `comment_rate_limit` (v16), `standard_queries`.
+(v15 hardcoded the web-comment rate limit to `Blog Settings.comment_limit` with no
+permission hook — `frappe/templates/includes/comments/comments.py`.)
 
 **Boot / desk UI**
 `boot_session`, `extend_bootinfo`, `notification_config`, `sounds`,
 `standard_navbar_items`, `standard_help_items`, `calendars`, `treeviews`,
-`leaderboards`, `filters_config`, `dashboards`, `clear_cache`,
-`get_changelog_feed`.
+`filters_config`, `clear_cache`, `get_changelog_feed`, `additional_timeline_content`,
+`awesomebar_search`, `setup_wizard_stages`.
+(`leaderboards` was a v15 hook (`frappe/desk/leaderboard.py`) — the leaderboard desk
+page and hook were removed entirely in v16; there is no replacement. `dashboards` as a
+standalone key does not exist — only `override_doctype_dashboards` does.)
 
 **Jinja / templating / PDF / print**
-`jinja`, `jenv`, `base_template`, `base_template_map`,
+`jinja`, `base_template`, `base_template_map`, `template_apps`,
 `pdf_header_html`, `pdf_body_html`, `pdf_footer_html`, `pdf_generator`,
 `on_print_pdf`, `get_print_format_template`, `make_email_body_message`,
 `default_mail_footer`, `welcome_email`, `email_append_to`.
+(`jenv` is deprecated since v13 in favor of `jinja` — `frappe/patches/v13_0/jinja_hook.py`
+still warns on it but no v16 code reads it; do not use it.)
 
 **Website / portal**
 `website_route_rules`, `website_redirects`, `website_context`,
@@ -277,10 +289,10 @@ All keys below are resolved via `frappe.get_hooks(...)` / `hooks.<key>` somewher
 
 **Search / data / misc**
 `global_search_doctypes`, `sqlite_search`, `importable_doctypes`,
-`fixtures`, `fixture_auto_order`, `user_data_fields`,
+`fixtures`, `fixture_auto_order`, `user_data_fields`, `get_site_info`,
 `default_log_clearing_doctypes`, `persistent_cache_keys`,
 `export_python_type_annotations`, `ignore_translatable_strings_from`,
-`communication_doctypes`, `write_file_keys`, `setup_wizard_exception`,
+`write_file_keys`, `setup_wizard_exception`,
 `setup_wizard_complete`, `setup_wizard_requires`, `setup_wizard_success`.
 
 > `get_hooks(key)` always returns a **merged list/dict across all installed apps**
@@ -321,7 +333,8 @@ def on_submit(doc, method):
 
 ## Sources
 
-Verified against Frappe v16.27.1 (`frappe/__init__.py` `__version__ = "16.27.1"`):
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__ = "16.35.0"`), cross-checked
+against the v15.120.0 baseline for version-gating:
 
 - `apps/frappe/frappe/__init__.py` — `whitelist`, `get_list`/`get_all`/`get_value`, `delete_doc`, `rename_doc`, `get_hooks`, and the `frappe.model.document` re-exports (`get_doc`, `new_doc`, `get_cached_doc`, `get_cached_value`, `get_single_value`, `get_last_doc`, `get_single`, `get_lazy_doc`); `cache` / `client_cache` globals
 - `apps/frappe/frappe/model/document.py` — `get_doc` (singledispatch), `new_doc`, `get_cached_doc`, `get_single_value`, `get_last_doc`, `db_set`
@@ -332,3 +345,9 @@ Verified against Frappe v16.27.1 (`frappe/__init__.py` `__version__ = "16.27.1"`
 - `apps/frappe/frappe/utils/boilerplate.py` — `hooks_template` (canonical `bench new-app` hooks.py)
 - `apps/frappe/frappe/core/doctype/scheduled_job_type/scheduled_job_type.json` — scheduler frequency options
 - `apps/frappe/frappe/utils/redis_wrapper.py` + `frappe/utils/caching.py` — `frappe.cache`, `client_cache`, `request_cache`/`site_cache`/`redis_cache`
+- `apps/frappe/frappe/desk/search.py::awesomebar_search`, `frappe/desk/form/load.py::get_additional_timeline_content`,
+  `frappe/utils/__init__.py::get_site_info`, `frappe/utils/jinja.py::get_jenv` — undocumented hooks confirmed live in both v15 and v16
+- `apps/frappe/frappe/templates/includes/comments/comments.py`, `frappe/modules/patch_handler.py`,
+  `frappe/commands/utils.py::run_after_build_hook` — v16-only hooks (`has_comment_permission`, `comment_rate_limit`,
+  `never_skip_patches`, `after_build`), absent from the v15 baseline
+- `apps/frappe/frappe/desk/leaderboard.py` (v15 only, removed in v16 — confirmed absent from v16 source tree)

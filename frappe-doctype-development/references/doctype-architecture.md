@@ -78,6 +78,10 @@ cross-cutting properties:
 | `non_negative` | Prevent negative values | `1` or `0` |
 | `collapsible` | Section is collapsible | `1` or `0` |
 | `collapsible_depends_on` | Conditional collapse | `eval:doc.items.length==0` |
+| `not_nullable` (v16) | DB column gets `NOT NULL` instead of nullable | `1` or `0` |
+| `mask` (v16) | Input mask pattern | `000-000` |
+| `sticky` (v16) | Field stays pinned while scrolling a long form | `1` or `0` |
+| `show_description_on_click` (v16) | Show description as a click popover instead of inline | `1` or `0` |
 
 ## Naming & Autoname Patterns
 
@@ -93,7 +97,7 @@ More patterns and renaming: [naming.md](naming.md).
 | 4 | **Naming Series** | `autoname = "naming_series:"` | REQ-2024-00001 |
 | 5 | **Format Expression** | `autoname = "format:PRE-{YYYY}-{#####}"` | PRE-2024-00001 |
 | 6 | **Random Hash** | `autoname = "hash"` | a1b2c3d4e5 |
-| 7 | **UUID** | `autoname = "UUID"` | 550e8400-e29b... |
+| 7 | **UUID (v16)** | `autoname = "UUID"` | 550e8400-e29b... |
 | 8 | **Prompt** | `autoname = "Prompt"` | User prompted |
 | 9 | **Custom (autoname hook)** | Override in controller | Custom logic |
 
@@ -112,11 +116,14 @@ corresponding `autoname` value. Verified `naming_rule` options
 | `Expression` | `format:...` |
 | `Expression (old style)` | `PRE-.####` (legacy dot syntax) |
 | `Random` | `hash` |
-| `UUID` | `UUID` |
+| `UUID` (v16) | `UUID` |
 | `By script` | controller `autoname()` method / `before_naming` |
 
-> `naming_series:.YYYY.-` style patterns support `.YYYY.`, `.MM.`, `.DD.`, `.WW.`,
-> `.###` (counter) and `.{fieldname}.` tokens (`frappe/model/naming.py`).
+> `naming_series:.YYYY.-` style patterns support `.YYYY.`, `.YY.`, `.MM.`, `.DD.`,
+> `.WW.` (week number), `.JJJ.` (day of year), `.###` (counter),
+> `.{fieldname}.` tokens, and `.timestamp.`. Apps can register extra tokens via
+> the `naming_series_variables` hook (`frappe/model/naming.py`,
+> `parse_naming_series`).
 
 ## Docstatus & Document States
 
@@ -140,6 +147,10 @@ doc.cancel()
 amended_doc = frappe.copy_doc(doc)
 amended_doc.amended_from = doc.name
 amended_doc.insert()
+
+# (v16) Discard a draft: docstatus 0 -> 2 via db_set; fires before_discard/on_discard,
+# not validate/on_cancel. Throws unless draft (frappe/model/document.py Document.discard)
+doc.discard()
 ```
 
 ## Single DocTypes
@@ -344,10 +355,18 @@ naming: `issingle` and `istable` have **no** underscore, while `is_submittable`,
 | `make_attachments_public` | Attachments public by default |
 | `allow_auto_repeat` | Enable Auto Repeat |
 | `beta` | Marked as beta |
+| `protect_attached_files` | Attachments can only be deleted while the document is in draft, or is cancelled (by users who can also delete the document) |
+| `is_calendar_and_gantt` | Enables Calendar and Gantt views |
+| `translated_doctype` | Translate Link fields shown for this DocType |
+| `show_preview_popup` | Show a preview popup for linked documents |
+| `email_append_to` | Allow document creation via incoming email |
+| `show_name_in_global_search` | Make `name` searchable in Global Search |
+| `force_re_route_to_default_view` | Force navigation back to the default view |
+| `allow_bulk_edit` (v16) | Enable bulk update of fields across child table rows (only shown when `istable`) |
 
 ## Sources
 
-Verified against Frappe v16.27.1 (`frappe/__init__.py` `__version__`):
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
 
 - `apps/frappe/frappe/core/doctype/doctype/doctype.json` — DocType-level Check flags, `naming_rule` options
 - `apps/frappe/frappe/model/naming.py` — naming series / autoname tokens

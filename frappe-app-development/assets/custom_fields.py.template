@@ -1,25 +1,24 @@
 """
 Custom Field Fixtures for {{ app_name }}
 
-This module manages custom fields added to standard ERPNext DocTypes
-via fixtures pattern (v15/v16 compatible).
-
-Use fixtures instead of direct database operations for custom fields
-to ensure proper migration and portability.
+Defines custom fields added to standard DocTypes and creates/removes them through
+the framework's own idempotent helpers (frappe/custom/doctype/custom_field/custom_field.py),
+the same mechanism ERPNext and HRMS use for their own custom fields.
 """
 
 import frappe
+from frappe.custom.doctype.custom_field.custom_field import create_custom_fields, delete_custom_fields
 
 
 def get_custom_fields():
     """
-    Return custom fields to be added via fixtures
+    Return custom fields to be created.
 
     Returns:
-        dict: Dictionary with DocType as key and list of field definitions as value
+        dict: DocType (or tuple of DocTypes) -> list of field definitions.
     """
     return {
-        # Add custom fields to standard ERPNext DocTypes
+        # Add custom fields to standard DocTypes
         "Customer": [
             {
                 "fieldname": "custom_region",
@@ -27,9 +26,6 @@ def get_custom_fields():
                 "label": "Region",
                 "options": "Region",
                 "insert_after": "territory",
-                "read_only": 0,
-                "print_hide": 0,
-                "report_hide": 0,
             },
             {
                 "fieldname": "custom_customer_type",
@@ -37,7 +33,6 @@ def get_custom_fields():
                 "label": "Customer Type",
                 "options": "Retail\nWholesale\nDistributor",
                 "insert_after": "customer_type",
-                "read_only": 0,
             },
         ],
         "Supplier": [
@@ -46,19 +41,18 @@ def get_custom_fields():
                 "fieldtype": "Data",
                 "label": "Vendor Code",
                 "insert_after": "supplier_name",
-                "read_only": 0,
             },
         ],
-        "Item": [
+        # A tuple key applies the same fields to every listed DocType.
+        ("Sales Order", "Sales Invoice"): [
             {
-                "fieldname": "custom_brand",
-                "fieldtype": "Link",
-                "label": "Brand",
-                "options": "Brand",
-                "insert_after": "item_group",
+                "fieldname": "custom_delivery_notes",
+                "fieldtype": "Small Text",
+                "label": "Delivery Notes",
+                "insert_after": "terms",
             },
         ],
-        # Add to your custom DocTypes if needed
+        # Add to your own custom DocTypes as needed
         "{{ doctype }}": [
             {
                 "fieldname": "custom_field_1",
@@ -66,78 +60,30 @@ def get_custom_fields():
                 "label": "Custom Field 1",
                 "insert_after": "name",
             }
-        ]
+        ],
     }
 
 
 def setup_custom_fields():
     """
-    Create custom fields via fixture pattern - v15/v16 compatible
-
-    This function is called in after_install hook to create custom fields
-    on standard DocTypes. Checks for existing fields before creating.
+    Create/update custom fields. Call from `after_install` and `after_migrate` — it is
+    idempotent (`update=True`): existing fields are synced in place, missing ones created.
     """
-    custom_fields = get_custom_fields()
-
-    for doctype, fields in custom_fields.items():
-        # Skip if DocType doesn't exist (might be optional dependency)
-        if not frappe.db.exists("DocType", doctype):
-            frappe.clear_last_message()
-            continue
-
-        for field_data in fields:
-            field_name = field_data.get("fieldname")
-
-            # Check if field already exists (avoid duplicate errors)
-            if frappe.db.exists("Custom Field", {"dt": doctype, "fieldname": field_name}):
-                continue
-
-            # Create custom field using fixture pattern
-            try:
-                frappe.get_doc({
-                    "doctype": "Custom Field",
-                    "dt": doctype,
-                    **field_data
-                }).insert()
-            except Exception as e:
-                frappe.db.rollback()
-                frappe.log_error(f"Failed to create custom field {doctype}.{field_name}: {e}")
+    fields_by_doctype = {
+        doctype: fields
+        for doctype, fields in get_custom_fields().items()
+        if all(frappe.db.exists("DocType", dt) for dt in ((doctype,) if isinstance(doctype, str) else doctype))
+    }
+    create_custom_fields(fields_by_doctype, update=True)
 
 
 def remove_custom_fields():
-    """
-    Remove custom fields - for uninstall/cleanup
+    """Remove custom fields defined in `get_custom_fields()`. Call from `before_uninstall`."""
+    fieldnames_by_doctype = {}
+    for doctype, fields in get_custom_fields().items():
+        doctypes = (doctype,) if isinstance(doctype, str) else doctype
+        fieldnames = [f["fieldname"] for f in fields]
+        for dt in doctypes:
+            fieldnames_by_doctype.setdefault(dt, []).extend(fieldnames)
 
-    This function is called in before_uninstall hook to remove
-    custom fields that were added via fixtures.
-    """
-    custom_fields = get_custom_fields()
-
-    for doctype, fields in custom_fields.items():
-        for field_data in fields:
-            field_name = field_data.get("fieldname")
-
-            custom_field_name = frappe.db.get_value(
-                "Custom Field",
-                {"dt": doctype, "fieldname": field_name},
-                "name"
-            )
-
-            if custom_field_name:
-                try:
-                    frappe.delete_doc("Custom Field", custom_field_name)
-                except Exception as e:
-                    frappe.db.rollback()
-                    frappe.log_error(f"Failed to delete custom field {doctype}.{field_name}: {e}")
-
-
-def custom_field_condition():
-    """
-    Condition function for fixture loading
-
-    Returns:
-        bool: True if fixtures should be loaded
-    """
-    # Add custom logic here to conditionally load fixtures
-    # For example, only load for specific companies or installations
-    return True
+    delete_custom_fields(fieldnames_by_doctype)

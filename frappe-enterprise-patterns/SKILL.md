@@ -52,9 +52,16 @@ for machine transitions — never both for the same field.
 
 ### 3) Add SLAs deliberately
 
-Targets per priority, business-hours calculation, pause on "waiting for
-customer", breach escalation:
+Frappe core has no SLA doctype (ERPNext and Helpdesk ship their own). Build
+targets per priority, business-hours calculation, pause on "waiting for
+customer" and breach escalation on core primitives, and don't name the doctype
+`Service Level Agreement` (collides with ERPNext):
 [references/sla-patterns.md](references/sla-patterns.md).
+
+Built-in audit and assignment primitives before custom code: `track_changes`
+(Version diffs), Milestone Tracker, Assignment Rule (writes ToDo),
+Notification (`Days Before`/`Value Change`/`Method` events), Log Settings
+retention.
 
 ### 4) Design integrations to fail
 
@@ -93,8 +100,8 @@ aggregation to scheduled rollups when tables pass millions of rows.
 
 ## References
 
-- [references/enterprise-patterns.md](references/enterprise-patterns.md) - Architecture for CRM/Helpdesk-scale apps
-- [references/sla-patterns.md](references/sla-patterns.md) - Targets, pause/resume, breach handling
+- [references/enterprise-patterns.md](references/enterprise-patterns.md) - Layering, audit trail (Version, Milestone Tracker), assignment, notifications, retention, multi-tenancy
+- [references/sla-patterns.md](references/sla-patterns.md) - Build-your-own SLA on core primitives: targets, pause/resume, breach handling
 
 ## Guardrails
 
@@ -114,4 +121,5 @@ aggregation to scheduled rollups when tables pass millions of rows.
 | Retry without idempotency | Duplicate side effects | Idempotency key |
 | Swallowed integration errors | Silent data loss | Failure state + alert |
 | Unbounded list queries | Timeouts at scale | Paginate and index |
+| Custom audit table for field history | Duplicates core | `track_changes` or Milestone Tracker |
 | Premature enterprise architecture | Complexity without users | Start simple, extract later |

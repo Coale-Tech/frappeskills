@@ -5,6 +5,30 @@
 ## Overview
 Complex permission patterns for enterprise Frappe applications.
 
+## Custom Permission Types (v16)
+
+`Permission Type` (`frappe/core/doctype/permission_type`) lets you define an
+application-specific `ptype` beyond the standard rights in `permissions.py`'s
+`std_rights` (`select`, `read`, `write`, `create`, `delete`, `submit`, `cancel`,
+`amend`, `print`, `email`, `report`, `import`, `export`, `share`). Creating one
+requires `developer_mode` (`PermissionType.can_write`) — it auto-creates a `Check`
+Custom Field for the new right on `DocPerm`, `Custom DocPerm`, and `DocShare`
+(`create_custom_field`), scoped to the target DocType via a `depends_on` expression:
+
+```python
+frappe.get_doc({
+    "doctype": "Permission Type",
+    "doc_type": "Expense",
+    "perm_type": "approve",  # becomes a Check field named "approve" on DocPerm etc.
+}).insert()
+```
+
+Once defined, `approve` shows up as a role-permission checkbox for that DocType and
+is included by `frappe.get_rights("Expense")` / `frappe.has_permission("Expense",
+"approve", doc=doc)` (`get_doctype_ptype_map`, `frappe/core/doctype/permission_type/permission_type.py`).
+The name cannot collide with a standard right (`PermissionType.validate` throws if
+`perm_type in std_rights`).
+
 ## Role-Based Access Control (RBAC)
 
 ### Custom Permission Controller
@@ -64,6 +88,16 @@ def check_read_permission(doc, user):
     
     return False
 ```
+
+`has_permission(doc, ptype, user)` registered via `hooks.py`'s `has_permission`
+dict is dispatched by `has_controller_permissions`
+(`frappe/permissions.py`) and is **deny-only**: it can turn an otherwise-allowed
+action into a denial, but returning `True` never grants access beyond what role
+permissions, User Permissions, and sharing already computed. To actually grant
+access from custom logic (e.g. "project members can always read, regardless of
+role permissions"), override the `Document.has_permission()` instance method
+instead — see [permissions-rowlevel.md](permissions-rowlevel.md) for the full
+comparison of both extension points.
 
 ## User Permission Patterns
 
@@ -173,52 +207,56 @@ def project_query_conditions(user):
     # Projects in user's department
     employee = frappe.db.get_value("Employee", {"user_id": user}, "department")
     if employee:
-        conditions.append(f"department = '{frappe.db.escape(employee)}'")
+        conditions.append(f"department = {frappe.db.escape(employee)}")  # escape() adds the quotes
     
     return "(" + " OR ".join(conditions) + ")"
 ```
 
 ## Field-Level Permissions
 
-### Conditional Field Access
+There is no `doc.remove_field_from_interface()` or per-field `<field>_read_only`
+attribute in Frappe — those APIs do not exist. The two real mechanisms are:
+
+### Server-enforced: `permlevel` (see permissions.md)
+
+Set `permlevel` on the field in the DocType JSON, then grant that level to a role
+in a DocPerm row. `Document.apply_fieldlevel_read_permissions()`
+(`frappe/model/document.py`) deletes attributes for permlevels the current user's
+role permissions don't cover before the document reaches the client — this is the
+only field hiding that also holds for REST/API reads, not just the Desk form.
+
 ```python
-def set_field_permissions(doc, method):
-    """Set field permissions based on user role"""
-    user = frappe.session.user
-    roles = frappe.get_roles(user)
-    
-    # Sensitive fields hidden for regular users
-    if "Finance Manager" not in roles:
-        doc.remove_field_from_interface("cost_price")
-        doc.remove_field_from_interface("margin_percent")
-    
-    # Make fields read-only for certain roles
-    if "Sales User" in roles and "Sales Manager" not in roles:
-        for field in ["discount_percent", "additional_discount"]:
-            setattr(doc, f"{field}_read_only", True)
+# Read current permlevel access for a role-evaluated doc
+has_access_to = doc.get_permlevel_access("read")  # -> list[int] of allowed permlevels
 ```
 
-### Permission Level Pattern
+To change a field's `permlevel` at runtime for a **Custom DocType** (not exported
+to a JSON file), update the child `DocField`/`Custom Field` row and clear the doctype
+cache — do not skip `clear_cache` or the meta cache will keep serving the old value:
+
 ```python
-def apply_permlevel_restrictions(doctype):
-    """Configure permission levels for DocType fields"""
-    meta = frappe.get_meta(doctype)
-    
-    # Define sensitive fields
-    sensitive_fields = {
-        "cost_price": 1,      # Level 1 - Manager only
-        "profit_margin": 1,
-        "internal_notes": 2,   # Level 2 - Admin only
-        "approval_code": 2
-    }
-    
-    for fieldname, permlevel in sensitive_fields.items():
-        field = meta.get_field(fieldname)
-        if field:
-            frappe.db.set_value("DocField", {
-                "parent": doctype,
-                "fieldname": fieldname
-            }, "permlevel", permlevel)
+frappe.db.set_value("Custom Field", {"dt": doctype, "fieldname": fieldname}, "permlevel", permlevel)
+frappe.clear_cache(doctype=doctype)
+```
+
+For a standard app DocType this must instead be a JSON change under `developer_mode`
+followed by `bench migrate`, or the edit is lost on the next `bench migrate`.
+
+### Client-only: Desk form field visibility
+
+Hiding/read-only-ing a field only in the Desk UI (not enforced server-side, and not
+applied to REST/API access) is a client script concern, not a DocType-development
+one:
+
+```javascript
+// client script
+frappe.ui.form.on("Sales Order", {
+    refresh(frm) {
+        const can_see_cost = frappe.user.has_role("Finance Manager");
+        frm.toggle_display("cost_price", can_see_cost);
+        frm.set_df_property("discount_percent", "read_only", !frappe.user.has_role("Sales Manager"));
+    },
+});
 ```
 
 ## Hierarchical Permissions
@@ -275,7 +313,7 @@ def check_time_based_permission(doc, user):
     
     # Check business hours
     current_hour = now_datetime().hour
-    business_hours = frappe.db.get_single_value("System Settings", "business_hours")
+    business_hours = frappe.db.get_single_value("System Settings", "business_hours")  # hypothetical Custom Field you add to System Settings; not a stock field
     
     if business_hours:
         start_hour, end_hour = map(int, business_hours.split("-"))
@@ -315,4 +353,4 @@ def create_permission_log(**kwargs):
 4. **Document your permissions** - Keep a permission matrix document
 5. **Use has_permission sparingly** - It's called on every read, keep it fast
 
-Sources: Frappe Permission System, ERPNext Permissions
+Sources: `frappe/permissions.py`, `frappe/core/doctype/permission_type/permission_type.py`, `frappe/model/document.py`, `frappe/model/meta.py` — Frappe 16.35.0.

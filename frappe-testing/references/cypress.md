@@ -1,9 +1,16 @@
 # Cypress UI Testing
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `testing/references/cypress.md`.
+> Commands and config verified against Frappe 16.35.0's own `cypress/` directory and
+> `cypress.config.js` — the source of truth for the commands available to app-level tests.
 
 ## Overview
 Frappe uses Cypress for end-to-end UI testing. Cypress tests simulate real user interactions with the Desk interface.
+
+`bench run-ui-tests` installs Cypress and the plugins Frappe's own suite depends on
+(`cypress@^13`, `@4tw/cypress-drag-drop`, `cypress-real-events`, `@testing-library/cypress`,
+`@cypress/code-coverage`, `cypress-split`) into the `frappe` app's `node_modules` the first time
+it runs, if they aren't already present (`frappe/commands/testing.py`, `run_ui_tests`).
 
 ## Setup
 
@@ -22,37 +29,52 @@ bench setup requirements --dev
 my_app/
 ├── cypress/
 │   ├── fixtures/         # Test data files
-│   ├── integration/      # Test files
+│   ├── integration/      # Test files (Frappe's own specPattern, not the Cypress default e2e/)
 │   │   └── my_app/
 │   │       └── sample_doc.js
 │   ├── plugins/          # Cypress plugins
 │   ├── support/          # Custom commands
 │   │   ├── commands.js
-│   │   └── index.js
+│   │   └── e2e.js
 │   └── videos/           # Test recordings
-├── cypress.json          # Cypress config
+├── cypress.config.js     # Cypress config (Cypress 10+; replaces the old cypress.json)
 └── package.json
 ```
 
 ### Configuration
-```json
-// cypress.json
-{
-  "baseUrl": "http://testsite.localhost:8000",
-  "projectId": "my_app",
-  "viewportWidth": 1280,
-  "viewportHeight": 720,
-  "defaultCommandTimeout": 10000,
-  "retries": {
-    "runMode": 2,
-    "openMode": 0
-  },
-  "env": {
-    "adminUser": "Administrator",
-    "adminPassword": "admin"
-  }
-}
+Modern Cypress (10+) configures via `cypress.config.js` with `defineConfig`, not the legacy
+`cypress.json`. Frappe's own root config (`cypress.config.js`, abridged — the real file also
+wires `cypress-split` and per-spec video cleanup in `setupNodeEvents`):
+
+```javascript
+const { defineConfig } = require("cypress");
+
+module.exports = defineConfig({
+	adminPassword: "admin",
+	testUser: "frappe@example.com",
+	defaultCommandTimeout: 20000,
+	pageLoadTimeout: 15000,
+	video: true,
+	viewportHeight: 960,
+	viewportWidth: 1400,
+	retries: {
+		runMode: 1,
+		openMode: 1,
+	},
+	e2e: {
+		setupNodeEvents(on, config) {
+			return require("./cypress/plugins/index.js")(on, config);
+		},
+		testIsolation: false,
+		baseUrl: "http://test_site:8000",
+		specPattern: ["./cypress/integration/*.js"],
+	},
+});
 ```
+
+`bench run-ui-tests` overrides `baseUrl`/`adminPassword` via `CYPRESS_baseUrl`/
+`CYPRESS_adminPassword` environment variables at run time, so the file above only needs
+placeholder values.
 
 ## Running Tests
 
@@ -66,7 +88,16 @@ bench --site testsite run-ui-tests my_app --headless
 
 ## Run specific test file
 bench --site testsite run-ui-tests my_app --spec "cypress/integration/my_app/sample_doc.js"
+
+## Run in parallel (Cypress Cloud orchestrates the split)
+bench --site testsite run-ui-tests my_app --headless --parallel
+
+## Extra args after `my_app` pass straight through to the cypress binary
+bench --site testsite run-ui-tests my_app --headless -- --browser firefox
 ```
+
+`run-ui-tests` flags (`frappe/commands/testing.py`): `--headless`, `--parallel`,
+`--with-coverage`, `--browser <name>` (default `chrome`), `--spec <path>`, `--ci-build-id`.
 
 ### Via Cypress CLI
 ```bash
@@ -89,98 +120,107 @@ npx cypress run --spec "cypress/integration/my_app/*.js"
 context("Sample Doc", () => {
     before(() => {
         cy.login();
-        cy.visit("/app/sample-doc");
+        cy.visit("/desk/sample-doc");
     });
 
     it("creates a new Sample Doc", () => {
-        cy.click_list_row_checkbox(0);
-        cy.get(".primary-action").contains("New").click();
-        
+        cy.new_form("Sample Doc");
+
         cy.fill_field("title", "Test Document");
         cy.fill_field("status", "Open", "Select");
-        
+
         cy.get_field("title").should("have.value", "Test Document");
-        
-        cy.get(".primary-action").contains("Save").click();
-        
-        cy.get_frm().should("contain", "Test Document");
+
+        cy.save();
     });
 
     it("updates an existing Sample Doc", () => {
-        cy.visit("/app/sample-doc/Test Document");
-        
+        cy.visit("/desk/sample-doc/Test Document");
+
         cy.fill_field("status", "In Progress", "Select");
-        cy.get(".primary-action").contains("Save").click();
-        
+        cy.save();
+
         cy.get_field("status").should("have.value", "In Progress");
     });
 });
 ```
 
-### Frappe Custom Commands
+Desk routes use the `/desk/...` URL prefix (v16) — `/app/...` was the prefix through v15
+(`frappe/public/js/frappe/router.js`, `is_app_route`); both are still accepted at runtime, but
+new tests should use `/desk/`.
+
+### Real Frappe Custom Commands
+
+Frappe's own `cypress/support/commands.js` ships a much larger command set than a hand-rolled
+one — reuse these instead of redefining `fill_field`/`login`/etc. in an app's own
+`commands.js`, since `bench run-ui-tests` runs specs against the `frappe` app's support file:
+
+```javascript
+// Login — session-cached; defaults to Administrator / Cypress.env("adminPassword")
+cy.login(email, password);
+
+// Call a whitelisted method (adds CSRF header automatically)
+cy.call("frappe.client.set_value", { doctype, name, fieldname: { status: "Closed" } });
+
+// REST helpers
+cy.get_list(doctype, fields, filters);          // GET /api/resource/<doctype>
+cy.get_doc(doctype, name);                       // GET /api/resource/<doctype>/<name>
+cy.insert_doc(doctype, args, ignore_duplicate);  // POST /api/resource/<doctype>
+cy.update_doc(doctype, docname, args);           // PUT /api/resource/<doctype>/<docname>
+cy.remove_doc(doctype, name, ignore_missing);    // DELETE /api/resource/<doctype>/<name>
+cy.set_value(doctype, name, { fieldname: value });
+
+// Form field helpers (fieldtype defaults to "Data"; handles Select/Link/Check/Date/Text Editor/Code)
+cy.fill_field(fieldname, value, fieldtype);
+cy.get_field(fieldname, fieldtype);
+cy.fill_table_field(tablefieldname, row_idx, fieldname, value, fieldtype);
+cy.get_table_field(tablefieldname, row_idx, fieldname, fieldtype);
+
+// Navigation
+cy.new_form(doctype);          // visits /desk/<doctype-slug>/new and waits for it to load
+cy.go_to_list(doctype);        // visits /desk/<doctype-slug>
+cy.select_form_tab(label);
+cy.awesomebar(text);           // types into the nav search bar and hits enter
+
+// Form/dialog actions
+cy.save();                             // clicks Save and waits for the savedocs call
+cy.dialog(options);                    // opens a frappe.ui.Dialog with the given options
+cy.get_open_dialog();
+cy.hide_dialog();
+cy.clear_dialogs();
+cy.clear_datepickers();
+
+// List view
+cy.select_listview_row_checkbox(row_no);
+cy.click_listview_row_item(row_no);
+cy.click_listview_primary_button(label);
+cy.click_filter_button();
+cy.open_list_filter();
+cy.clear_filters();
+
+// Users/roles
+cy.switch_to_user(user);
+cy.add_role(user, role);
+cy.remove_role(user, role);
+
+// Misc
+cy.clear_cache();               // calls frappe.ui.toolbar.clear_cache() in-page
+cy.create_records(doc);         // frappe.tests.ui_test_helpers.create_if_not_exists
+cy.compare_document(expected_document);
+```
+
+`cy.login`, `cy.call`, `cy.get_list`/`cy.get_doc`/`cy.insert_doc`/`cy.update_doc` all read the
+CSRF token off `window.frappe.csrf_token` before issuing the request — reproduce that pattern
+if adding custom REST helpers.
+
+### Writing an app-local custom command
+
+Only add a command when Frappe's own set (above) doesn't cover it:
 
 ```javascript
 // cypress/support/commands.js
-
-// Login command
-Cypress.Commands.add("login", (user, password) => {
-    cy.request({
-        url: "/api/method/login",
-        method: "POST",
-        body: {
-            usr: user || Cypress.env("adminUser"),
-            pwd: password || Cypress.env("adminPassword")
-        }
-    });
-});
-
-// Fill field by fieldname
-Cypress.Commands.add("fill_field", (fieldname, value, fieldtype = "Data") => {
-    if (fieldtype === "Select") {
-        cy.get(`[data-fieldname="${fieldname}"]`).click();
-        cy.get(`.frappe-control[data-fieldname="${fieldname}"] .awesomplete`)
-            .find("li")
-            .contains(value)
-            .click();
-    } else if (fieldtype === "Link") {
-        cy.get(`[data-fieldname="${fieldname}"] input`).type(value);
-        cy.get(".awesomplete li").contains(value).click();
-    } else if (fieldtype === "Check") {
-        if (value) {
-            cy.get(`[data-fieldname="${fieldname}"] input`).check();
-        } else {
-            cy.get(`[data-fieldname="${fieldname}"] input`).uncheck();
-        }
-    } else {
-        cy.get(`[data-fieldname="${fieldname}"] input, [data-fieldname="${fieldname}"] textarea`)
-            .clear()
-            .type(value);
-    }
-});
-
-// Get field value
-Cypress.Commands.add("get_field", (fieldname) => {
-    return cy.get(`[data-fieldname="${fieldname}"] input, [data-fieldname="${fieldname}"] textarea`);
-});
-
-// Get form element
-Cypress.Commands.add("get_frm", () => {
-    return cy.get(".frappe-form");
-});
-
-// Click primary action button
 Cypress.Commands.add("click_primary_action", () => {
     cy.get(".primary-action").click();
-});
-
-// Click list row checkbox
-Cypress.Commands.add("click_list_row_checkbox", (index) => {
-    cy.get(`.list-row:nth-child(${index + 1}) .list-row-checkbox`).click();
-});
-
-// Wait for indicator to disappear
-Cypress.Commands.add("wait_for_ajax", () => {
-    cy.get(".indicator-pill").should("not.exist");
 });
 ```
 
@@ -190,27 +230,23 @@ Cypress.Commands.add("wait_for_ajax", () => {
 ```javascript
 // Create new document
 it("creates new document", () => {
-    cy.visit("/app/customer/new-customer-1");
+    cy.new_form("Customer");
     cy.fill_field("customer_name", "Acme Corp");
     cy.fill_field("customer_type", "Company", "Select");
-    cy.get(".primary-action").contains("Save").click();
+    cy.save();
     cy.url().should("not.contain", "new-customer-1");
 });
 
 // Edit document
 it("edits existing document", () => {
-    cy.visit("/app/customer/CUST-001");
+    cy.visit("/desk/customer/CUST-001");
     cy.fill_field("customer_name", "Acme Corporation");
-    cy.get(".primary-action").contains("Save").click();
-    cy.get(".msgprint").should("contain", "Saved");
+    cy.save();
 });
 
-// Delete document
+// Delete document via API instead of the UI menu — faster and less brittle
 it("deletes document", () => {
-    cy.visit("/app/customer/CUST-TO-DELETE");
-    cy.get(".menu-btn-group").click();
-    cy.get(".dropdown-menu").contains("Delete").click();
-    cy.get(".modal-footer").contains("Yes").click();
+    cy.remove_doc("Customer", "CUST-TO-DELETE", true);
 });
 ```
 
@@ -218,8 +254,8 @@ it("deletes document", () => {
 ```javascript
 // Filter list
 it("filters list by status", () => {
-    cy.visit("/app/sales-order");
-    cy.get(".filter-section").click();
+    cy.go_to_list("Sales Order");
+    cy.click_filter_button();
     cy.fill_field("status", "Draft", "Select");
     cy.get(".filter-action-buttons").contains("Apply").click();
     cy.get(".list-row").should("have.length.greaterThan", 0);
@@ -227,9 +263,9 @@ it("filters list by status", () => {
 
 // Bulk action
 it("performs bulk action", () => {
-    cy.visit("/app/todo");
-    cy.click_list_row_checkbox(0);
-    cy.click_list_row_checkbox(1);
+    cy.go_to_list("ToDo");
+    cy.select_listview_row_checkbox(0);
+    cy.select_listview_row_checkbox(1);
     cy.get(".actions-btn-group").click();
     cy.get(".dropdown-menu").contains("Delete").click();
 });
@@ -238,16 +274,15 @@ it("performs bulk action", () => {
 ### Dialog Interactions
 ```javascript
 it("handles dialog prompt", () => {
-    cy.visit("/app/sales-order/SO-001");
-    cy.get(".custom-actions").contains("Request Approval").click();
-    
-    // Fill dialog fields
-    cy.get(".modal-dialog [data-fieldname='reason'] textarea")
+    cy.visit("/desk/sales-order/SO-001");
+    cy.click_custom_action_button("Request Approval");
+
+    cy.get_open_dialog()
+        .find("[data-fieldname='reason'] textarea")
         .type("Urgent customer request");
-    
-    // Click dialog action
-    cy.get(".modal-dialog .btn-primary").contains("Submit").click();
-    
+
+    cy.click_modal_primary_button("Submit");
+
     cy.get(".msgprint").should("contain", "Request sent");
 });
 ```
@@ -255,22 +290,11 @@ it("handles dialog prompt", () => {
 ### Child Table Operations
 ```javascript
 it("adds child table rows", () => {
-    cy.visit("/app/sales-order/new-sales-order-1");
-    
-    // Add row
+    cy.new_form("Sales Order");
+
     cy.get("[data-fieldname='items'] .grid-add-row").click();
-    
-    // Fill child row
-    cy.get("[data-fieldname='items'] .grid-row:last-child")
-        .find("[data-fieldname='item_code'] input")
-        .type("ITEM-001");
-    
-    cy.get(".awesomplete li").first().click();
-    
-    cy.get("[data-fieldname='items'] .grid-row:last-child")
-        .find("[data-fieldname='qty'] input")
-        .clear()
-        .type("5");
+    cy.fill_table_field("items", 0, "item_code", "ITEM-001", "Link");
+    cy.fill_table_field("items", 0, "qty", "5");
 });
 ```
 
@@ -290,33 +314,23 @@ it("adds child table rows", () => {
 // Using fixtures
 it("creates customer from fixture", function() {
     cy.fixture("customer").then((customer) => {
-        cy.visit("/app/customer/new-customer-1");
-        cy.fill_field("customer_name", customer.customer_name);
-        cy.fill_field("customer_type", customer.customer_type, "Select");
+        cy.insert_doc("Customer", customer, true);
     });
 });
 ```
 
 ### API Setup
 ```javascript
-// Create test data via API
+// Create test data via the insert_doc/remove_doc commands (CSRF-safe, no raw cy.request)
 before(() => {
-    cy.request({
-        method: "POST",
-        url: "/api/resource/Customer",
-        body: {
-            customer_name: "Cypress Test Customer",
-            customer_type: "Company"
-        }
-    });
+    cy.insert_doc("Customer", {
+        customer_name: "Cypress Test Customer",
+        customer_type: "Company",
+    }, true);
 });
 
-// Cleanup via API
 after(() => {
-    cy.request({
-        method: "DELETE",
-        url: "/api/resource/Customer/Cypress Test Customer"
-    });
+    cy.remove_doc("Customer", "Cypress Test Customer", true);
 });
 ```
 
@@ -339,10 +353,10 @@ cy.get("[data-page-container]").contains("Customer").click();
 // Don't: fixed waits (slow, unreliable)
 cy.wait(5000);
 
-// Do: conditional waits
+// Do: conditional waits, or wait on a specific intercepted request (as cy.save() does)
 cy.get(".indicator-pill").should("not.exist");
 cy.get("[data-fieldname='name']").should("be.visible");
-cy.url().should("contain", "/app/customer/");
+cy.url().should("contain", "/desk/customer/");
 ```
 
 ### Test Independence
@@ -351,16 +365,15 @@ cy.url().should("contain", "/app/customer/");
 it("creates customer", () => { /* creates CUST-001 */ });
 it("edits customer", () => { /* assumes CUST-001 exists */ });
 
-// Do: independent tests
+// Do: independent tests, cleaned up via the real API commands
 beforeEach(() => {
-    // Create fresh test data
-    cy.request("POST", "/api/resource/Customer", {...});
+    cy.insert_doc("Customer", { customer_name: "Test Customer" }, true);
 });
 
 afterEach(() => {
-    // Cleanup
-    cy.request("DELETE", "/api/resource/Customer/Test Customer");
+    cy.remove_doc("Customer", "Test Customer", true);
 });
 ```
 
-Sources: UI Testing, Cypress Documentation (official docs)
+Sources: `frappe/commands/testing.py`, `cypress.config.js`, `cypress/support/commands.js`,
+`frappe/public/js/frappe/router.js` (Frappe 16.35.0).

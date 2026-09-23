@@ -231,11 +231,14 @@ permission_query_conditions = {
 | Data visualization & charts | [data-visualization.md](../../frappe-reports/references/data-visualization.md) |
 | HR & Payroll | [hrms-patterns.md](../../frappe-erpnext-hrms/references/hrms-patterns.md) |
 | Bench CLI commands | [bench.md](../../frappe-bench-operations/references/bench.md) |
+| Outbound webhooks on doc events | [webhooks.md](webhooks.md) |
+| Throttling a public endpoint | [rate-limiting.md](rate-limiting.md) |
+| Third-party sync connectors, FrappeClient | [integration-patterns.md](integration-patterns.md) |
 | v15/v16 differences | [v15-v16-compatibility.md](../../frappe-project-triage/references/v15-v16-compatibility.md) |
 
 ## Sources
 
-Verified against Frappe v16.27.1 at `<bench>/apps/frappe` (all cross-referenced files confirmed present in `references/`):
+Verified against Frappe v16.35.0 at `<bench>/apps/frappe` (all cross-referenced files confirmed present in `references/`):
 - `apps/frappe/frappe/model/document.py` — `Document` base class (controller lifecycle)
 - `apps/frappe/frappe/realtime.py` — `publish_realtime`
 - `apps/frappe/frappe/permissions.py` + `apps/frappe/frappe/__init__.py` — `has_permission`

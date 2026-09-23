@@ -2,11 +2,10 @@
 
 Rules path: `<bench>/apps/semgrep-rules/rules`
 Source: https://github.com/frappe/semgrep-rules
-Verified against the `semgrep-rules` app on this bench for Frappe v16
-(`frappe.__version__ == "16.9.0"`), pinned to **HEAD `3011799`** (branch
-`develop`, remote `upstream`) as of 2026-07-15. The repo is fast-forwarded on
-every OMP start via `a build script`, so treat the
-live `rules/*.yml` as authoritative if this catalog drifts.
+Verified against the `semgrep-rules` app for Frappe **16.35.0**
+(HEAD `b101a16`, branch `develop`, remote `upstream`, dated 2026-08-05, as of
+2026-09-23). Treat the live `rules/*.yml` as authoritative if this catalog
+drifts.
 
 ---
 
@@ -65,7 +64,13 @@ semgrep --config=<bench>/apps/semgrep-rules/rules path/to/file.py
 | `frappe-no-functional-code` | WARNING | `map()` / `filter()` — use list comprehensions |
 | `frappe-query-debug-statement` | WARNING | `debug=True` left in queries |
 | `frappe-manual-commit` | WARNING | `frappe.db.commit()` outside try/except |
-| `frappe-cur-frm-usage` | WARNING | `cur_frm` in JS — deprecated |
+| `frappe-enqueue-without-after-commit` | WARNING | `frappe.enqueue()`/`enqueue_doc()` called from a controller method without `enqueue_after_commit=True`, `now=True`, or `is_async=False` — job may run before the transaction commits |
+
+### Hooks — `rules/hooks.yml`
+
+| Rule ID | Severity | What It Catches |
+|---------|----------|-----------------|
+| `override-doctype-class` | ERROR | `override_doctype_class = ...` in `hooks.py` — only one app can override a DocType this way and it breaks silently when the original controller changes; use `doc_events` or `extend_doctype_class` instead |
 
 ### Code Quality — `rules/code_quality.yml`
 
@@ -198,19 +203,21 @@ are high-value to grep for in review. Verified against Frappe v16 source.
 
 | Pattern | Why it's dangerous | Fix |
 |---------|--------------------|-----|
-| `ignore_permissions=True` in a `@frappe.whitelist()`-reachable path driven by user input | Bypasses ALL permission checks (`document.py:375-376` short-circuits `doc.has_permission()`) → privilege escalation | Remove it, or gate behind `frappe.only_for(...)` / `frappe.has_permission(..., throw=True)` first |
+| `ignore_permissions=True` in a `@frappe.whitelist()`-reachable path driven by user input | Bypasses ALL permission checks (`document.py:409` short-circuits `has_permission()`: `if self.flags.ignore_permissions: return True`) → privilege escalation | Remove it, or gate behind `frappe.only_for(...)` / `frappe.has_permission(..., throw=True)` first |
 | `doc.flags.ignore_permissions = True` set from a request value | Same as above — user-controlled bypass | Only set in trusted jobs/migrations, never from `frappe.form_dict` |
-| Interpolated value in a `permission_query_conditions` return string without `frappe.db.escape(...)` | SQL injection into the row-filter `WHERE` clause (`db_query.py:1149`) | Wrap every interpolated value in `frappe.db.escape(...)` |
+| Interpolated value in a `permission_query_conditions` hook return string without `frappe.db.escape(...)` | SQL injection into the row-filter `WHERE` clause (consumed via `get_permission_query_conditions()`, `db_query.py:1159`) | Wrap every interpolated value in `frappe.db.escape(...)` |
 | `frappe.db.sql(f"... {var} ...")` / `.format()` | SQL injection — same class as `frappe-sql-format-injection` but also covers `execute`/`multisql` | Parameterize: `frappe.db.sql("... %s", (var,))` or use `frappe.qb` |
 | `@frappe.whitelist()` with no `methods=` on a state-changing endpoint | Accepts GET/PUT/DELETE too; CSRF and caching implications | `@frappe.whitelist(methods=["POST"])` |
 | User-facing `frappe.throw(...)`/`frappe.msgprint(...)` without `_()` | Untranslatable UI text — same class as `frappe-missing-translate-function-python` | Wrap message in `_(...)` (JS: `__(...)`) |
+| Raw user-supplied HTML rendered/stored without `frappe.utils.sanitize_html(...)` (e.g. Text Editor / HTML field content echoed into a report or web page) | Stored/reflected XSS — `sanitize_html` (`frappe/utils/html_utils.py:146`) strips script/style tags and disallowed attributes; skipping it lets `<script>` through | Pass through `frappe.utils.sanitize_html(html)` before rendering or persisting untrusted HTML; use `frappe.utils.escape_html(...)` for plain-text-in-HTML contexts |
 
 ## Sources
 
 All rule IDs verified present in `apps/frappe/../semgrep-rules/rules` on this bench:
 
 - `rules/security/` — `authorization.yml` (`relaxed-permissions`, `frappe-setuser`), `filesystem.yml`, `format_string_injection.yml`, `rce.yml`, `sql.yml`, `whitelisted.yml`
-- `rules/frappe_correctness.yml` — 21 rules incl. `frappe-modifying-but-not-comitting-other-method`
+- `rules/frappe_correctness.yml` — 22 rules incl. `frappe-modifying-but-not-comitting-other-method` and `frappe-enqueue-without-after-commit`
 - `rules/code_quality.yml` — `unchecked-frappe-permission-call`, `overusing-args`, `use-vanilla-js-include`, `useless-get-doc-dict`
 - `rules/translate.yml` — incl. `frappe-translation-js-splitting`; `rules/ux.yml`; `rules/report.yml`
-- Framework API confirmations: `apps/frappe/frappe/model/document.py` (`ignore_permissions`, l.375), `apps/frappe/frappe/model/db_query.py` (`permission_query_conditions`, l.1149), `apps/frappe/frappe/__init__.py` (`whitelist` l.417, `has_permission` l.577), `apps/frappe/frappe/database/database.py` (`escape`, l.1385)
+- `rules/hooks.yml` — `override-doctype-class`
+- Framework API confirmations (frappe 16.35.0): `apps/frappe/frappe/model/document.py` (`ignore_permissions` short-circuit in `has_permission`, l.409), `apps/frappe/frappe/model/db_query.py` (`get_permission_query_conditions`, l.1159), `apps/frappe/frappe/__init__.py` (`whitelist` l.439, `has_permission` l.600), `apps/frappe/frappe/database/database.py` (`escape`, l.1405), `apps/frappe/frappe/utils/html_utils.py` (`sanitize_html`, l.146), `apps/frappe/frappe/utils/data.py` (`escape_html`, l.1720)

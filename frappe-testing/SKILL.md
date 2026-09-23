@@ -53,7 +53,11 @@ bench --site <site> run-tests --module <app>.tests.test_sample_doc
 bench --site <site> run-tests --doctype "Sample Doc"
 ```
 
-Tests need `developer_mode` and a test site; they roll back by default.
+`run-tests` exits with "Testing is disabled for the site!" unless the site has
+`allow_tests` set (`bench --site <site> set-config allow_tests true`) or the
+`CI` env var is present. Use a dedicated test site; each test class rolls back
+its writes. Parallel CI: `bench run-parallel-tests --app <app> --build-number
+<n> --total-builds <n>` (there is no `--split`).
 
 ### 3) Add UI coverage where it matters
 
@@ -78,7 +82,7 @@ GitHub Actions setup with MariaDB/Redis services and bench bootstrap:
 
 - **`DoesNotExistError` on test data**: dependency records not created; use a factory or `test_records`
 - **Tests pass alone, fail in the suite**: shared state or an uncommitted transaction leaking between tests
-- **`developer_mode` errors**: test site not configured for development
+- **"Testing is disabled for the site!"**: `allow_tests` not set on the site
 - **Cypress can't log in**: test user fixtures missing, or the site URL is wrong
 - **CI fails only in CI**: missing service (Redis/MariaDB) or a timezone/locale difference
 - **Slow suite**: real network calls or unnecessary document creation per test
@@ -114,3 +118,4 @@ GitHub Actions setup with MariaDB/Redis services and bench bootstrap:
 | Writing a test to "have tests" | Maintenance load, no signal | Throwaway script instead |
 | Running tests on the live site | Data loss | Dedicated test site |
 | Pinning exact error strings | Breaks on translation | Assert the exception type |
+| `from frappe.tests.utils import FrappeTestCase` | Deprecated compat shim, removed in v17 | `from frappe.tests import IntegrationTestCase` (or `UnitTestCase`) |

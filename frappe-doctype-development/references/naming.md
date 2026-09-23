@@ -18,6 +18,10 @@ Use a field value as the document name.
 
 **Use Case:** When field uniquely identifies the record (e.g., Customer name)
 
+**Note:** Setting `autoname: "field:<fieldname>"` automatically forces `unique: 1`
+on that field's DocField when the DocType is saved
+(`validate_series`, `frappe/core/doctype/doctype/doctype.py`).
+
 ### Naming Series
 Counter-based naming with prefixes.
 
@@ -35,15 +39,22 @@ Counter-based naming with prefixes.
 }
 ```
 
-**Format Codes:**
+**Format Codes** (`parse_naming_series`, `frappe/model/naming.py`):
 | Code | Description | Example |
 |------|-------------|---------|
 | `.YYYY.` | 4-digit year | 2026 |
 | `.YY.` | 2-digit year | 26 |
 | `.MM.` | 2-digit month | 02 |
 | `.DD.` | 2-digit day | 12 |
+| `.WW.` | ISO week number | 07 |
+| `.JJJ.` | Day of year | 043 |
+| `.timestamp.` | Unix timestamp | 1699999999 |
 | `.#####` | Counter (5 digits) | 00001 |
 | `.###` | Counter (3 digits) | 001 |
+| `.{fieldname}.` | Substitutes the named field's value | `.customer.` -> ACME |
+
+Apps can register additional custom tokens via the `naming_series_variables`
+hook.
 
 **Examples:**
 - `ORD-.YYYY.-` → ORD-2026-00001
@@ -78,7 +89,9 @@ Template-based naming with placeholders.
 ```
 
 ### Hash (Random)
-Random unique string.
+Unique string; not purely random — a timestamp-derived prefix plus random
+characters (`make_autoname`, `frappe/model/naming.py`), used as the fallback
+when no other naming rule produces a name.
 
 ```json
 {
@@ -86,9 +99,35 @@ Random unique string.
 }
 ```
 
-**Result:** 10-character random string (e.g., "a1b2c3d4e5")
+**Result:** short unique string, e.g. `5f3d8a91c2`
 
 **Use Case:** When human-readable name isn't needed
+
+### Autoincrement
+Integer primary key using a native DB sequence.
+
+```json
+{
+  "autoname": "autoincrement"
+}
+```
+
+**Result:** `1`, `2`, `3`, ... (`frappe.db.get_next_sequence_val`, checked via
+`is_autoincremented` in `frappe/model/naming.py`). Cannot be combined with
+`issingle`, and the naming rule cannot be changed once records exist.
+
+### UUID (v16)
+Server-generated UUIDv7 as the document name.
+
+```json
+{
+  "autoname": "UUID"
+}
+```
+
+**Result:** e.g. `018f6c3e-8b2a-7c41-9d3e-1a2b3c4d5e6f` (`uuid7()`,
+`frappe/model/naming.py`). If a name is supplied on insert it must already be
+a valid UUID string, or Frappe raises `InvalidUUIDValue`.
 
 ### Prompt
 Ask user to enter name manually.
@@ -102,11 +141,16 @@ Ask user to enter name manually.
 **Use Case:** User-defined unique identifiers
 
 ### Custom Autoname
-Define naming in controller.
+Define naming in the controller's `autoname()` method. This method is always
+called by `frappe.model.naming.set_new_name` before the `autoname` property is
+ever consulted — so no special `autoname` property value is needed or
+recognized to enable it. Leave `autoname` unset (or `""`), which the DocType
+form sets automatically when the naming rule is `By script`
+(`validate_series`, `frappe/core/doctype/doctype/doctype.py`).
 
 ```json
 {
-  "autoname": "autoname"
+  "naming_rule": "By script"
 }
 ```
 
@@ -202,7 +246,10 @@ def get_unique_name(self, base_name):
     return name
 ```
 
-### UUID Names
+### Manual UUID Names
+Legacy pattern for generating UUIDs via a controller `autoname()` method.
+Prefer the native `autoname: "UUID"` naming rule (v16) unless a v13-v15 UUID
+format (`uuid4`, not `uuid7`) is specifically required.
 ```python
 import uuid
 
@@ -259,4 +306,4 @@ Counters reset based on the date pattern:
 - `.YY.MM.DD.` — Resets daily
 - No date pattern — Never resets
 
-Sources: Naming, Autoname, Naming Series (official docs)
+Sources: `frappe/model/naming.py`, `frappe/core/doctype/doctype/doctype.py`, `frappe/model/rename_doc.py`

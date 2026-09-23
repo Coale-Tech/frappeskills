@@ -1,6 +1,7 @@
 # Data Visualization Reference
 
-Comprehensive reference for Frappe Charts (lightweight SVG charting) and Frappe Insights (BI platform).
+Comprehensive reference for Frappe Charts (lightweight SVG charting), report summary cards,
+Desk dashboards (Number Card / Dashboard Chart), and Frappe Insights (BI platform).
 
 ---
 
@@ -8,9 +9,10 @@ Comprehensive reference for Frappe Charts (lightweight SVG charting) and Frappe 
 
 ### Overview
 
-- **Size**: ~18KB minified
 - **Rendering**: SVG-based (no Canvas)
-- **Types**: 8 chart types
+- **Types**: 7 chart types — `line`, `bar`, `axis-mixed`, `pie`, `donut`, `percentage`, `heatmap`
+  (verified against the bundled `frappe-charts` build; no `scatter` type ships)
+- **Bundled version**: `frappe-charts@2.0.0-rc27` (`apps/frappe/package.json`)
 - **GitHub**: https://github.com/frappe/charts
 
 ### Installation
@@ -74,11 +76,14 @@ const chart = new Chart("#chart", {
     height: 300,
     colors: ["#171717"],  // Black/minimal palette
     lineOptions: {
-        hideDots: 0,
-        dotSize: 4,
-        regionFill: 1,        // Fill area under line
+        showDots: 1,        // set 0 to hide points (older docs call this `hideDots`, inverted)
+        dotSize: 4,          // default 4
+        hideLine: 0,         // set 1 to draw only points, no connecting line
+        hideDotBorder: 0,
+        regionFill: 1,        // fill area under line
         heatline: 0,
-        spline: 0             // Curved lines
+        spline: 0,            // curved lines
+        trailingDot: 1        // highlight dot that follows the last value
     }
 })
 ```
@@ -207,6 +212,7 @@ const chart = new Chart("#chart", {
         xAxisMode: "tick",       // "tick" or "span"
         yAxisMode: "span",
         xIsSeries: 0
+        // also: numberFormatter, seriesLabelSpaceRatio, shortenYAxisNumbers, yAxisRange
     },
     tooltipOptions: {
         formatTooltipX: d => d.toUpperCase(),
@@ -296,6 +302,111 @@ onMounted(() => {
 
 ---
 
+## Report Summary Cards (`report_summary`)
+
+Element 4 of the `execute()` return tuple documented in
+[reports.md](reports.md#3-script-report-standard-file-based) — a list of small stat cards rendered
+above the report table by `render_summary()` / `frappe.utils.build_summary_item`
+(`frappe/public/js/frappe/utils/utils.js`, `frappe/public/js/frappe/views/reports/query_report.js`).
+The same renderer backs the summary row on the Dashboard chart widget
+(`frappe/public/js/frappe/widgets/chart_widget.js`).
+
+Each item is a dict:
+
+| Key | Purpose |
+|---|---|
+| `value` | the number/text shown, formatted per `datatype` |
+| `label` | card title |
+| `datatype` | any docfield fieldtype passed to `frappe.format`; `"Currency"` also reads `currency` |
+| `currency` | 3-letter code, used only when `datatype == "Currency"` |
+| `indicator` / `color` | CSS color/indicator class for the value (`indicator` takes priority) |
+| `type: "separator"` | renders a plain divider cell instead of a label/value pair |
+
+```python
+def get_report_summary(data):
+    total = sum(d.total_amount for d in data)
+    return [
+        {"value": total, "label": "Total Sales", "datatype": "Currency", "currency": "USD", "indicator": "green"},
+        {"value": len(data), "label": "Customers", "datatype": "Int"},
+    ]
+```
+
+---
+
+## Frappe Dashboard Charts (Desk)
+
+### Number Card
+
+```python
+nc = frappe.get_doc({
+    "doctype": "Number Card",
+    "label": "Total Revenue",
+    "type": "Document Type",             # Document Type | Report | Custom
+    "document_type": "Sales Invoice",
+    "function": "Sum",                   # Count | Sum | Average | Minimum | Maximum
+    "aggregate_function_based_on": "grand_total",
+    "filters_json": '{"docstatus": 1}',
+    "is_standard": 1,
+    "show_percentage_stats": 1,
+    "stats_time_interval": "Monthly"     # Daily | Weekly | Monthly | Yearly
+}).insert()
+```
+
+> `Number Card` has no `autoname` in its DocType JSON. Naming is handled by a custom
+> `autoname()` controller method that sets `name = label`, appending a numeric suffix via
+> `append_number_if_name_exists` if that name is already taken — do not also pass `name`
+> (`frappe/desk/doctype/number_card/number_card.py`). `type == "Report"` additionally requires
+> `report_name`, `report_field`, and `report_function` (`Sum`/`Average`/`Minimum`/`Maximum`);
+> `type == "Custom"` requires a whitelisted `method` returning
+> `{"value": ..., "fieldtype": "Currency", "route": [...], "route_options": {...}}`.
+> Fields verified against `apps/frappe/frappe/desk/doctype/number_card/number_card.json` and
+> `number_card.py`.
+
+### Dashboard Chart
+
+```python
+dc = frappe.get_doc({
+    "doctype": "Dashboard Chart",
+    "chart_name": "Monthly Sales",
+    "chart_type": "Sum",       # Count | Sum | Average | Group By | Custom | Report
+    "document_type": "Sales Invoice",
+    "based_on": "posting_date",
+    "value_based_on": "grand_total",   # required when chart_type = Sum/Average
+    "timespan": "Last Year",   # Last Year | Last Quarter | Last Month | Last Week | Select Date Range
+    "time_interval": "Monthly",# Yearly | Quarterly | Monthly | Weekly | Daily
+    "filters_json": '{"docstatus": 1}',
+    "type": "Bar",             # Line | Bar | Percentage | Pie | Donut | Heatmap
+    "is_standard": 1
+}).insert()
+```
+
+Additional `chart_type` values beyond Count/Sum/Average:
+
+- `"Group By"` — use `group_by_based_on` + `group_by_type` (`Count`/`Sum`/`Average`, with
+  `aggregate_function_based_on` when not `Count`) and optional `number_of_groups`, instead of
+  `based_on`/`value_based_on`.
+- `"Report"` — set `report_name`; either check `use_report_chart` to reuse the report's own
+  `execute()`-returned chart, or leave it off and configure `x_field` plus a `y_axis` child table
+  (`Dashboard Chart Field`) to plot specific report columns.
+- `"Custom"` — set `source` to a **Dashboard Chart Source** document, which points at a whitelisted
+  method that returns chart data (`frappe/desk/doctype/dashboard_chart_source/`).
+
+Other fields: `timeseries` (Check, forced off for `Group By`/`Report`), `from_date`/`to_date` (only
+when `timespan == "Select Date Range"`), `show_values_over_chart` (Bar/Line only), `roles` (`Has
+Role` table — if set, only those roles may view the chart regardless of DocType/Report
+permissions), `currency`, `last_synced_on` (read-only). Fields verified against
+`apps/frappe/frappe/desk/doctype/dashboard_chart/dashboard_chart.json`.
+
+### Dashboard (container)
+
+A `Dashboard` document (`autoname: field:dashboard_name`) groups charts and cards for the
+Desk dashboard view: `charts` (`Dashboard Chart Link` table), `cards` (`Number Card Link` table),
+`is_default`, `chart_options` (JSON applied as default options to every chart on the dashboard,
+e.g. `{"colors": ["#d1d8dd", "#ff5858"]}`), and the usual `is_standard`/`module` pair for
+app-bundled dashboards (`frappe/desk/doctype/dashboard/dashboard.json`).
+
+---
+
 ## Frappe Insights
 
 ### Overview
@@ -303,7 +414,7 @@ onMounted(() => {
 Frappe Insights is a full BI (Business Intelligence) platform built on Frappe.
 
 > **Note:** Insights is a **separate installable app**, not part of the Frappe framework core (it is not present
-> on this <bench> bench). Its DocTypes/API (e.g. `Insights Data Source`) track the Insights release, not
+> on this bench). Its DocTypes/API (e.g. `Insights Data Source`) track the Insights release, not
 > Frappe's — verify against the installed Insights version before relying on the snippets below.
 
 - **Repository**: https://github.com/frappe/insights
@@ -368,55 +479,9 @@ ds.insert()
 
 ---
 
-## Frappe Dashboard Charts (Desk)
-
-### Number Card
-
-```python
-nc = frappe.get_doc({
-    "doctype": "Number Card",
-    "label": "Total Revenue",            # autoname field:label -> the name
-    "type": "Document Type",             # Document Type | Report | Custom
-    "document_type": "Sales Invoice",
-    "function": "Sum",                   # Count | Sum | Average | Minimum | Maximum
-    "aggregate_function_based_on": "grand_total",
-    "filters_json": '{"docstatus": 1}',
-    "is_standard": 1,
-    "show_percentage_stats": 1,
-    "stats_time_interval": "Monthly"     # Daily | Weekly | Monthly | Yearly
-}).insert()
-```
-
-> `Number Card` autoname is `field:label`, so `label` becomes `name` — do not also pass `name`.
-> Fields verified against `apps/frappe/frappe/desk/doctype/number_card/number_card.json`.
-
-### Dashboard Chart
-
-```python
-dc = frappe.get_doc({
-    "doctype": "Dashboard Chart",
-    "chart_name": "Monthly Sales",
-    "chart_type": "Sum",       # Count | Sum | Average | Group By | Custom | Report
-    "document_type": "Sales Invoice",
-    "based_on": "posting_date",
-    "value_based_on": "grand_total",   # required when chart_type = Sum/Average
-    "timespan": "Last Year",   # Last Year | Last Quarter | Last Month | Last Week | Select Date Range
-    "time_interval": "Monthly",# Yearly | Quarterly | Monthly | Weekly | Daily
-    "filters_json": '{"docstatus": 1}',
-    "type": "Bar",             # Line | Bar | Percentage | Pie | Donut | Heatmap
-    "is_standard": 1
-}).insert()
-```
-
-> For `chart_type: "Group By"` use `group_by_based_on` + `group_by_type` (Count/Sum/Average) instead of
-> `based_on`/`value_based_on`. Fields verified against
-> `apps/frappe/frappe/desk/doctype/dashboard_chart/dashboard_chart.json`.
-
----
-
 ## Best Practices
 
-1. **Use Frappe Charts** for simple embedded visualizations (lightweight, 18KB)
+1. **Use Frappe Charts** for simple embedded visualizations (SVG, no Canvas)
 2. **Use Frappe Insights** for complex BI dashboards and ad-hoc analysis
 3. **Apply black/minimal design tokens** to chart colors (`#171717`, `#737373`, `#D4D4D4`)
 4. **Use createResource** for loading chart data in Vue.js
@@ -429,9 +494,13 @@ dc = frappe.get_doc({
 
 ## Sources
 
-Verified against Frappe v16.27.1 at `<bench>/apps/frappe`:
+Verified against Frappe 16.35.0 (`apps/frappe`):
 - `apps/frappe/frappe/public/js/frappe/ui/chart.js` — `frappe.Chart` global + `frappe.ui.RealtimeChart`
+- `apps/frappe/node_modules/frappe-charts/dist/frappe-charts.esm.js` — chart types and option keys
+- `apps/frappe/frappe/desk/query_report.py`, `frappe/public/js/frappe/views/reports/query_report.js`,
+  `frappe/public/js/frappe/utils/utils.js` — `report_summary` contract and rendering
 - `apps/frappe/frappe/desk/doctype/dashboard_chart/dashboard_chart.json` — chart_type/type/timespan options
-- `apps/frappe/frappe/desk/doctype/number_card/number_card.json` — function/type/stats_time_interval options
+- `apps/frappe/frappe/desk/doctype/number_card/number_card.json`, `number_card.py` — function/type/naming
 - `apps/frappe/frappe/desk/doctype/dashboard/dashboard.json` (Dashboard container)
+- `apps/frappe/frappe/desk/doctype/dashboard_chart_source/dashboard_chart_source.json` (Custom chart source)
 - Frappe Insights is an external app: https://github.com/frappe/insights (not on this bench)

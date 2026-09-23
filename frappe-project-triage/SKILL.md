@@ -26,7 +26,7 @@ installed apps, conventions.
 
 ```bash
 ls apps/ sites/                 # a bench has both
-cat sites/currentsite.txt       # default site
+grep default_site sites/common_site_config.json   # default site; currentsite.txt is ignored
 bench --site <site> list-apps   # what is actually installed
 ```
 

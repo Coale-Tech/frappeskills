@@ -97,7 +97,7 @@ class SampleDoc(Document):
 ```
 
 Valid hooks and their order: [references/controllers.md](references/controllers.md).
-`after_save` is **not** a hook.
+`after_save` is **not** a hook. (v16) `discard()` on a draft fires `before_discard`/`on_discard`.
 
 ### 5) Set up naming
 
@@ -195,6 +195,6 @@ bench --site <site> migrate && bench --site <site> clear-cache
 | Skipping `bench migrate` | Schema drift | Migrate after every change |
 | Controller class name mismatch | Methods never called | PascalCase of DocType name |
 | `def after_save(self)` | Not a real hook | `after_insert` / `on_update` |
+| `self.get_parent()` in a child controller | Method does not exist | `self.parent_doc` |
 | Circular Link dependencies | DocType creation fails | Dynamic Link or restructure |
-| Missing `in_list_view` | Key fields invisible in list | Set it on identifying fields |
 | `frappe.throw("text")` | No i18n | `frappe.throw(_("text"))` |

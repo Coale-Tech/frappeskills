@@ -2,13 +2,13 @@
 
 This guide defines common page layouts and patterns for Frappe/ERPNext applications.
 
-> **Scope.** This file indexes page layout patterns for Frappe/ERPNext applications. Frappe has two native page kinds, documented below: **Desk Pages** (`frappe.pages[...]`, custom full-page apps inside `/app`) and **Web/Portal Pages** (server-rendered pages under `www/` or via `get_context`). For a standalone product UI built as a **frappe-ui (Vue) SPA**, see the List/Detail/Form page patterns in [frappe-ui-spa-page-patterns.md](frappe-ui-spa-page-patterns.md). Pick the right one: standalone product UI → frappe-ui SPA; an admin/tool screen inside Desk → Desk Page; a public/portal page → Web Page.
+> **Scope.** This file indexes page layout patterns for Frappe/ERPNext applications. Frappe has two native page kinds, documented below: **Desk Pages** (`frappe.pages[...]`, custom full-page apps inside `/desk` (v16) — `/app` on v15, still redirects to `/desk` on v16) and **Web/Portal Pages** (server-rendered pages under `www/` or via `get_context`). For a standalone product UI built as a **frappe-ui (Vue) SPA**, see the List/Detail/Form page patterns in [frappe-ui-spa-page-patterns.md](frappe-ui-spa-page-patterns.md). Pick the right one: standalone product UI → frappe-ui SPA; an admin/tool screen inside Desk → Desk Page; a public/portal page → Web Page.
 
 ---
 
 ## Desk Page (`frappe.pages`, `frappe.ui.make_app_page`)
 
-A **Desk Page** is a custom full-page screen inside `/app` (not tied to a DocType). Create the "Page" doctype record (via `bench` or fixtures) which produces a folder `{app}/{module}/page/{page_name}/` with `{page_name}.js` (+ optional `.json`, `.py`, `.html`). Source: `apps/frappe/frappe/public/js/frappe/ui/page.js`.
+A **Desk Page** is a custom full-page screen inside `/desk` (v16; `/app` on v15, redirected on v16 per `hooks.py:website_redirects`), not tied to a DocType. Create the "Page" doctype record (via `bench` or fixtures) which produces a folder `{app}/{module}/page/{page_name}/` with `{page_name}.js` (+ optional `.json`, `.py`, `.html`). Source: `apps/frappe/frappe/public/js/frappe/ui/page.js`.
 
 ```javascript
 // {app}/{module}/page/my_tool/my_tool.js
@@ -55,7 +55,7 @@ frappe.pages["my-tool"].refresh = function (wrapper) {};
 
 ## Web / Portal Page (public, server-rendered)
 
-Public-facing pages live under an app's `www/` folder (auto-routed by path) or are built dynamically. Each page is an `.html` (Jinja) template plus an optional same-named `.py` exposing `get_context(context)`. Source dir: `apps/frappe/frappe/www/` (e.g. `about.py`, `contact.py`, `list.py`, `app.py`).
+Public-facing pages live under an app's `www/` folder (auto-routed by path) or are built dynamically. Each page is an `.html` (Jinja) template plus an optional same-named `.py` exposing `get_context(context)`. Source dir: `apps/frappe/frappe/www/` (e.g. `about.py`, `contact.py`, `list.py`). `www/desk.py` renders the Desk single-page app itself (v16) — the old `www/app.py`/`www/apps.py` were removed and `/app`, `/apps` now redirect to `/desk`.
 
 ```python
 # {app}/www/dashboard.py
@@ -90,8 +90,8 @@ def get_context(context):
 ```
 
 Notes (verified against `frappe/www/*.py` and `templates/`):
-- File path under `www/` maps to the URL path; `index.html` maps to the folder root. A leading `_` (e.g. `_test/`) hides the folder.
-- Common module-level flags: `no_cache`, `no_sitemap`, `sitemap`, `base_template_path`, `condition_field`.
+- File path under `www/` maps to the URL path; `index.html`/`index.md` map to the folder root (`website/router.py:get_page_info`, `page_renderers/template_page.py`).
+- Module-level properties read from the `.py` (`WEBPAGE_PY_MODULE_PROPERTIES` in `website/page_renderers/template_page.py`): `base_template_path`, `template`, `no_cache`, `sitemap`, `condition_field`.
 - Portal templates extend `templates/web.html` and use blocks like `page_content`, `title`, `head_include`.
 - **Web Page** DocType (`frappe/website/doctype/web_page/`) is the no-code alternative: content authored in the DB, rendered via the website router — use it for CMS-style pages, `www/` + `get_context` for code-driven ones.
 - For DocType-backed portal listing/detail, ERPNext uses `Web Form` and the generic `www/list.py` / portal item views rather than hand-written templates.
@@ -100,5 +100,5 @@ Notes (verified against `frappe/www/*.py` and `templates/`):
 
 - `apps/frappe/frappe/public/js/frappe/ui/page.js` — `frappe.ui.Page`, `frappe.ui.make_app_page`, page action API
 - `apps/frappe/frappe/core/page/permission_manager/permission_manager.js` — real `frappe.pages[...].on_page_load` example
-- `apps/frappe/frappe/www/` — portal pages (`about.py`, `contact.py`, `list.py`, `app.py`) using `get_context`
+- `apps/frappe/frappe/www/` — portal pages (`about.py`, `contact.py`, `list.py`, `desk.py`) using `get_context`
 - `apps/frappe/frappe/website/doctype/web_page/` — Web Page DocType (no-code portal pages)

@@ -21,8 +21,11 @@ Define in the DocType JSON under `permissions`:
 
 ### Permission actions
 
+`std_rights` in `frappe/permissions.py` defines the permission types (`ptype`) a DocPerm row can grant:
+
 | Action | Description |
 |--------|--------------|
+| `select` | Reference the document from a Link field / query without full `read` (see below) |
 | `read` | View document |
 | `write` | Edit document |
 | `create` | Create new |
@@ -30,12 +33,21 @@ Define in the DocType JSON under `permissions`:
 | `submit` | Submit document |
 | `cancel` | Cancel document |
 | `amend` | Amend cancelled |
-| `report` | Access reports |
-| `export` | Export data |
-| `import` | Import data |
-| `share` | Share with others |
 | `print` | Print document |
 | `email` | Email document |
+| `report` | Access reports |
+| `import` | Import data |
+| `export` | Export data |
+| `share` | Share with others |
+| `mask` (v16) | Field-level: mask this DocPerm role's fields flagged `mask: 1` instead of hiding them (`frappe/model/meta.py` `get_masked_fields`, `frappe/model/utils/mask.py`) |
+
+`select` is auto-granted wherever `read` is granted (`has_permission()` falls back to
+checking `read` when a `select` check fails). A role with `select` but not `read` can
+resolve the document as a Link target (e.g. autocomplete) without seeing full field
+data; `frappe.only_has_select_perm(doctype)` reports whether the current user is in
+that state. `mask` is a separate v16 field-level right — see
+[advanced-permissions.md](advanced-permissions.md) for masking fields containing PII
+(phone, email, dates) instead of denying access outright.
 
 Configure per role in the Permissions tab, or via Setup > Role Permission Manager.
 
@@ -124,10 +136,12 @@ Add `"if_owner": 1` to a permission rule to restrict users to their own document
 
 ## Sources
 
-Verified against Frappe v16.27.1 (`frappe/__init__.py` `__version__`):
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
 
-- `apps/frappe/frappe/permissions.py` — `has_permission`, `add_user_permission`, `get_doc_permissions`, `get_user_permissions`, `permission_query_conditions` / `has_permission` hook dispatch
-- `apps/frappe/frappe/share.py` — `add`, `remove`, `get_users`, `get_shared`
-- `apps/frappe/frappe/core/doctype/docperm/docperm.json` — role permission fields (`if_owner`, `permlevel`, action flags)
-- `apps/frappe/frappe/core/doctype/user_permission/user_permission.py` — User Permission record shape
-- `apps/frappe/frappe/utils/user.py` — `get_users_with_role`
+- `frappe/permissions.py` — `std_rights`, `has_permission`, `add_user_permission`, `get_doc_permissions`, `get_user_permissions`, `get_rights`
+- `frappe/__init__.py` — `only_has_select_perm`
+- `frappe/share.py` — `add`, `remove`, `get_users`, `get_shared`
+- `frappe/core/doctype/docperm/docperm.json` — role permission fields (`if_owner`, `permlevel`, action flags including `select` and `mask` (v16))
+- `frappe/core/doctype/user_permission/user_permission.py` — User Permission record shape
+- `frappe/utils/user.py` — `get_users_with_role`
+- `frappe/model/meta.py`, `frappe/model/utils/mask.py` — field masking (v16)

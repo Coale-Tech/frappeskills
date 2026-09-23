@@ -1,20 +1,19 @@
 # Enterprise Application Patterns
 
-> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `enterprise-patterns/SKILL.md`.
+Architectural patterns for building production-grade enterprise applications
+(CRM, Helpdesk, HRMS, and similar multi-entity systems) on Frappe. Every API
+below is verified against Frappe 16 core (`frappe/`); patterns that depend on
+ERPNext or Helpdesk say so explicitly.
 
-## Frappe Enterprise Patterns
-
-Architectural patterns for building production-grade enterprise applications.
-
-### When to use
+## When to use
 
 - Building CRM, Helpdesk, HRMS, or similar multi-entity systems
-- Designing SLA-driven workflows
+- Designing SLA-driven workflows (see [sla-patterns.md](sla-patterns.md))
 - Implementing assignment and queue management
 - Building audit trails and activity logs
 - Integrating with external systems (email, telephony, CRM)
 
-### Inputs required
+## Inputs required
 
 - System type (CRM/Helpdesk/custom)
 - Core entities and relationships
@@ -22,9 +21,7 @@ Architectural patterns for building production-grade enterprise applications.
 - Workflow states and transitions
 - Integration points
 
-### Procedure
-
-#### 0) Design data model
+## Data model design
 
 Start with clear, normalized DocTypes:
 
@@ -34,265 +31,57 @@ Ticket (parent)
 ├── assigned_to (Link: User)
 ├── status (Select: Open, In Progress, Resolved, Closed)
 ├── priority (Link: Priority)
-├── sla (Link: SLA)
-├── activities (Table: Ticket Activity)
 └── response_by, resolution_by (Datetime)
 ```
 
-**Key patterns:**
-- Use Link fields for relationships
-- Use child tables for activities, timelines, line items
-- Use Dynamic Link when target DocType varies
+- Use Link fields for relationships; Dynamic Link when the target DocType
+  varies per row (`fieldtype: "Dynamic Link"`, `options` pointing at the
+  Select/Link field that names the target DocType — see `reference_name` on
+  Communication, `frappe/core/doctype/communication/communication.json`).
+- Use child tables (`istable: 1`) for activities, timelines, line items.
+- `autoname` patterns for identification: `naming_series:`, `field:fieldname`,
+  `hash`, or `format:` (e.g. `format:SLA-{document_type}-{service_level}`,
+  used by ERPNext's Service Level Agreement doctype). Hash-based names suit
+  high-volume transactional records; human-readable series suit
+  customer-facing entities.
 
-#### 1) Implement state machine
+## State machine
 
-**Option A: Workflow DocType**
-- Create Workflow with states and role-based transitions
-- Link to your DocType
+**Option A: Workflow DocType** — create a Workflow linked to your DocType with
+states and role-based transitions (Desk: Workflow list).
 
-**Option B: docstatus for submission flow**
+**Option B: `docstatus` for submission flow** (built into every submittable
+DocType, `frappe/model/document.py`):
+
 | docstatus | Meaning |
 |-----------|---------|
 | 0 | Draft |
 | 1 | Submitted |
 | 2 | Cancelled |
 
-**Option C: Custom status field with validation**
+**Option C: custom status field with validation**
+
 ```python
 def validate(self):
-    allowed = self.get_allowed_transitions()
+    allowed = get_allowed_transitions(self.status, frappe.session.user)
     if self.status not in allowed:
         frappe.throw(f"Cannot transition to {self.status}")
 ```
 
-#### 2) Set up permissions
+Use a Workflow for human-driven transitions and a status field driven by code
+for machine transitions — never both for the same field; they will fight.
 
-**Row-level filtering:**
-- Use User Permissions to restrict by entity
-- Combine with Role Permissions
+For full state-machine and approval-chain design, see
+[references/workflow-patterns.md](../../frappe-doctype-development/references/workflow-patterns.md).
 
-**Always re-check in RPC methods:**
-```python
-@frappe.whitelist()
-def update_ticket(name, status):
-    doc = frappe.get_doc("Ticket", name)
-    if not frappe.has_permission("Ticket", "write", doc):
-        frappe.throw("Not permitted", frappe.PermissionError)
-    doc.status = status
-    doc.save()
-```
+## Permissions
 
-#### 3) Build activity trail
+**Row-level filtering**: User Permissions restrict Link/Dynamic Link fields to
+specific records (e.g. only a user's own Company or Territory); combine with
+Role Permissions Manager for field-level control via permlevel.
 
-Track changes using Activity Log or custom child table:
-
-```python
-def on_update(self):
-    if self.has_value_changed("status"):
-        self.append("activities", {
-            "action": "Status Change",
-            "old_value": self._doc_before_save.status,
-            "new_value": self.status,
-            "timestamp": frappe.utils.now()
-        })
-```
-
-#### 4) Implement SLA
-
-**SLA DocType:**
-```
-SLA
-├── entity_type (Link: DocType)
-├── response_time (Duration)
-├── resolution_time (Duration)
-└── escalation_rules (Table: Escalation Rule)
-```
-
-**Apply SLA on creation:**
-```python
-def after_insert(self):
-    sla = get_applicable_sla(self)
-    if sla:
-        self.response_by = add_to_date(self.creation, hours=sla.response_time)
-        self.resolution_by = add_to_date(self.creation, hours=sla.resolution_time)
-        self.db_update()
-```
-
-**Monitor breaches (scheduled job):**
-```python
-def check_sla_breaches():
-    tickets = frappe.get_all("Ticket", 
-        filters={"status": ["not in", ["Resolved", "Closed"]]},
-        fields=["name", "resolution_by"]
-    )
-    for t in tickets:
-        if frappe.utils.now_datetime() > t.resolution_by:
-            mark_sla_breached(t.name)
-```
-
-#### 5) Assignment and queues
-
-**Round-robin assignment:**
-```python
-def assign_next_agent(queue):
-    agents = frappe.get_all("Queue Member",
-        filters={"queue": queue, "available": 1},
-        fields=["user", "current_load"],
-        order_by="current_load asc"
-    )
-    if agents:
-        return agents[0].user
-    return None
-```
-
-**Assignment Rules DocType** for automatic assignment.
-
-#### 6) Notifications and escalations
-
-**Configure Notification DocType for:**
-- SLA approaching breach
-- Assignment changes
-- Status transitions
-- Customer replies
-
-**Escalation chain:**
-```
-Level 1 (0h): Notify assigned agent
-Level 2 (4h): Notify team lead
-Level 3 (8h): Notify manager
-Level 4 (24h): Notify department head
-```
-
-#### 7) External integrations
-
-**Centralize in `integrations/` module:**
-```python
-# my_app/integrations/email_connector.py
-def sync_emails():
-    # Fetch from Email Account
-    # Create Communications
-    # Link to Tickets
-```
-
-**Use background jobs for sync:**
-```python
-frappe.enqueue(
-    "my_app.integrations.email_connector.sync_emails",
-    queue="long",
-    timeout=600
-)
-```
-
-### Verification
-
-- [ ] Workflow transitions work for all roles
-- [ ] Permissions enforced at API level
-- [ ] Activity log captures all changes
-- [ ] SLA calculation correct
-- [ ] Notifications fire appropriately
-- [ ] Integration sync runs without errors
-
-### Failure modes / debugging
-
-- **Permission bypass**: Check RPC methods have explicit permission checks
-- **SLA not applying**: Verify scheduled job is running
-- **Activities not logging**: Check `has_value_changed` usage
-- **Notifications not sending**: Check Notification rules and email queue
-
-### Escalation
-
-- For complex permission patterns, see [references/advanced-permissions.md](../../frappe-doctype-development/references/advanced-permissions.md)
-- For queue optimization, see [references/queue-patterns.md](../../frappe-app-development/references/queue-patterns.md)
-- For UI/UX patterns → `frappe-ui-patterns`
-
-### References
-
-- [references/workflow-patterns.md](../../frappe-doctype-development/references/workflow-patterns.md) - State machine design
-- [references/sla-implementation.md](sla-patterns.md) - SLA details
-- [references/integration-patterns.md](../../frappe-api-development/references/integration-patterns.md) - External systems
-
-### Guardrails
-
-- **Follow CRM/Helpdesk UI patterns**: For CRUD apps, follow `frappe-ui-patterns` skill which documents app shell, navigation, list views, and form patterns from official Frappe apps. This includes sidebar layouts, quick filters, Kanban views, and detail panels.
-- **Use Frappe UI for frontends**: All custom enterprise frontends must use Frappe UI (Vue 3 + TailwindCSS) — never vanilla JS or jQuery
-- **Design workflows carefully**: Map all states and transitions before implementation; consider rollback paths
-- **Handle edge cases**: Plan for cancelled, on-hold, and exception states in workflows
-- **Test performance early**: Run load tests for high-volume DocTypes and complex queries
-- **Use background jobs for heavy operations**: Never block web requests with long-running tasks
-- **Log critical operations**: Use `frappe.log_error()` and activity logs for auditability
-
-### Common Mistakes
-
-| Mistake | Why It Fails | Fix |
-|---------|--------------|-----|
-| Over-complex workflows | Hard to maintain, user confusion | Keep workflows linear when possible; split complex flows |
-| Missing error handling in integrations | Silent failures, data inconsistency | Wrap external calls in try/except; log errors; retry logic |
-| Race conditions in document updates | Data corruption | Use `frappe.db.get_value(..., for_update=True)` for locks |
-| SLA without timezone handling | Wrong calculations for global users | Store and compare in UTC; use `frappe.utils.convert_utc_to_timezone` |
-| Not using queues for bulk operations | Timeouts, memory issues | Use `frappe.enqueue()` for operations on many records |
-| Hardcoded role names | Breaks on role changes | Use constants or settings for role names |
-| Custom UI patterns | Inconsistent UX, user confusion | Study and follow CRM/Helpdesk app shells |
-| Using vanilla JS/jQuery for frontend | Maintenance burden, ecosystem mismatch | Always use Frappe UI with Vue 3 |
-
-> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `enterprise-patterns/references/enterprise-patterns.md`.
-
-## Enterprise Patterns (CRM/Helpdesk-style apps)
-
-Production-grade architectural patterns for building enterprise applications like CRM, Helpdesk, HRMS, and similar multi-entity systems.
-
-### Data Model Design
-
-#### Core Entity Structure
-- Use clear, normalized DocTypes for core entities (Lead, Contact, Ticket, SLA, Assignment)
-- Define explicit relationships via Link fields and Dynamic Links
-- Use child tables for activities, comments, timelines, and line items
-
-#### Naming and Identification
-- Use `autoname` patterns: `naming_series`, `field:field_name`, or `hash`
-- Consider human-readable names for customer-facing entities
-- Use hash-based names for high-volume transactional records
-
-#### Example: Helpdesk Data Model
-```
-Ticket (parent)
-├── ticket_type (Link: Ticket Type)
-├── customer (Link: Customer)
-├── assigned_to (Link: User)
-├── status (Select)
-├── priority (Link: Priority)
-├── sla (Link: SLA)
-└── activities (Table: Ticket Activity)
-```
-
-### Workflow and State Management
-
-#### State Machines
-- Implement state transitions via Workflow DocType or `docstatus` for submission flow
-- Use role-based transitions and approval chains
-- Define allowed states and transitions explicitly
-
-#### Workflow Patterns
-```python
-# Check transition validity
-def validate_transition(doc, new_status):
-    allowed = get_allowed_transitions(doc.status, frappe.session.user)
-    if new_status not in allowed:
-        frappe.throw(f"Cannot transition from {doc.status} to {new_status}")
-```
-
-#### docstatus Usage
-| docstatus | Meaning | Use Case |
-|-----------|---------|----------|
-| 0 | Draft | Editable, not finalized |
-| 1 | Submitted | Locked, can cancel |
-| 2 | Cancelled | Soft delete, auditable |
-
-### Permissions and Security
-
-#### Row-Level Permissions
-- Use User Permissions to restrict access by entity (e.g., only own tickets)
-- Combine with Role Permissions for field-level control
-- Always re-check in RPC methods:
+**Always re-check in whitelisted methods** — the Desk UI enforces permissions
+on save, but RPC endpoints must check explicitly:
 
 ```python
 @frappe.whitelist()
@@ -304,197 +93,319 @@ def update_ticket(name, status):
     doc.save()
 ```
 
-#### Permission Patterns
-- Use `has_permission` hook for complex permission logic
-- Implement team-based access via intermediate DocTypes
-- Cache permission checks for batch operations
+`frappe.has_permission(doctype=None, ptype="read", doc=None, user=None,
+throw=False, *, parent_doctype=None, debug=False,
+ignore_share_permissions=False)` (`frappe/__init__.py`). `ptype` is one of
+`read`, `write`, `create`, `submit`, `cancel`, `amend`. Pass `parent_doctype`
+when checking a child DocType without a `doc` instance.
 
-### Activity and Audit Trails
+For complex permission logic, implement the `has_permission` doctype hook; see
+[references/advanced-permissions.md](../../frappe-doctype-development/references/advanced-permissions.md).
 
-#### Communication Log
-- Use Comments for internal notes and activity tracking
-- Use Communication DocType for customer interactions (email, calls)
-- Link activities to parent documents via `reference_doctype` and `reference_name`
+## Activity and audit trail
 
-#### Audit Trail Implementation
+Frappe gives you three built-in, code-free tracking mechanisms before you
+reach for a custom child table:
+
+**1. Automatic version diffs** — set `"track_changes": 1` in the DocType
+JSON. Every save writes a `Version` document (`frappe/core/doctype/version`)
+with `ref_doctype`, `docname`, and a `data` field holding the JSON diff
+produced by `get_diff(old, new)`. No controller code needed; view history from
+the document's "..." menu or `frappe.get_all("Version", filters={...})`.
+
+**2. Field-value milestones** — create a **Milestone Tracker** document
+(`frappe/automation/doctype/milestone_tracker`) with `document_type` and
+`track_field`. On every save where that field's value changed, Frappe
+auto-inserts a **Milestone** record (`reference_type`, `reference_name`,
+`track_field`, `from_value`, `value`, `milestone_tracker`) — this replaces
+hand-written `has_value_changed` status-history code for simple field
+tracking.
+
+**3. `track_seen` / `track_views`** — set these DocType meta flags to record
+who has seen a document (`_seen` field, shown as avatar stack) or count views,
+without extra fields.
+
+**When you need a custom trail** (multi-field composite events, business
+narrative), write to **Activity Log** (`frappe/core/doctype/activity_log`).
+Its real fields are `subject`, `content`, `reference_doctype`,
+`reference_name`, `operation` (`Login`/`Logout`/`Impersonate`), `status`,
+`user` — there is no `action` or `data` field:
+
 ```python
 def on_update(doc, method):
     if doc.has_value_changed("status"):
+        before = doc.get_doc_before_save()
         # System-owned audit record written by a trusted hook, not the acting
         # user; the user may lack create permission on Activity Log.
         frappe.get_doc({
             "doctype": "Activity Log",
             "reference_doctype": doc.doctype,
             "reference_name": doc.name,
-            "action": "Status Change",
-            "data": f"{doc._doc_before_save.status} → {doc.status}"
+            "subject": "Status Change",
+            "content": f"{before.status if before else ''} -> {doc.status}",
         }).insert(ignore_permissions=True)
 ```
 
-#### Key Fields to Track
-- Status changes
-- Assignment changes
-- SLA breaches
-- Customer interactions
-- Escalations
+`has_value_changed(fieldname)` and `get_doc_before_save()` are Document
+methods (`frappe/model/document.py`); `get_doc_before_save()` returns `None`
+for a new insert, so guard against it.
 
-### SLA Management
+**Comments** (`frappe/core/doctype/comment`) are the built-in place for
+internal notes and are what `doc.add_comment()` writes; **Communication**
+(`frappe/core/doctype/communication`) is the built-in place for customer-facing
+interactions (email, calls), linked back via `reference_doctype` /
+`reference_name`.
 
-#### SLA DocType Structure
-```
-SLA
-├── name
-├── entity_type (Link: DocType)
-├── conditions (Table: SLA Condition)
-├── response_time (Duration)
-├── resolution_time (Duration)
-└── escalation_rules (Table: Escalation Rule)
-```
+**Data retention**: `Log Settings` (`frappe/core/doctype/log_settings`) holds
+a `logs_to_clear` child table (`ref_doctype`, retention `days`) and a
+scheduled job clears rows past retention for any doctype whose controller
+implements `clear_old_logs(days)` (see `Activity Log.clear_old_logs` and
+`Version` for real examples). Apps pre-populate this table via the
+`default_log_clearing_doctypes` hook in `hooks.py`:
 
-#### SLA Enforcement
 ```python
-def apply_sla(doc):
-    sla = get_applicable_sla(doc)
-    if sla:
-        doc.response_by = add_to_date(doc.creation, hours=sla.response_time)
-        doc.resolution_by = add_to_date(doc.creation, hours=sla.resolution_time)
+# hooks.py
+default_log_clearing_doctypes = {
+    "My App Sync Log": 30,  # days to retain
+}
 ```
 
-#### SLA Breach Detection
-- Use scheduled jobs to check approaching/breached SLAs
-- Trigger Notification rules for SLA warnings
-- Update breach flags on documents
+`Deleted Document` (`frappe/core/doctype/deleted_document`) and `Access Log`
+(`frappe/core/doctype/access_log`) are further built-in audit surfaces: the
+former restores a JSON snapshot of anything deleted, the latter records
+report/file export access.
 
-### Assignment and Queue Management
+## SLA and escalation
 
-#### Assignment Patterns
-- Use Assignment Rule DocType for automatic assignment
-- Implement round-robin or load-balanced distribution
-- Track assignment history in child table or Activity Log
+Frappe core has **no** SLA doctype. ERPNext ships `Service Level Agreement`
+(Support module, `erpnext/support/doctype/service_level_agreement`) and
+Frappe Helpdesk ships `HD Service Level Agreement`. If either app is
+installed, reuse it rather than rebuilding SLA tracking from scratch. If you
+are shipping a standalone Frappe app, see
+[references/sla-patterns.md](sla-patterns.md) for a build-your-own design on
+core primitives (Duration fields, `frappe.utils` datetime helpers,
+`frappe.safe_eval` conditions, scheduled breach checks).
 
-#### Queue Implementation
+**Escalation without a bespoke doctype**: a `Notification`
+(`frappe/email/doctype/notification`) with `event = "Days After"` /
+`"Days Before"` (relative to a reference date field) or `event = "Value
+Change"` (on a specific field) covers most SLA-breach and escalation-chain
+needs — see the Notifications section below for the full event vocabulary.
+Only build a custom scheduled job when the condition can't be expressed as a
+Notification (e.g. multi-level chains with per-level delay).
+
+## Assignment and queues
+
+**Assignment Rule** (`frappe/automation/doctype/assignment_rule`) is the
+built-in automatic-assignment engine — do not build a custom "queue member"
+doctype before checking whether this covers the need. Real fields:
+`document_type`, `priority` (rule execution order), `assign_condition` /
+`unassign_condition` / `close_condition` (Python expressions), `rule` (Select:
+`Round Robin`, `Load Balancing`, `Based on Field`, `Weighted Distribution`),
+`users` (Table MultiSelect of `Assignment Rule User`, for Round Robin/Load
+Balancing), `weighted_users` (for Weighted Distribution), `field` (for Based
+on Field), `assignment_days` (Table of `Assignment Rule Day`),
+`due_date_based_on`. It assigns by creating **ToDo** documents through
+`frappe.desk.form.assign_to` (`frappe/automation/doctype/assignment_rule/assignment_rule.py`
+calls `assign_to._add(...)` and `assign_to.clear(...)`), so assignment state
+lives in the standard ToDo list — query it with
+`frappe.get_all("ToDo", filters={"reference_type": doctype, "reference_name": name, "status": ("!=", "Cancelled")})`.
+
+Programmatic assign/unassign uses the same module
+(`frappe/desk/form/assign_to.py`):
+
+```python
+from frappe.desk.form import assign_to
+
+assign_to.add({
+    "doctype": "Ticket",
+    "name": ticket_name,
+    "assign_to": [user],
+    "description": "Escalated ticket",
+})
+```
+
+`assign_to.add(args)` and `assign_to.remove(doctype, name, assign_to)` are
+whitelisted; `assign_to.close_all_assignments(doctype, name)` cancels every
+open assignment. All raise `DuplicateToDoError` if the user is already
+assigned.
+
+If Assignment Rule's conditions genuinely can't express your distribution
+logic, a custom round-robin over your own queue-membership doctype is
+reasonable — just don't reach for it first:
+
 ```python
 def get_next_agent(queue):
-    """Round-robin assignment within a queue"""
-    agents = frappe.get_all("Queue Member", 
+    """Round-robin assignment within a custom queue-membership doctype."""
+    agents = frappe.get_all("Queue Member",
         filters={"queue": queue, "available": 1},
         fields=["user", "current_load"],
-        order_by="current_load asc"
-    )
+        order_by="current_load asc")
     return agents[0].user if agents else None
 ```
 
-#### Queue Health Dashboards
-- Show queue depth and aging
-- Display agent workload distribution
-- Track SLA compliance by queue
+`Queue Member` above is an example custom doctype, not a Frappe built-in.
 
-### Notifications and Escalations
+## Notifications and escalations
 
-#### Notification Triggers
-- SLA approaching breach
-- Assignment changes
-- Status transitions
-- Customer replies
-- Escalation events
+`Notification` (`frappe/email/doctype/notification`) fields, verified against
+`notification.json`:
 
-#### Escalation Chain
+- `channel`: `Email`, `Slack`, `System Notification`, `SMS`
+- `event` (`Send Alert On`): `New`, `Save`, `Submit`, `Cancel`, `Days After`,
+  `Days Before`, `Minutes After`, `Minutes Before`, `Value Change`, `Method`,
+  `Custom`
+- `method` (only for `event = "Method"`): a controller hook name, e.g.
+  `before_insert`
+- `date_changed` + `days_in_advance` (only for `Days After`/`Days Before`):
+  reference date field and offset
+- `value_changed` (only for `Value Change`): the field to watch
+- `condition`: a Python expression (`doc.status == "Open"`), evaluated like an
+  assignment-rule condition
+- `recipients`: child table `Notification Recipient`, or
+  `send_to_all_assignees` to notify current ToDo assignees instead
+- `message`: Jinja template
+
+Escalation chains are multiple Notification documents on the same
+`document_type` with increasing `days_in_advance` or per-level `condition`s
+pointing at an escalation-level field you maintain — there is no built-in
+"escalation chain" construct beyond composing Notifications.
+
+## External integrations
+
+Centralize connectors and use background jobs so sync never blocks a web
+request:
+
+```python
+# my_app/integrations/email_connector.py
+def sync_emails():
+    # Fetch from Email Account, create Communications, link to Tickets
+    ...
 ```
-Level 1: Notify assigned agent
-Level 2: Notify team lead (after X hours)
-Level 3: Notify manager (after Y hours)
-Level 4: Notify department head (after Z hours)
+
+```python
+frappe.enqueue(
+    "my_app.integrations.email_connector.sync_emails",
+    queue="long",
+    timeout=600,
+)
 ```
 
-#### Implementation
-- Use Notification DocType with conditions
-- Schedule background jobs for time-based escalations
-- Track escalation level on document
+`frappe.enqueue(method, queue="default", timeout=None, ...)` —
+`frappe/utils/background_jobs.py`. See
+[references/integration-patterns.md](../../frappe-api-development/references/integration-patterns.md)
+for retry/idempotency design and
+[references/queue-patterns.md](../../frappe-app-development/references/queue-patterns.md)
+for queue selection.
 
-### Integration Patterns
-
-#### External System Integration
-- Centralize integrations in `integrations/` module
-- Use background jobs for sync operations
-- Implement retry logic with exponential backoff
-
-#### Common Integrations
 | System | Pattern |
 |--------|---------|
 | Email | Email Account + Communication |
-| Telephony | Webhook + Call Log DocType |
+| Telephony | Webhook + custom Call Log doctype |
 | External CRM | REST connector + sync job |
-| Chat | Webhook + real-time events |
+| Chat | Webhook + realtime events (`frappe.publish_realtime`) |
 
-#### Sync Job Template
-```python
-def sync_external_tickets():
-    """Background job for external ticket sync"""
-    last_sync = get_last_sync_timestamp()
-    tickets = fetch_external_tickets(since=last_sync)
-    
-    for ticket in tickets:
-        try:
-            upsert_ticket(ticket)
-        except Exception as e:
-            log_sync_error(ticket, e)
-    
-    update_sync_timestamp()
-```
+## Multi-tenancy
 
-### Reporting and Analytics
+Frappe's tenancy unit is the **site**: each site is a separate database
+(and, for single-tenant deploys, an isolated bench process). There is no
+built-in single-database multi-tenant row-partitioning layer — `frappe.init`
+(`frappe/__init__.py`) sets `frappe.local.site` from `sites_path` and site
+config, and `frappe.connect` (`site=None, db_name=None,
+set_admin_as_user=True`) opens the database connection for that site. Most
+"multi-tenant SaaS on Frappe" deployments are one site per tenant behind a
+shared bench, provisioned with `bench new-site`.
 
-#### Operational Reports
-| Report | Purpose |
-|--------|---------|
-| SLA Compliance | Track response/resolution times |
-| Backlog Aging | Identify stuck tickets |
-| Agent Performance | Tickets resolved, avg resolution time |
-| Queue Health | Volume, wait times by queue |
+Within a single site shared by multiple business units (e.g. multiple
+companies), use **User Permissions** to restrict a user's visible Company /
+Territory / other entity Link values — this is row-level isolation inside one
+database, not tenancy. Combine with Role Permissions for what actions each
+role may take on the entity.
 
-#### Report Implementation
-- Use Query Reports for SQL-based reports
-- Use Script Reports for complex aggregations
-- Build dashboards with Number Cards and Charts
+## Reporting and analytics
 
-#### Example Query Report
-```sql
-SELECT
-    assigned_to,
-    COUNT(*) as total_tickets,
-    AVG(TIMESTAMPDIFF(HOUR, creation, resolution_time)) as avg_resolution_hours,
-    SUM(CASE WHEN sla_breached = 1 THEN 1 ELSE 0 END) as breached
-FROM `tabTicket`
-WHERE creation BETWEEN %(from_date)s AND %(to_date)s
-GROUP BY assigned_to
-```
+- Frappe's `Report` doctype (`frappe/core/doctype/report`) has
+  `report_type`: `Report Builder`, `Query Report`, `Script Report`, `Custom
+  Report`. Query Reports run one SQL query; Script Reports run arbitrary
+  Python and return columns/data.
+- Build dashboards with Number Cards and Dashboard Charts (Desk built-ins)
+  rather than bespoke aggregation pages.
+- Use `frappe.get_list`/`frappe.get_all` with explicit `fields` and
+  `order_by`; never fetch unbounded result sets for a report page — paginate
+  with `limit_start`/`limit_page_length`.
 
-### Performance Considerations
+Full reporting reference:
+[references/reports.md](../../frappe-reports/references/reports.md)
 
-#### Query Optimization
-- Index frequently filtered fields (status, assigned_to, customer)
-- Use `frappe.get_list` with specific fields
-- Paginate large result sets
+## Performance considerations
 
-#### Caching Strategies
-- Cache SLA configurations (change infrequently)
-- Cache user permissions for batch operations
-- Use Redis for real-time counters
+- Index columns you filter on (`in_list_view`, or explicit indexes via
+  `frappe.db.add_index` in `on_doctype_update`).
+- Use `frappe.db.get_value(..., for_update=True)` to lock rows you are about
+  to update inside a transaction, avoiding race conditions
+  (`frappe/database/database.py`).
+- Cache configuration that changes infrequently (SLA priorities, assignment
+  rules) rather than re-querying per document.
+- Chunk bulk operations and background jobs; never block a web request with a
+  long-running loop.
 
-#### Background Processing
-- Process bulk operations in background jobs
-- Chunk large data migrations
-- Use job queues for priority handling
+## Verification
 
-### Templates and Examples
+- [ ] Workflow transitions work for all roles
+- [ ] Permissions enforced at API level, not just in the Desk UI
+- [ ] Activity/version trail captures the changes you actually need
+- [ ] SLA calculation correct on a worked business-hours example
+- [ ] Notifications fire on the right event with the right recipients
+- [ ] Integration sync runs without errors and is safe to replay
 
-Reference the mini-app-template for implementation examples:
-- Service layer: `assets/mini-app-template/your_app/services/`
-- Background jobs: `assets/mini-app-template/your_app/background_jobs/`
-- API patterns: `assets/mini-app-template/your_app/api.py`
+## Failure modes / debugging
 
-### Sources
+- **Permission bypass**: whitelisted methods missing an explicit
+  `frappe.has_permission` check
+- **SLA/escalation not firing**: verify the scheduler is running
+  (`bench doctor`) and the Notification's `condition`/`event` actually match
+- **Activities not logging**: check `has_value_changed` usage and that
+  `get_doc_before_save()` isn't `None` (new documents have no "before")
+  version
+- **Assignment not happening**: check `assign_condition` on the Assignment
+  Rule and that a higher-`priority` rule isn't matching first and stopping
+  evaluation
+- **Notifications not sending**: check the Notification is `enabled`, the
+  `condition` evaluates true, and the Email Queue/RQ worker is processing
 
-- Frappe Framework patterns for enterprise apps
-- ERPNext CRM module architecture
-- Frappe Helpdesk implementation patterns
+## Escalation
+
+- For complex permission patterns, see [references/advanced-permissions.md](../../frappe-doctype-development/references/advanced-permissions.md)
+- For queue optimization, see [references/queue-patterns.md](../../frappe-app-development/references/queue-patterns.md)
+- For UI/UX patterns → `frappe-ui-patterns`
+
+## References
+
+- [references/workflow-patterns.md](../../frappe-doctype-development/references/workflow-patterns.md) - State machine design
+- [references/sla-patterns.md](sla-patterns.md) - SLA build-your-own patterns; ERPNext/Helpdesk pointers
+- [references/integration-patterns.md](../../frappe-api-development/references/integration-patterns.md) - External systems
+
+## Guardrails
+
+- **Follow CRM/Helpdesk UI patterns**: for CRUD apps, follow `frappe-ui-patterns`, which documents app shell, navigation, list views, and form patterns from official Frappe apps.
+- **Use Frappe UI for frontends**: custom enterprise frontends should use Frappe UI (Vue 3 + TailwindCSS) rather than vanilla JS/jQuery.
+- **Prefer built-in tracking before custom code**: `track_changes`, Milestone Tracker, and `track_seen` cover most audit needs without a hand-rolled child table.
+- **Prefer Assignment Rule before a custom queue doctype**: it already does round-robin, load balancing, weighted distribution, and field-based routing.
+- **Design workflows carefully**: map all states and transitions before implementation; plan rollback paths.
+- **Use background jobs for heavy operations**: never block a web request with a long-running task.
+- **Log critical operations**: use `frappe.log_error()` and the audit mechanisms above for traceability.
+
+## Common Mistakes
+
+| Mistake | Why It Fails | Fix |
+|---------|--------------|-----|
+| Writing `action`/`data` fields to Activity Log | Those fields don't exist on the doctype | Use `subject`/`content`, or a custom child table for structured data |
+| Custom round-robin before checking Assignment Rule | Duplicates a built-in with worse edge-case handling | Use Assignment Rule's `Round Robin`/`Load Balancing`/`Weighted Distribution` |
+| Treating "Service Level Agreement" as core Frappe | It's ERPNext/Helpdesk only | Confirm the app is installed, or build on primitives per sla-patterns.md |
+| Workflow and code both own status | Conflicting transitions | Single owner per status field |
+| Missing error handling in integrations | Silent failures, data inconsistency | Wrap external calls in try/except; log errors; retry with backoff |
+| Race conditions in document updates | Data corruption | `frappe.db.get_value(..., for_update=True)` for locks |
+| SLA without timezone handling | Wrong calculations for global users | Store and compare via `now_datetime()`/`convert_utc_to_timezone`, not naive local time |
+| Not using queues for bulk operations | Timeouts, memory issues | `frappe.enqueue()` for operations touching many records |
+| Hardcoded role names | Breaks on role changes | Use constants/settings for role names |
+| Using vanilla JS/jQuery for custom frontends | Maintenance burden, ecosystem mismatch | Use Frappe UI with Vue 3 |

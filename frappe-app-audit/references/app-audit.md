@@ -10,7 +10,7 @@ run an ordinary review instead; this procedure is overhead at that size.
 ## Procedure
 
 1. **Recon yourself — never delegate it.** Confirm bench and site identity
-   (`ls apps/ sites/`, `cat sites/currentsite.txt`), read `hooks.py`,
+   (`ls apps/ sites/`, `default_site` in `sites/common_site_config.json`), read `hooks.py`,
    `modules.txt`, `pyproject.toml`, and list every module directory: `api/`,
    `doctype/`, `overrides/`, `doc_events/`, `events/`, `tasks/`, `config/`,
    `utils/`, `tests/`, `patches/`, `fixtures/`, and the frontend `src/`. Get

@@ -1,190 +1,204 @@
-# Web Forms
+# Web Forms Reference
 
-> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `web-forms/SKILL.md`.
+A Web Form (`frappe/website/doctype/web_form/web_form.py`, a `WebsiteGenerator`)
+renders a public or logged-in form bound to one DocType, without writing any
+desk code. This reference covers the doctype schema, the create/read/update/
+delete lifecycle, and the client/server scripting API.
 
-## Frappe Web Forms
+## Web Form doctype — key fields
 
-Build public-facing web forms for data collection, submissions, and customer self-service.
+| Field | Notes |
+|---|---|
+| `title`, `route`, `doc_type` | Target DocType the form creates/edits |
+| `module`, `is_standard` | `is_standard = 1` marks a form exported to app files (see below) |
+| `introduction_text`, `success_message`, `success_url` | Shown/used after submit |
+| `login_required` | Guest access blocked entirely when set |
+| `allow_multiple` | Logged-in user may create more than one document |
+| `allow_edit`, `allow_delete` | Owner may edit / delete their own submissions |
+| `allow_incomplete` | Skip required-field validation on partial saves |
+| `allow_print`, `print_format` | Let submitters print their own record |
+| `allow_comments` | Show a comment thread on the document |
+| `show_list` | Show a list view of the user's own submissions at `/<route>` |
+| `list_columns`, `list_title` | Columns/title for that list view |
+| `condition_json` | Filters restricting which existing docs a user may access |
+| `web_form_fields` | Child table of fields (see below) |
+| `custom_css` | Extra CSS scoped to this form |
+| `breadcrumbs`, `sidebar_settings`, `show_sidebar` | Portal chrome |
+| `apply_document_permissions` | Enforce the DocType's own permission rules instead of the form's own owner-only rule |
+| `published`, `published_score` | Visibility and sitemap weighting |
+| `client_script`, `server_script` | Only used when `is_standard = 0` (non-standard/DB-only forms); Jinja/JS for standard forms lives in files instead (see below) |
+| `key_required` | Enables key-based guest access via `Web Form Request` (no login) |
+| `anonymous` | Do not attribute a guest submission to a Contact/User |
+| `allowed_embedding_domains` | Domains permitted to `<iframe>`-embed this form |
 
-### When to use
+There is no `show_as_card` (or similarly named "card" display) field on `Web
+Form` in v15 or v16 — do not reference one.
 
-- Creating forms for external users (no Desk access)
-- Building support/ticket submission forms
-- Collecting customer feedback or registrations
-- Enabling self-service data entry portals
-- Replacing simple portal pages with form-based workflows
+Source: `frappe/website/doctype/web_form/web_form.json`.
 
-### Inputs required
+### Web Form Field child table
 
-- Target DocType for form submissions
-- Which fields to expose on the web form
-- Authentication requirements (login required vs guest)
-- Whether users can edit/resubmit entries
-- File upload requirements
+Each row (`Web Form Field` doctype) is close to a DocField: `fieldname`,
+`label`, `fieldtype`, `options`, `reqd`, `read_only`, `hidden`,
+`depends_on`, `default`, `description`, `max_length`, `show_in_filter`
+(exposes the field as a list-view filter), `allow_read_on_all_link_options`.
+`Column Break` and `Section Break` rows control the multi-step layout — a
+`Section Break` with `Page Break` starts a new wizard page.
 
-### Procedure
+## Creating a Web Form
 
-#### 0) Prerequisites
+**Via the desk (DB-only form):**
 
-Ensure the target DocType exists and has the fields you want to expose.
+1. New → Web Form. Set `doc_type` and `route`.
+2. Add fields in `web_form_fields` (or click "Get Fields" to pull them from
+   the target DocType).
+3. Configure `login_required`, `allow_multiple`, `allow_edit`, `allow_delete`
+   as needed.
+4. Optionally write `client_script` / `server_script` directly on the
+   document (only read for `is_standard = 0` forms).
 
-#### 1) Create the Web Form
+**Standard form exported to app files** (`is_standard = 1`, requires
+Developer Mode): on save, Frappe scaffolds
+`<app>/<module>/web_form/<scrubbed_name>/`:
 
-1. Type "new web form" in the awesomebar
-2. Enter a Title (becomes the URL slug)
-3. Select the DocType for record creation
-4. Add introduction text (optional, shown above the form)
-5. Click "Get Fields" to import all fields, or add fields manually
-6. Set field order and which are required
-7. Publish the form
+- `<name>.json` — the Web Form document itself.
+- `<name>.js` — client script; must call `frappe.ready(...)` (auto-created if missing).
+- `<name>.py` — server module; must define `get_context(context)` (auto-created if missing).
 
-#### 2) Configure settings
+## Server-side: `get_context(context)`
 
-| Setting | Purpose |
-|---------|---------|
-| Login Required | Require authentication before form access |
-| Allow Edit | Let users edit their submitted entries |
-| Allow Multiple | Let users submit more than one entry |
-| Show as Card | Display in card layout style |
-| Max Attachment Size | Limit file upload sizes |
-| Success URL | Redirect after successful submission |
-| Success Message | Custom message after submission |
-
-#### 3) Make it a Standard Web Form (app-bundled)
-
-Check "Is Standard" (visible in Developer Mode) to export the form as files:
-
-```
-my_app/
-└── my_module/
-    └── web_form/
-        └── contact_us/
-            ├── contact_us.json    # Web form metadata
-            ├── contact_us.py      # Server-side customization
-            └── contact_us.js      # Client-side customization
-```
-
-#### 4) Add server-side customization
+For a standard web form, `WebForm.add_custom_context_and_script()`
+(`frappe/website/doctype/web_form/web_form.py`) calls
+**`get_context(context)` in the app's `<name>.py` module** and merges
+whatever dict it returns back into the page context. This is the *only*
+function the framework calls from that module — there is no framework hook
+that calls a `validate(doc)` function from the web form's Python module.
 
 ```python
-# contact_us.py
+# my_app/my_module/web_form/contact_us/contact_us.py
 import frappe
 
 def get_context(context):
-    """Add custom context variables to the web form."""
-    context.categories = frappe.get_all("Support Category",
-        filters={"enabled": 1},
-        fields=["name", "label"],
-        order_by="label asc"
-    )
-
-def validate(doc):
-    """Custom validation before the document is saved."""
-    if not doc.email:
-        frappe.throw("Email address is required")
-
-    # Prevent duplicate submissions
-    existing = frappe.db.exists("Support Ticket", {"email": doc.email, "status": "Open"})
-    if existing:
-        frappe.throw("You already have an open ticket. Please wait for a response.")
+    context.no_cache = 1
+    context.company_list = frappe.get_all("Company", pluck="name")
+    return context
 ```
 
-#### 5) Add client-side customization
+Server-side validation of the submitted document (require a field, enforce a
+business rule, reject a submission) belongs on the **target DocType**, via a
+standard controller hook or `hooks.py doc_events` — the same place it would
+live for any other way of creating that document:
 
-```javascript
-// contact_us.js
-frappe.ready(function() {
-    // Handle field changes
-    frappe.web_form.on("field_change", function(field, value) {
-        if (field === "category" && value === "Urgent") {
-            frappe.web_form.set_df_property("description", "reqd", 1);
-        }
+```python
+# hooks.py
+doc_events = {
+    "Contact Us Request": {
+        "validate": "my_app.my_module.doctype.contact_us_request.contact_us_request.validate_submission",
+    }
+}
+```
+
+```python
+# my_app/my_module/doctype/contact_us_request/contact_us_request.py
+import frappe
+from frappe import _
+
+def validate_submission(doc, method):
+    if not doc.email:
+        frappe.throw(_("Email is required"))
+```
+
+## Client-side: `<name>.js`
+
+The standard form's JS file is loaded and run against a `frappe.web_form`
+instance (`WebForm` class, `frappe/public/js/frappe/web_form/web_form.js`).
+Register hooks with `frappe.ready(...)`:
+
+```js
+frappe.ready(function () {
+    // fires when this field's value changes: on(fieldname, handler)
+    frappe.web_form.on("status", (field, value) => {
+        frappe.web_form.set_df_property("resolution", "reqd", value === "Closed");
     });
 
-    // Custom validation
-    frappe.web_form.validate = function() {
-        let data = frappe.web_form.get_values();
-        if (data.phone && !data.phone.match(/^\+?[0-9\-\s]+$/)) {
-            frappe.msgprint("Please enter a valid phone number");
+    // client-side validation before save; return false (or throw) to block it
+    frappe.web_form.validate = () => {
+        if (frappe.web_form.get_value("email") && !frappe.web_form.get_value("consent")) {
+            frappe.msgprint(__("Please accept the consent checkbox"));
             return false;
         }
         return true;
     };
 
-    // Custom after-save behavior
-    frappe.web_form.after_save = function() {
-        frappe.msgprint("Thank you for your submission!");
+    frappe.web_form.after_load = () => {
+        // form and its fields are ready
+    };
+
+    frappe.web_form.after_save = () => {
+        frappe.msgprint(__("Thank you for your submission!"));
     };
 });
 ```
 
-#### 6) Control permissions
+`on(fieldname, handler)` binds to that specific field's change event and
+calls `handler(field, field.value)` — it is not a generic `"field_change"`
+event name. `frappe.web_form.events` is a separate internal event bus that
+also fires `"after_load"` / `"after_save"`, which is what `after_load` /
+`after_save` are wired through.
 
-- **Guest access**: Uncheck "Login Required" for fully public forms
-- **Portal roles**: Assign portal roles to control which logged-in users see the form
-- **User permissions**: Set explicit document-level permissions on the target DocType
-- **Row-level access**: Use User Permission rules to restrict which records users can edit
+Other instance methods commonly used from a script: `get_value(fieldname)`,
+`get_values()`, `set_value(fieldname, value)`, `set_df_property(fieldname,
+property, value)` (inherited from the shared `FieldGroup` base, e.g.
+toggling `reqd`/`hidden`/`read_only`), `refresh_field(fieldname)`,
+`validate_section()`.
 
-#### 7) Style the web form
+## Whitelisted endpoints
 
-Web forms use the website theme by default. For custom styling:
+`frappe/website/doctype/web_form/web_form.py` exposes:
 
-```html
-<!-- Add custom CSS via Web Form → Custom CSS field -->
-<style>
-    .web-form-container { max-width: 600px; margin: 0 auto; }
-    .web-form-container .form-group { margin-bottom: 1.5rem; }
-    .web-form-container .btn-primary { background-color: #2490EF; }
-</style>
-```
+- `accept(web_form, data, web_form_request_key=None)` — `POST`/`PUT`,
+  `allow_guest=True`, rate-limited (10/min). Saves the submitted document;
+  the actual save path this method uses is a real `frappe.get_doc(...).insert()`
+  / `.save()`, so ordinary controller `validate`/`before_save` hooks on the
+  target DocType still run.
+- `delete(web_form_name, docname, web_form_request_key=None)` —
+  `POST`/`DELETE`, `allow_guest=True`, rate-limited, honors `allow_delete`.
+- `get_web_form_list(...)`, `get_form_data(...)`, `get_web_form_filters(...)`,
+  `get_link_options(...)` — read endpoints backing the list view, edit view,
+  filters, and link-field autocomplete respectively.
 
-### Verification
+## Guest access without login (`key_required`)
 
-- [ ] Web form accessible at the correct URL (`/contact-us`)
-- [ ] All fields render correctly
-- [ ] Required field validation works
-- [ ] Submission creates the correct DocType record
-- [ ] Login requirement enforced (if configured)
-- [ ] Edit and resubmit work (if configured)
-- [ ] File uploads work within size limits
-- [ ] Success message/redirect works after submission
-- [ ] Custom Python validation runs on submit
+Setting `key_required` (without `login_required`) lets Frappe generate a
+per-document `Web Form Request` record with a random key; a link containing
+`?web_form_request_key=<key>` grants a specific guest read/edit/delete access
+to that one document without requiring a session — used for things like
+"complete your onboarding form" emails sent to non-users. Combine with
+`anonymous` when the submission should not be tied to a Contact/User record.
 
-### Failure modes / debugging
+## Multi-step forms
 
-- **Form not accessible**: Check if published; verify URL slug
-- **Permission denied on submit**: Check DocType permissions for Website User or Guest
-- **Fields not showing**: Ensure fields are added to the Web Form (not just on the DocType)
-- **Custom JS not loading**: Check browser console; ensure file path is correct
-- **Validation not firing**: Verify `validate` function in Python file returns/throws correctly
-- **Duplicate entries**: Check "Allow Multiple" setting; add custom duplicate detection
+A `Section Break` field row with its `Page Break` option checked starts a new
+page; the built-in wizard renders a progress indicator and Next/Previous
+controls automatically — no extra configuration is required beyond adding
+the section breaks.
 
-### Escalation
+## Guardrails
 
-- For DocType schema → `frappe-doctype-development`
-- For Frappe UI portal apps → `frappe-frontend-development`
-- For API endpoint access → `frappe-api-development`
+- Do not write `validate(doc)` in a standard web form's `<name>.py` expecting
+  the framework to call it — it will not run. Validate via `doc_events` on
+  the target DocType instead.
+- `apply_document_permissions = 0` (default) means access is governed purely
+  by the web form's own `login_required`/owner-matching logic, *not* the
+  DocType's permission rules — set it to `1` deliberately if you need real
+  DocType-level permission checks (roles, user permissions, sharing) enforced
+  on top of the web form.
+- `client_script`/`server_script` document fields are only read when
+  `is_standard = 0`; editing them on a standard (`is_standard = 1`) form has
+  no effect — edit the `.js`/`.py` files instead.
 
-### References
+## References
 
-- [references/web-forms.md](web-forms.md) — Web Form creation and customization
-
-### Guardrails
-
-- **Validate input server-side**: Never trust client validation; check in `validate()` Python method
-- **Use captcha for public forms**: Enable reCAPTCHA for guest-accessible forms to prevent spam
-- **Sanitize output**: Escape user-submitted data when displaying; use `frappe.utils.escape_html()`
-- **Limit file uploads**: Set max file size and allowed types for attachment fields
-- **Check rate limits**: Consider throttling form submissions from same IP
-
-### Common Mistakes
-
-| Mistake | Why It Fails | Fix |
-|---------|--------------|-----|
-| Missing DocType permissions | "Permission denied" on submit | Grant Create permission to Website User or Guest role |
-| Not handling file uploads | Files don't attach to record | Configure Attach field properly; check upload limits |
-| XSS vulnerabilities | Security risk | Escape user input in display; use `| e` filter in templates |
-| Forgetting to publish form | 404 error | Check "Published" checkbox in Web Form |
-| Client-only validation | Invalid data in database | Add `validate()` method in web form Python file |
-| Not testing as guest user | Works for admin, fails for users | Test in incognito/logged out mode |
-
+- `frappe/website/doctype/web_form/web_form.py`, `web_form.json`
+- `frappe/public/js/frappe/web_form/web_form.js`
+- https://frappeframework.com/docs/user/en/website/web-form

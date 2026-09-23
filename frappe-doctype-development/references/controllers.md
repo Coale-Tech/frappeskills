@@ -170,15 +170,16 @@ class Expense(Document):
 **INSERT (new document, `_action = "save"`)** — `Document.insert()`:
 ```
 1.  before_insert
-2.  autoname            (set_new_name -> also runs the `autoname` method if defined)
-3.  before_validate
-4.  validate
-5.  before_save
+2.  before_naming        (frappe/model/naming.py:set_new_name, runs before autoname resolution)
+3.  autoname            (set_new_name -> also runs the `autoname` method if defined)
+4.  before_validate
+5.  validate
+6.  before_save
     (internal: _validate -> mandatory, links, data-field, select validations)
-6.  --- DB INSERT (db_insert / update_single for Single) + children db_insert ---
-7.  after_insert
-8.  on_update
-9.  on_change
+7.  --- DB INSERT (db_insert / update_single for Single) + children db_insert ---
+8.  after_insert
+9.  on_update
+10. on_change
 ```
 
 **SAVE (existing document, `_action = "save"`)** — `Document.save()` -> `_save()`:
@@ -236,6 +237,16 @@ class Expense(Document):
 2.  --- rename record + child references ---
 3.  after_rename(old, new, merge)
 ```
+
+**DISCARD (`_action = "discard"`)** — `discard()` (v16; no v15 equivalent):
+```
+1.  before_discard
+2.  --- DB SET (docstatus = 2, via db_set — bypasses validate/_validate entirely) ---
+3.  on_discard
+```
+Only usable on a draft (`docstatus = 0`); raises `ValidationError` otherwise. Unlike
+`cancel()`, `discard()` never goes through `run_before_save_methods` /
+`run_post_save_methods` — no `validate`, `on_update`, `on_cancel`, or `on_change` fires.
 
 **FORM LOAD (Desk):** `onload` runs when a document is loaded into a form (not on save).
 
@@ -302,6 +313,7 @@ class CustomerRequest(Document):
 | `before_validate` | Pre-validation setup — compute fields that `validate` depends on. |
 | `before_save` | Final normalization after validation, before the DB write. |
 | `before_insert` | New-document-only setup, before any validation. |
+| `before_naming` | New-document-only, runs before naming series/`autoname` resolution — set defaults the name derivation reads (`frappe/model/naming.py`). |
 | `after_insert` | Post-creation side effects (only fires on first save) — create related docs, notify. |
 | `on_update` | Runs after every save (insert and update) — sync to external systems, audit. |
 | `before_submit` | Final checks before `docstatus` becomes 1. |
@@ -313,6 +325,8 @@ class CustomerRequest(Document):
 | `on_trash` | Clean up related records before deletion. |
 | `after_delete` | Post-deletion cleanup (caches, etc). |
 | `on_change` | Fires on every state change (save, submit, cancel) — audit logging. |
+| `before_discard` (v16) | Guard `discard()` (draft-only un-submit path) — no `validate` runs first. |
+| `on_discard` (v16) | After a draft is discarded — `on_cancel`/`on_change` do NOT also fire. |
 
 ```python
 def on_trash(self):
@@ -355,8 +369,10 @@ doc.reload()
 doc.db_set("status", "Active")  # Direct DB update, bypasses controller hooks/validation
 doc.submit()
 doc.cancel()
+doc.discard()  # (v16) draft-only: docstatus -> 2 via db_set, no validate/on_cancel
+doc.queue_action("submit")  # run submit/cancel/save via background worker (locks the doc)
 doc.check_permission("write")  # Throws if denied
-url = doc.get_url()  # /app/customer/CUST-001
+url = doc.get_url()  # (v16) /desk/customer/CUST-001 — v15 used /app/...; /app/... still redirects
 doc.has_value_changed("status")  # In controller
 old_doc = doc.get_doc_before_save()  # In controller
 doc.run_method("custom_hook")  # Calls a method if defined, else no-op
@@ -415,12 +431,12 @@ def on_submit(self):
 
 ## Sources
 
-Verified against Frappe v16.27.1 (`frappe/__init__.py` `__version__`):
+Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`):
 
-- `apps/frappe/frappe/model/document.py` — `insert`, `save`/`_save`, `run_before_save_methods`, `run_post_save_methods`, `run_method`, `_submit`/`_cancel`, `_validate`, `Document.__init__`, `load_from_db`
+- `apps/frappe/frappe/model/document.py` — `insert`, `save`/`_save`, `run_before_save_methods`, `run_post_save_methods`, `run_method`, `_submit`/`_cancel`/`discard`, `_validate`, `Document.__init__`, `load_from_db`
 - `apps/frappe/frappe/model/delete_doc.py` — `on_trash` / `on_change` / `after_delete` ordering
 - `apps/frappe/frappe/model/rename_doc.py` — `before_rename` / `after_rename`
 - `apps/frappe/frappe/model/base_document.py` — `get_controller`, `override_doctype_class` + `extend_doctype_class`
 - `apps/frappe/frappe/core/doctype/doctype/doctype.json` — DocType-level Check flags, `naming_rule` options
-- `apps/frappe/frappe/model/naming.py` — naming series / autoname tokens
+- `apps/frappe/frappe/model/naming.py` — `set_new_name` (`before_naming` hook, naming series / autoname tokens)
 - `apps/frappe/frappe/types/exporter.py`, `apps/frappe/frappe/types/DF.py` — controller type-hint generation

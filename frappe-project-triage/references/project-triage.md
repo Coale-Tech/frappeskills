@@ -115,7 +115,7 @@ Use this output to route to the appropriate skill:
 - **Check for custom apps** that may override standard behavior
 - **Verify site exists** before running site-specific commands
 - **Check developer_mode** before making schema changes (required for DocType modifications)
-- **Note Node.js version** - frontend builds require compatible Node (typically 18+ for v15)
+- **Note Node.js version** - frontend builds require compatible Node (`>=18` for v15, `>=24` for v16 — see [v15-v16-compatibility.md](v15-v16-compatibility.md))
 
 ### Common Mistakes
 
@@ -126,4 +126,4 @@ Use this output to route to the appropriate skill:
 | Missing FM shell context | bench commands not found | Use `fm shell sitename` first |
 | Wrong directory level | Commands fail silently | Navigate to bench root (where `apps/` exists) |
 | Ignoring custom app overrides | Unexpected behavior | Check hooks.py for overrides |
-| Not checking Python version | Syntax/compatibility errors | Verify Python >= 3.10 for v15+ |
+| Not checking Python version | Syntax/compatibility errors | Verify Python `>=3.10,<3.15` for v15, `>=3.14,<3.15` for v16 |

@@ -43,23 +43,56 @@ def create_api_user(email, full_name, roles=None):
     return {"api_key": api_key, "api_secret": api_secret}
 ```
 
-## Validating Tokens
+## Generating Keys for an Existing User (stock endpoint)
+
+For a User that already exists, prefer the framework's own whitelisted method
+over hand-rolling the hash generation: `POST /api/method/frappe.core.doctype.user.user.generate_keys`
+with `user=<name>`. It is gated by `frappe.only_for("System Manager")`, always
+regenerates `api_secret`, and only generates `api_key` if the user doesn't
+already have one (`apps/frappe/frappe/core/doctype/user/user.py:1427-1444`):
 
 ```python
+import frappe
+
+@frappe.whitelist(methods=["POST"])
+def generate_keys(user: str):
+    frappe.only_for("System Manager")
+    user_details = frappe.get_doc("User", user)
+    api_secret = frappe.generate_hash(length=15)
+    if not user_details.api_key:
+        user_details.api_key = frappe.generate_hash(length=15)
+    user_details.api_secret = api_secret
+    user_details.save()
+    return {"api_key": user_details.api_key, "api_secret": api_secret}
+```
+
+`api_secret` is stored as a `Password` fieldtype (encrypted at rest,
+returned in cleartext only from this call) and `api_key` as plain `Data`
+(`apps/frappe/frappe/core/doctype/user/user.py:75-76`).
+
+## Validating Tokens
+
+`api_secret` is a `Password` fieldtype: its value lives only in the
+separate `__Auth` table, never in a plain column on `tabUser`
+(`apps/frappe/frappe/utils/password.py:13,23-34`). `frappe.db.get_value`
+against `User` cannot read it — fetch the docname first, then decrypt with
+`get_decrypted_password`, exactly as the framework's own
+`validate_api_key_secret` does (`apps/frappe/frappe/auth.py:721-747`):
+
+```python
+from frappe.utils.password import get_decrypted_password
+
 def validate_api_token(api_key, api_secret):
     """Validate API credentials."""
-    user = frappe.db.get_value(
-        "User",
-        {"api_key": api_key, "enabled": 1},
-        ["name", "api_secret"],
-        as_dict=True,
-    )
+    user = frappe.db.get_value("User", {"api_key": api_key, "enabled": 1}, "name")
 
     if not user:
         return None
 
-    if frappe.safe_decode(user.api_secret) == api_secret:
-        return user.name
+    doc_secret = get_decrypted_password("User", user, fieldname="api_secret", raise_exception=False)
+
+    if doc_secret and doc_secret == api_secret:
+        return user
 
     return None
 ```

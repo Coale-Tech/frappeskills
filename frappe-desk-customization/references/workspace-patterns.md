@@ -49,25 +49,39 @@ my_app/
 
 ## 1. Desktop Icons
 
+Desktop Icon's `icon_type` is `Link` / `Folder` / `App`; its `link_type` is
+only `Workspace Sidebar` or `External` — there is **no** `"Workspace"`
+option (verified: `DF.Literal["Workspace Sidebar", "External"]` in
+`desktop_icon.py`). Only `App`/`Folder` icons can be a `parent_icon`
+(enforced by the `parent_icon` link query in `desktop_icon.js`).
+
 ### Parent Icon (icon_type: "App")
 
-Creates the app tile on desk home screen.
+Creates the app tile on the desk home screen. App tiles always use
+`link_type: "External"` with a fixed `link` route (the `route` from the
+app's `add_to_apps_screen` hook) — never `link_to`. Real example
+(`apps/frappe/frappe/desktop_icon/framework.json`):
 
 ```json
 {
- "app": "my_app",
+ "app": "frappe",
  "doctype": "Desktop Icon",
  "icon_type": "App",
- "idx": 15,
- "label": "My App",
- "link_to": "My Module",
- "link_type": "Workspace",
- "logo_url": "/assets/my_app/images/my-app-logo.svg",
- "name": "My App",
+ "idx": 0,
+ "label": "Framework",
+ "link": "/desk/build",
+ "link_type": "External",
+ "logo_url": "/assets/frappe/images/frappe-framework-logo.svg",
+ "name": "Framework",
  "owner": "Administrator",
  "standard": 1
 }
 ```
+
+`create_desktop_icons_from_installed_apps()` (`desktop_icon.py`) creates
+this automatically for every installed app that defines `add_to_apps_screen`
+— you normally don't hand-author it; ship the hook instead (see "6. hooks.py
+Configuration" below).
 
 ### Child Icon - Workspace Sidebar Link
 
@@ -87,6 +101,10 @@ Creates the app tile on desk home screen.
  "standard": 1
 }
 ```
+
+`link_to` here is a Dynamic Link resolved by `link_type`, so it must name an
+existing **Workspace Sidebar** document — by convention the sidebar and its
+matching Workspace share the same name (see "2. Workspace Sidebar" below).
 
 ### Child Icon - External SPA Link
 
@@ -155,25 +173,30 @@ Left sidebar with collapsible sections. Filed in `workspace_sidebar/` directory.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `type` | "Link" / "Section Break" | Item type |
-| `child` | 0/1 | 0 = top-level, 1 = nested under Section Break |
-| `indent` | 0/1 | 0 for links, 1 for Section Break headers |
-| `collapsible` | 1 | Always 1 |
-| `keep_closed` | 0/1 | 1 = collapsed by default |
-| `label` | string | Display text |
-| `link_to` | string | Target DocType/Report/Workspace name |
-| `link_type` | string | "DocType", "Report", "Workspace", "URL" |
-| `icon` | string | Icon name (Espresso/Lucide) — used on Section Breaks |
-| `url` | string | Target when `link_type` = "URL" |
-| `navigate_to_tab` | 0/1 | Navigate to a specific Workspace tab |
-| `collapsible_column` | 0/1 | Column-level collapse |
-| `display_depends_on` | string | `eval:` condition to show/hide the item |
-| `filters` / `route_options` | JSON | Preset list filters / route options applied on click |
+| `type` | Select: `Link` (default) / `Section Break` / `Spacer` / `Sidebar Item Group` | Item kind |
+| `child` | Check | 1 = nested under the preceding Section Break |
+| `indent` | Check | Section-Break-only (`depends_on: type == "Section Break"`) |
+| `collapsible` | Check, default 1 | Section-Break-only |
+| `keep_closed` | Check | Section-Break-only; 1 = collapsed by default |
+| `label` | Data | Display text |
+| `link_type` | Select, default `DocType`: `DocType` / `Page` / `Report` / `Workspace` / `Dashboard` / `URL` | Target kind; shown for `type == "Link"` rows |
+| `link_to` | Dynamic Link (options: `link_type`) | Target name; hidden when `link_type == "URL"` |
+| `icon` | Icon (options: `Emojis`) | Shown for `type == "Link"` or `"Section Break"` rows |
+| `url` | Data | Target when `link_type == "URL"` |
+| `navigate_to_tab` | Autocomplete (a tab name, not boolean) | Shown when `link_type == "DocType"` and `link_to` is set — jumps to that Workspace tab |
+| `show_arrow` | Check | Shown when `indent == 1` |
+| `filters` / `route_options` | Code, options `JSON` | Preset list filters / route options applied on click |
+
+There is no `collapsible_column` or `display_depends_on` data field — those
+names do not appear in the DocType's `fields` array (`collapsible_column`
+is a layout Column Break, not a value-holding field).
 
 > Verified against `apps/frappe/frappe/desk/doctype/workspace_sidebar_item/workspace_sidebar_item.json`
 > (child of `Workspace Sidebar`, both **new in v16**, created 2025-08-12). The parent `Workspace Sidebar`
 > fields are: `title` (autoname `field:title` → the `name`), `header_icon`, `for_user` (Link→User),
 > `module`, `standard`, `app`, `items` (child table). See `apps/frappe/frappe/desk/doctype/workspace_sidebar/workspace_sidebar.json`.
+> `frappe/boot.py` wires both models into the login payload: `bootinfo.desktop_icons` (`get_desktop_icons`)
+> and `bootinfo.workspace_sidebar_item` (`get_sidebar_items`).
 
 ## 3. Workspace (Dashboard)
 
@@ -395,20 +418,20 @@ website_route_rules = [
 
 ## Checklist for New App Navigation
 
-- [ ] Create `desktop_icon/` parent App icon JSON
+- [ ] Add `add_to_apps_screen` to `hooks.py` (the App icon is auto-generated and exported to `desktop_icon/` on `bench migrate` with `developer_mode` on — no need to hand-author it)
 - [ ] Create `desktop_icon/` child Workspace Sidebar link JSON
 - [ ] Create `desktop_icon/` child External link to SPA (if applicable)
 - [ ] Create `workspace_sidebar/` with sections and links
 - [ ] Create `module/workspace/<name>/<name>.json` dashboard
 - [ ] Create `public/images/` app logo SVG
 - [ ] Create `www/` entry point (`.html` + `.py`) for SPA
-- [ ] Update `hooks.py` with `add_to_apps_screen` and `website_route_rules`
+- [ ] Add `website_route_rules` to `hooks.py` for the SPA route (if applicable)
 - [ ] Use `frappe-ui/vite` plugin in `vite.config.mjs`
 - [ ] Run `npm run build` then `bench --site <site> migrate` then `bench build`
 
 ## Sources
 
-Verified against Frappe v16.27.1 at `apps/frappe`:
+Verified against Frappe v16.35.0 at `apps/frappe`:
 - `apps/frappe/frappe/desk/doctype/workspace/workspace.json` — Workspace DocType fields & child tables
 - `apps/frappe/frappe/desk/doctype/workspace_link/workspace_link.json`
 - `apps/frappe/frappe/desk/doctype/workspace_shortcut/workspace_shortcut.json`

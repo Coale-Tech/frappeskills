@@ -12,7 +12,7 @@ already built.
 
 - Adding buttons, filters, dynamic behaviour to a Desk form
 - Customizing list views: indicators, formatters, bulk actions
-- Building workspaces (v16) or desk pages (v15) for navigation
+- Building navigation: Workspaces, Workspace Sidebar (v16), Desktop Icons
 - Opening dialogs, prompts, or multi-step interactions in Desk
 - Grid, datatable and keyboard interaction work
 
@@ -21,7 +21,7 @@ already built.
 - DocType(s) whose forms or lists change
 - Roles that see the customization
 - Whether the behaviour is client-side only or needs a server call
-- Frappe version — workspaces vs. desk pages differ between v15 and v16
+- Frappe version — v16 adds Workspace Sidebar and serves Desk at `/desk` (v15: `/app`)
 
 ## Procedure
 
@@ -69,8 +69,9 @@ See [references/listview-patterns.md](references/listview-patterns.md).
 
 ### 3) Build navigation
 
-v16 uses **Workspaces** (JSON fixtures with shortcuts, links, charts); v15 uses
-desk pages. Both, plus the migration path:
+Workspaces (shortcuts, links, charts) exist in v15 and v16; Desk Pages
+(`frappe.pages[...]`) remain the tool for custom full-page UIs in both. v16 adds
+the Workspace Sidebar and routes Desktop Icons to it. Details:
 [references/workspace-patterns.md](references/workspace-patterns.md) and
 `assets/workspace.py.template`.
 
@@ -116,7 +117,7 @@ bench --site <site> clear-cache
 
 - [references/frontend-desk.md](references/frontend-desk.md) - Form scripts, `frm` API, dialogs
 - [references/listview-patterns.md](references/listview-patterns.md) - List settings, indicators, bulk actions
-- [references/workspace-patterns.md](references/workspace-patterns.md) - Workspaces (v16) and desk pages (v15)
+- [references/workspace-patterns.md](references/workspace-patterns.md) - Desktop Icons, Workspace Sidebar (v16), Workspace blocks
 - [references/desk-ui-interactions.md](references/desk-ui-interactions.md) - Grids, datatables, keyboard behaviour
 - `assets/workspace.py.template`
 
@@ -126,7 +127,7 @@ bench --site <site> clear-cache
 - **Never gate security client-side**: hiding a button is UX, not permission
 - **Always `__()` user-facing strings** in client scripts
 - **Rebuild after JS changes**: `bench build --app <app>` then `clear-cache`
-- **Check the version**: workspaces (v16) and desk pages (v15) are not interchangeable
+- **Check the version**: Workspace Sidebar is v16-only; v15 has no sidebar doctype
 
 ## Common Mistakes
 
@@ -136,5 +137,5 @@ bench --site <site> clear-cache
 | Untranslated button labels | No i18n | `__("Approve")` |
 | Business logic in the form script | Bypassed by API callers | Put it in the controller |
 | Forgetting `bench build` | Stale assets served | Build and clear cache |
-| Desk page written for v16 | Workspaces replaced them | Check version first |
+| (v16) Desktop Icon `link_type: "Workspace"` | Invalid Select option | `Workspace Sidebar` or `External` |
 | Reimplementing grid behaviour | Inconsistent UX | Use native grid APIs |

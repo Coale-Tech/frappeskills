@@ -9,8 +9,8 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 
 ### Data
 - **Purpose**: Single-line text input
-- **Max Length**: 140 characters (default), configurable up to 255
-- **Options**: Can specify validation pattern (Email, URL, Phone, Name)
+- **Storage**: `varchar`, length 1-1000 (`length` property), default 140 characters. Values under 64 are forced up to 64 by the DB layer (InnoDB row-size guard)
+- **Options**: restricts to a validation pattern — only `Email`, `Name`, `Phone`, `URL`, `Barcode`, `IBAN` are recognized (`data_field_options`, `frappe/model/__init__.py`); any other value triggers an "Invalid Data Field" warning
 - **Example**:
 ```json
 {
@@ -20,6 +20,11 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
   "label": "Email Address"
 }
 ```
+
+### Autocomplete
+- **Purpose**: Single-line text input with a client-side suggestion dropdown (not backed by a DocType, unlike Link)
+- **Storage**: `varchar` (same as Data)
+- **Options**: newline-separated list of suggestion strings, or the literal value `Installed Applications` (special-cased to populate the list with installed app names)
 
 ### Small Text
 - **Purpose**: Multi-line text, limited length
@@ -110,8 +115,8 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 
 ### Duration
 - **Purpose**: Time duration in seconds
-- **Display**: Formatted as HH:MM:SS or days
-- **Storage**: Float (seconds)
+- **Display**: Formatted as HH:MM:SS or days (toggle via `hide_days`/`hide_seconds` DocField properties)
+- **Storage**: `decimal(21,9)`, value in seconds
 
 ## Selection Fields
 
@@ -189,8 +194,8 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 ```
 
 ### Table MultiSelect
-- **Purpose**: Multi-select via child table
-- **Options**: Link DocType for selection
+- **Purpose**: Multi-select via a hidden child table (many-to-many)
+- **Options**: child DocType name; that child DocType must have `istable: 1` and at least one `Link` field, or validation throws (`frappe/core/doctype/doctype/doctype.py`)
 - **Use Case**: Many-to-many relationships
 
 ## Media Fields
@@ -211,14 +216,19 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 
 ### Signature
 - **Purpose**: Digital signature capture
-- **Storage**: Base64 encoded image
+- **Storage**: Base64-encoded image data
+
+### Attachment Gallery
+- **Purpose**: Display-only grid of the document's attached files
+- **Storage**: no-value field — not a database column (`no_value_fields`, `frappe/model/__init__.py`)
+- **Options**: `link_filters` (JSON) filters which attachments are shown, same mechanism as Link
 
 ## Special Fields
 
 ### Password
-- **Purpose**: Encrypted password storage
-- **Display**: Masked input
-- **Storage**: Encrypted (hashed for auth)
+- **Purpose**: Sensitive value storage (API keys, secrets)
+- **Display**: Masked input; the saved doc shows `"*" * len(value)`, never the real value
+- **Storage**: not a column on the DocType's own table — encrypted with Fernet (`frappe.utils.password.encrypt`) and kept in the separate `__Auth` table, keyed by doctype/name/fieldname. Read back with `doc.get_password(fieldname)`. This is reversible encryption, not a one-way hash
 
 ### Read Only
 - **Purpose**: Display computed/derived values
@@ -236,15 +246,16 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 
 ### Rating
 - **Purpose**: Star rating input
-- **Range**: 0-5 (configurable)
+- **Storage**: `decimal(3,2)`, always normalized/clamped to a 0.0-1.0 fraction server-side (`Document._fix_rating_value`, `frappe/model/document.py`) regardless of what is written to the field
+- **Options**: number of stars to display, default 5 (`this.df.options || 5` in the Rating control) — this only changes the UI, not the stored range
 
 ### Barcode
-- **Purpose**: Barcode display
-- **Options**: Barcode type (Code128, QR, etc.)
+- **Purpose**: Renders a scannable barcode from the field's value using JsBarcode
+- **Options**: a JSON object of JsBarcode options, e.g. `{"format": "CODE128"}` — symbologies only (CODE128, EAN, UPC, ITF, MSI, codabar, pharmacode); JsBarcode does not generate QR codes
 
 ### JSON
 - **Purpose**: JSON data storage and editing
-- **Storage**: TEXT column with JSON
+- **Storage**: native `json` column (mariadb and postgres), not TEXT
 - **UI**: JSON editor
 
 ### HTML
@@ -255,6 +266,21 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 ### Heading
 - **Purpose**: Section heading label
 - **Note**: Display only, no data
+
+### Icon
+- **Purpose**: Icon picker
+- **Options**: `Emojis` (special case, shows emoji picker instead of the icon set)
+- **Storage**: no-value field, stores the chosen icon/emoji name as text via a separate mechanism — not a real DB column
+
+### Phone
+- **Purpose**: Phone number input with a country-code picker
+- **Storage**: `varchar` (same as Data)
+- **Default country**: taken from `frappe.sys_defaults.country` unless overridden
+
+### Button
+- **Purpose**: Triggers a client-script or server-method action; no stored value
+- **Storage**: no-value field
+- **Options** (v16): `button_color` DocField property sets the button style — `Default`, `Primary`, `Info`, `Success`, `Warning`, `Danger`
 
 ## Layout Fields
 
@@ -290,6 +316,9 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 - **Purpose**: Collapse section below by default
 - **Note**: All fields after Fold are hidden until expanded
 
+### No-Value Fieldtypes
+These render UI but never hold document data — no DB column is created and they cannot be `reqd`: `Section Break`, `Column Break`, `Tab Break`, `Table`, `Table MultiSelect`, `Button`, `Image`, `HTML`, `Heading`, `Icon`, `Attachment Gallery`, `Fold` (`no_value_fields`, `frappe/model/__init__.py`).
+
 ## Field Properties
 
 ### Common Properties
@@ -310,6 +339,10 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 | `depends_on` | String | Visibility condition |
 | `mandatory_depends_on` | String | Required condition |
 | `read_only_depends_on` | String | Read-only condition |
+| `not_nullable` (v16) | Int | Adds a `NOT NULL` DB column constraint |
+| `mask` (v16) | String | Input mask pattern for masked entry |
+| `sticky` (v16) | Int | Keeps the field pinned while scrolling a long form |
+| `show_description_on_click` (v16) | Int | Shows the description as a popover on click instead of inline |
 
 ### Conditional Visibility
 ```json
@@ -328,4 +361,4 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 - Use consistent suffixes: `_date`, `_time`, `_by`, `_at`
 - Avoid reserved names: `name`, `owner`, `creation`, `modified`, `docstatus`
 
-Sources: Field Types, DocType, Database Schema (official docs)
+Sources: `frappe/model/__init__.py`, `frappe/core/doctype/docfield/docfield.json`, `frappe/core/doctype/doctype/doctype.py`, `frappe/database/schema.py`, `frappe/database/mariadb/database.py`, `frappe/model/document.py`, `frappe/model/base_document.py`, `frappe/utils/password.py`, `frappe/public/js/frappe/form/controls/` (rating.js, barcode.js, autocomplete.js, attachment_gallery.js, icon.js, phone.js, button.js)

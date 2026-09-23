@@ -63,6 +63,25 @@ gate on the same `frappe.validated` flag — setting `frappe.validated = false`
 in either one cancels the save (`frappe/public/js/frappe/form/form.js:864-879`).
 There is no separate `frm.validate()` method to call from inside a handler.
 
+### Full event list (verified in `form/form.js` and `form/script_manager.js`)
+
+Any name bound in `frappe.ui.form.on(doctype, {...})` fires when the form
+lifecycle reaches that point. Besides `setup`, `onload`, `refresh`,
+`validate`, `before_save`, `after_save`, and per-fieldname handlers, these
+are also triggered:
+
+| Event | Fires |
+|---|---|
+| `before_load` | Before the document is fetched for the first render |
+| `onload_post_render` | After the first render completes (only on initial `onload`) |
+| `before_submit` | Before a document is submitted; gates on `frappe.validated` like `validate` |
+| `before_cancel` / `after_cancel` | Around document cancellation |
+| `before_discard` / `after_discard` | Around discarding an unsaved/amended document |
+| `before_workflow_action` / `after_workflow_action` | Around a workflow transition action |
+| `on_tab_change` | When the user switches a form tab |
+| `on_hide` | When the form's wrapper is hidden (navigating away) |
+| `<child_table_fieldname>_on_form_rendered` / `form_render` | When a grid row's inline edit form renders (`grid_row.js`) |
+
 ## Child table events
 
 ```javascript
@@ -195,7 +214,15 @@ Extend a DocType from another app without modifying it:
 # hooks.py
 doctype_js = {"Sales Order": "public/js/sales_order_custom.js"}
 doctype_list_js = {"Sales Order": "public/js/sales_order_list_custom.js"}
+doctype_tree_js = {"Sales Order": "public/js/sales_order_tree_custom.js"}      # Tree View
+doctype_calendar_js = {"Sales Order": "public/js/sales_order_calendar_custom.js"}  # Calendar View
 ```
+
+All four are appended to the DocType's generated meta bundle
+(`frappe/desk/form/meta.py:add_code_via_hook`) and loaded together — no
+conflict with the target app's own `<doctype>.js`. For scripts that should
+load on every Desk page regardless of DocType, use `app_include_js` /
+`app_include_css` (global bundles) instead.
 
 ```bash
 bench build --app my_app
@@ -237,7 +264,7 @@ let route = frappe.get_route();
 
 | Mistake | Why It Fails | Fix |
 |---------|--------------|-----|
-| Missing `frm.refresh_field()` after `set_value` | UI doesn't update | Call `frm.refresh_field('fieldname')` after `frm.set_value()` |
+| Mutating `frm.doc.field = value` directly | Skips the model event pipeline — no dirty flag, no field re-render, no field triggers | Use `frm.set_value(field, value)`; it calls `frappe.model.set_value`, which auto-refreshes the field and fires triggers via the doctype's `frappe.model.on(doctype, "*", ...)` watcher (`form.js:watch_model_updates`) — an explicit `frm.refresh_field()` is only needed after bypassing `set_value` |
 | Wrong event hook name | Event never fires | Use exact names: `refresh`, `validate`, `onload`, `before_save` |
 | Blocking UI with sync calls | Page freezes | Use `frappe.call()` — it is async by default |
 | Using `cur_frm` instead of `frm` | Breaks in dialogs/multiple forms | Always use the `frm` parameter passed to handlers |

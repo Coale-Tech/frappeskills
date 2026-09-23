@@ -408,8 +408,6 @@ class MyDocType(Document):
 
 ---
 
----
-
 ## Docstatus & Document States
 
 | Value | Status | Description |
@@ -626,8 +624,6 @@ def get_data():
 
 ---
 
----
-
 ## Customization Approaches
 
 | # | Approach | Description |
@@ -683,8 +679,6 @@ class CustomTaskMixin:
 > Use `extend_doctype_class` (mixin, composable) when possible; use
 > `override_doctype_class` (full replacement, only one app can win) only when you must
 > replace the base controller entirely.
-
----
 
 ---
 
@@ -761,6 +755,271 @@ naming: `issingle` and `istable` have **no** underscore, while `is_submittable`,
 2. Use `frappe.get_cached_doc()` for frequently accessed docs
 3. Batch operations and commit after bulk updates
 4. Use `ignore_permissions` when safe
+## Adopted patterns (frappe-skills)
+
+> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `doctype-development/SKILL.md`.
+
+### Frappe DocType Development
+
+Build and modify DocTypes—the core data model abstraction in Frappe Framework.
+
+#### When to use
+
+- Creating new DocTypes (standard, single, child table, submittable, tree)
+- Adding or modifying fields on existing DocTypes
+- Implementing controller logic (validate, before_save, on_submit, etc.)
+- Setting up naming series and auto-naming
+- Configuring permissions and workflows
+- Building child tables and parent-child relationships
+
+#### Inputs required
+
+- Target app and module path
+- DocType name and type (standard/single/child/submittable/tree)
+- Field definitions (name, type, options)
+- Permission requirements by role
+- Whether workflow is needed
+
+#### Procedure
+
+##### 0) Verify environment
+
+```bash
+# Ensure developer mode is enabled
+bench --site <site> console
+>>> frappe.conf.developer_mode  # Must be True
+```
+
+##### 1) Choose DocType type
+
+| Type | Use Case | Key Setting |
+|------|----------|-------------|
+| Standard | Multiple records | Default |
+| Single | Config/settings (one record) | `issingle: 1` |
+| Child Table | Rows in parent table | `istable: 1` |
+| Submittable | Draft→Submit→Cancel workflow | `is_submittable: 1` |
+| Tree | Hierarchical data | `is_tree: 1` |
+| Virtual | External data source | `is_virtual: 1` |
+
+##### 2) Create DocType
+
+**Option A: Via UI (recommended for new DocTypes)**
+1. Navigate to DocType List → New
+2. Define fields, permissions, settings
+3. Save (exports to app in developer mode)
+
+**Option B: Via code**
+```python
+# Create DocType JSON in: 
+# <app>/<module>/doctype/<doctype_name>/<doctype_name>.json
+```
+
+##### 3) Define fields
+
+Common field patterns:
+```json
+{
+  "fieldname": "customer",
+  "fieldtype": "Link",
+  "label": "Customer",
+  "options": "Customer",
+  "reqd": 1
+}
+```
+
+See [references/field-types.md](./field-types.md) for all field types.
+
+##### 4) Implement controller
+
+Create `<doctype_name>.py` alongside the JSON:
+
+```python
+import frappe
+from frappe.model.document import Document
+
+class MyDocType(Document):
+    def validate(self):
+        # Lightweight validation
+        if not self.customer:
+            frappe.throw("Customer is required")
+    
+    def before_save(self):
+        # Pre-save normalization
+        self.full_name = f"{self.first_name} {self.last_name}"
+    
+    def after_insert(self):
+        # Post-create side effects
+        frappe.publish_realtime("new_doc", {"name": self.name})
+```
+
+##### 5) Set up naming
+
+```json
+{
+  "autoname": "naming_series:",
+  "fields": [
+    {
+      "fieldname": "naming_series",
+      "fieldtype": "Select",
+      "options": "PRJ-.YYYY.-\nPRJ-.YYYY.-.###"
+    }
+  ]
+}
+```
+
+Options: `field:fieldname`, `naming_series:`, `hash`, `format:PREFIX-{####}`
+
+##### 6) Configure permissions
+
+Set in DocType → Permissions tab:
+- Role + Read/Write/Create/Delete/Submit/Cancel
+- User permissions for row-level filtering
+
+##### 7) Add workflow (if needed)
+
+Create Workflow DocType linking to your DocType with states and transitions.
+
+#### Verification
+
+- [ ] DocType appears in list and can create new records
+- [ ] All fields save correctly
+- [ ] Controller hooks fire (check logs)
+- [ ] Permissions enforced for each role
+- [ ] Naming series generates correctly
+- [ ] Run: `bench --site <site> migrate` succeeds
+
+#### Failure modes / debugging
+
+- **DocType not found**: Check module path and app installation
+- **Controller not loading**: Verify class name matches DocType name (PascalCase)
+- **Fields not saving**: Check fieldtype and options compatibility
+- **Permission denied**: Verify role permissions and User Permissions
+
+#### Escalation
+
+- For complex permission logic, see [references/permissions.md](./permissions.md)
+- For child table patterns, see [references/child-tables.md](./child-tables.md)
+- For Virtual DocTypes, see [references/virtual-doctypes.md](./virtual-doctypes.md)
+
+#### References
+
+- [references/field-types.md](./field-types.md) - All field types and options
+- [references/controllers.md](./controllers.md) - Controller lifecycle hooks
+- [references/child-tables.md](./child-tables.md) - Parent-child patterns
+- [references/naming.md](./naming.md) - Naming patterns
+
+#### Guardrails
+
+- **Check developer_mode before schema changes**: DocType modifications only export to files when `developer_mode = 1` in site config
+- **Verify naming series uniqueness**: Ensure naming series prefixes don't conflict with existing DocTypes
+- **Test child tables separately**: Child tables have their own lifecycle; test them in isolation before parent integration
+- **Always run migrate after changes**: Schema changes require `bench --site <site> migrate` to apply
+- **Validate fieldname conventions**: Use snake_case, max 140 chars, no reserved SQL keywords
+
+#### Common Mistakes
+
+| Mistake | Why It Fails | Fix |
+|---------|--------------|-----|
+| Missing `reqd` on mandatory fields | Users can save incomplete data | Set `reqd: 1` on fields that must have values |
+| Wrong fieldtype for data | Data truncation or validation errors | Match fieldtype to data (e.g., `Currency` for money, not `Float`) |
+| Not running `bench migrate` | Schema changes not applied to database | Always run `bench --site <site> migrate` after DocType changes |
+| Circular Link dependencies | DocType creation fails | Use Dynamic Link or restructure relationships |
+| Controller class name mismatch | Controller methods not called | Class name must be PascalCase of DocType name (e.g., `SalesOrder` for "Sales Order") |
+| Missing `in_list_view` on key fields | Fields not visible in list | Set `in_list_view: 1` on important fields |
+
+> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `doctype-development/references/doctypes.md`.
+
+### DocTypes
+
+#### Core Concepts
+- DocType is the schema/model definition for documents in Frappe.
+- Standard DocTypes live in app code; Custom DocTypes are created via the UI and stored in the database.
+
+#### DocType Types
+- **Standard**: Normal DocType with multiple records.
+- **Single**: One record only; store configuration or singleton settings.
+- **Child Table**: `istable = 1`, rows owned by parent DocType; no standalone permissions.
+- **Submittable**: Uses `docstatus` workflow (0=Draft, 1=Submitted, 2=Cancelled).
+- **Tree**: Hierarchical DocType with parent/child relationships.
+- **Virtual** (v13+): DocTypes with custom data sources (external APIs, secondary DBs, JSON/CSV files); no database table created.
+
+#### Structure and Fields
+- DocType fields define the schema and UI controls.
+- Permissions are defined per role on the DocType.
+- Controller classes are Python classes named after the DocType in `doctype/<doctype_name>/<doctype_name>.py`.
+
+##### Field Patterns
+- Use **Data**, **Select**, **Date**, **Datetime**, **Link**, **Check**, **Int/Float**, **Currency**, **Text**, and **Small Text** for most data.
+- Use **Link** for relations; use **Dynamic Link** when the target DocType varies by field.
+- Use **Table** fields for child tables (one-to-many); ensure child DocType is marked **Child Table**.
+- Use **Section Break**, **Column Break**, and **Tab Break** for layout.
+- Use **Read Only** for computed fields; compute in server logic or client script.
+- Use **Auto Name** rules (`naming_series:` or `field:`) to control identifiers.
+
+#### Controller Lifecycle
+- Common hooks: `validate`, `before_save`, `after_insert`, `on_submit`, `on_cancel`.
+- Keep controller code lightweight; delegate heavy logic to service modules.
+
+#### Actions and Links
+- Use **Custom Buttons** in form scripts to trigger actions.
+- Use **Dashboard** and **Links** to show related records.
+
+#### Customizing DocTypes
+- **Custom Fields**: Add fields without changing app code; stored per site.
+- **Custom DocTypes**: Created from UI; stored in DB, can be exported in developer mode.
+- **Customize Form**: Reorder fields and set properties without code changes.
+- Prefer custom apps for reusable changes; use Custom Fields for quick site-specific tweaks.
+
+#### Developer Mode Flow
+- Enable developer mode to export DocTypes to files.
+- Exported DocTypes are stored under the app module path in `doctype/<doctype_name>/`.
+- Use **Export Customizations** to export Custom Fields and Custom DocTypes.
+
+#### Examples
+
+##### Naming Series (JSON)
+```json
+{
+  "autoname": "naming_series:",
+  "naming_series": "TS-.YYYY.-",
+  "fields": [
+    {
+      "fieldname": "naming_series",
+      "fieldtype": "Select",
+      "label": "Series",
+      "options": "TS-.YYYY.-\nTS-.YYYY.-.###",
+      "reqd": 1
+    }
+  ]
+}
+```
+
+##### Child Table Field (JSON)
+```json
+{
+  "fieldname": "items",
+  "fieldtype": "Table",
+  "label": "Items",
+  "options": "Sample Doc Item"
+}
+```
+
+##### Workflow States (concept)
+- Create a **Workflow** for a DocType with states like `Draft -> Approved -> Rejected`.
+- Map transitions to roles (e.g., only `Manager` can move to `Approved`).
+
+#### Templates
+- Single DocType: `/assets/mini-app-template/your_app/doctype/sample_single/sample_single.json`
+- Tree DocType: `/assets/mini-app-template/your_app/doctype/sample_tree/sample_tree.json`
+- Submittable DocType: `/assets/mini-app-template/your_app/doctype/sample_submittable/sample_submittable.json`
+- Child DocType: `/assets/mini-app-template/your_app/doctype/sample_doc_item/sample_doc_item.json`
+- Dashboard/Links: `/assets/mini-app-template/your_app/dashboard/sample_doc_dashboard.json`
+- Dynamic Link fields: `/assets/mini-app-template/your_app/doctype/sample_doc/sample_doc_dynamic_link.json`
+- Naming series: `/assets/mini-app-template/your_app/doctype/sample_doc/sample_doc_naming_series.json`
+- Workflow: `/assets/mini-app-template/your_app/workflow/sample_doc_workflow.json`
+- DocType with workflow and child table: `/assets/mini-app-template/your_app/doctype/sample_doc/sample_doc.json`
+
+Sources: DocType, Child Table, Submittable, Tree, Custom Fields, Customize Form, Developer Mode, Dashboard, Naming Series, Dynamic Link, Workflow (official docs)
 
 ---
 

@@ -68,15 +68,21 @@ class CompatibilityValidator:
                         f"v16 only: {message}"
                     ))
 
-            # Check for v15-only patterns
-            for pattern, message in V15_ONLY_PATTERNS:
-                for match in re.finditer(pattern, content):
-                    line_num = content[:match.start()].count('\n') + 1
-                    self.warnings.append((
-                        str(file_path),
-                        line_num,
-                        f"v15 pattern: {message}"
-                    ))
+            # Check for v15-only patterns. `frappe.call({...})` is correct and
+            # current in Desk client scripts — only flag it in SPA sources,
+            # where createResource is the right data layer.
+            is_spa_source = any(
+                part in ("frontend", "src", "src2") for part in file_path.parts
+            ) or file_path.suffix in (".vue", ".ts")
+            if is_spa_source:
+                for pattern, message in V15_ONLY_PATTERNS:
+                    for match in re.finditer(pattern, content):
+                        line_num = content[:match.start()].count('\n') + 1
+                        self.warnings.append((
+                            str(file_path),
+                            line_num,
+                            f"v15 pattern: {message}"
+                        ))
 
             # Check for shared patterns (good)
             for pattern, message in SHARED_PATTERNS:

@@ -317,8 +317,6 @@ except Exception as e:
 
 ---
 
----
-
 ## Query Builder (PyPika)
 
 Type-safe queries using the PyPika library. Preferred over raw SQL.

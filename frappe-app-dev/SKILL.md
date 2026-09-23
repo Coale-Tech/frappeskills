@@ -47,6 +47,11 @@ wins and the reference is a bug worth fixing.
 - Security is not optional: explicit `frappe.has_permission(..., throw=True)` on
   state-changing whitelisted code, parameterized SQL only, `_()` on every
   user-facing string. See [semgrep-rules.md](./references/semgrep-rules.md).
+- Never assume ERPNext is installed. Many sites run Frappe Framework alone —
+  check the installed apps before importing `erpnext.*` or reusing its DocTypes.
+- On an unfamiliar project, run [project-triage.md](./references/project-triage.md)
+  first: version, installed apps, bench vs. Frappe Manager, existing tooling.
+  Version dictates API availability (v13 → v16 differ substantially).
 
 > **Host overrides.** A workstation may append its own directives (bench
 > topology, delegation policy, process management). Where a host directive and
@@ -73,6 +78,7 @@ Read **only** what the current task needs.
 
 | Starting point | Read first |
 | --- | --- |
+| Unknown project — what version, which apps, which tooling? | [project-triage.md](./references/project-triage.md) — run this before touching unknown code |
 | Brand new app | [new-app.md](./references/new-app.md) |
 | Existing app | [existing-app.md](./references/existing-app.md) |
 | Any Frappe task | [learned-patterns.md](./references/learned-patterns.md) — scan for prior discoveries before starting |
@@ -96,6 +102,17 @@ Read **only** what the current task needs.
 | Fixtures — custom fields, property setters, export/import | [fixtures.md](./references/fixtures.md) |
 | Testing | [testing.md](./references/testing.md) |
 | Security rule catalog (semgrep) | [semgrep-rules.md](./references/semgrep-rules.md) |
+| DocType field types — every fieldtype, options, gotchas | [field-types.md](./references/field-types.md) |
+| Child tables — grids, parent/parentfield, reordering | [child-tables.md](./references/child-tables.md) |
+| Naming — `autoname`, series, hash, prompt, renaming | [naming.md](./references/naming.md) |
+| Virtual DocTypes — external data sources | [virtual-doctypes.md](./references/virtual-doctypes.md) |
+| REST resource API + Python client | [rest-api.md](./references/rest-api.md) |
+| Webhooks | [webhooks.md](./references/webhooks.md) |
+| OAuth 2.0, social login, token flows | [oauth.md](./references/oauth.md) |
+| API rate limiting | [rate-limiting.md](./references/rate-limiting.md) |
+| Server Scripts (no-code server logic) | [server-scripts.md](./references/server-scripts.md) |
+| Translations / i18n | [translations.md](./references/translations.md) |
+| Test patterns, factories, CI, Cypress | [test-patterns.md](./references/test-patterns.md) · [ci-testing.md](./references/ci-testing.md) · [cypress.md](./references/cypress.md) |
 
 ### Frontend
 
@@ -114,6 +131,13 @@ Read **only** what the current task needs.
 | Espresso design system | [espresso-design-system.md](./references/espresso-design-system.md) |
 | Design tokens — color, type, spacing, shadow | [design-tokens.md](./references/design-tokens.md) |
 | Charts, dashboards, Insights | [data-visualization.md](./references/data-visualization.md) |
+| Web forms — public data collection | [web-forms.md](./references/web-forms.md) |
+| Print formats, email templates, Jinja, PDFs | [print-formats.md](./references/print-formats.md) |
+| Reports — Builder, Query (SQL), Script (Python+JS) | [reports.md](./references/reports.md) |
+| UI patterns from CRM / Helpdesk / HRMS | [ui-patterns.md](./references/ui-patterns.md) |
+| App shell — sidebar, nav, layout skeleton | [app-shell-patterns.md](./references/app-shell-patterns.md) |
+| Component patterns — lists, forms, dialogs, empty states | [component-patterns.md](./references/component-patterns.md) |
+| Mobile / responsive patterns | [mobile-patterns.md](./references/mobile-patterns.md) |
 
 ### Domain & operations
 
@@ -127,9 +151,19 @@ Read **only** what the current task needs.
 | v15 ↔ v16 deltas | [v15-v16-compatibility.md](./references/v15-v16-compatibility.md) |
 | Deep research pipeline | [deep-research.md](./references/deep-research.md) |
 | Discovered patterns log | [learned-patterns.md](./references/learned-patterns.md) |
+| Enterprise apps — CRM/Helpdesk-scale architecture | [enterprise-patterns.md](./references/enterprise-patterns.md) |
+| Workflows — states, transitions, actions | [workflow-patterns.md](./references/workflow-patterns.md) |
+| SLA — targets, pause/resume, breach | [sla-patterns.md](./references/sla-patterns.md) |
+| Queue patterns — long jobs, retries, idempotency | [queue-patterns.md](./references/queue-patterns.md) |
+| Integration patterns — third-party sync, connectors | [integration-patterns.md](./references/integration-patterns.md) |
+| Advanced permissions — user permissions, share, permission queries | [advanced-permissions.md](./references/advanced-permissions.md) |
+| Frappe Manager — Docker dev environments (`fm`) | [frappe-manager.md](./references/frappe-manager.md) |
 
-Templates live in `templates/backend/` and `templates/frontend/`.
-`scripts/validate-compatibility.py` checks an app for v15/v16 hazards.
+Templates live in `templates/backend/`, `templates/frontend/` and
+`templates/mini-app/` — a complete runnable app skeleton (DocTypes incl. child /
+Single / submittable / tree, report, workflow, dashboard, background job,
+connector, service and util layers). `scripts/validate-compatibility.py` checks
+an app for v15/v16 hazards.
 
 ## Backend-First Workflow
 
@@ -226,6 +260,10 @@ loading, error and empty states · design tokens, not hardcoded values ·
 | Returning a `Response` object | Breaks `createResource` | Return a dict |
 | Raw `fetch` in Vue | No error handling | `createResource` |
 | Vue Options API | Inconsistent with ecosystem | Composition API, `<script setup>` |
+| Skipping project triage | Wrong patterns for that version/app set | Triage first |
+| ERPNext-specific code on a Frappe-only site | `ModuleNotFoundError` at import | Check installed apps |
+| Vanilla JS / jQuery for a new frontend | Ecosystem mismatch | frappe-ui (Vue 3) |
+| Hand-rolled app shell for CRUD | Inconsistent UX | Follow CRM/Helpdesk shells — [app-shell-patterns.md](./references/app-shell-patterns.md) |
 
 ## Self-Enhancement Protocol
 

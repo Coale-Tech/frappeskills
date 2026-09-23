@@ -8,6 +8,14 @@ Merged on 2026-09-23 from four skills that had drifted apart —
 `frappe-app-parallel-audit`, and `frappe-bench-worker-hygiene` — plus two
 redirect stubs (`frappe-dev`, `frappe-deep-research`) that were deleted.
 
+Same day, the complete [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills)
+set (MIT, 14 skills) was adopted into it: print formats and Jinja, reports, web
+forms, workflows, SLA, queue and integration patterns, advanced permissions,
+OAuth, rate limiting, webhooks, server scripts, REST/Python client, virtual
+DocTypes, field types, child tables, naming, translations, UI/app-shell/mobile
+patterns, Cypress and CI testing, project triage, and Frappe Manager (Docker).
+Adopted blocks carry an inline provenance note naming their source file.
+
 Target is **v16** (frappe 16.27.x, erpnext 16.6.x, hrms 16.4.x) with v15
 compatibility notes throughout.
 
@@ -17,9 +25,12 @@ compatibility notes throughout.
 frappe-app-dev/
   SKILL.md              routing spine — global rules, modes, reference map,
                         decision frameworks, anti-patterns
-  references/           36 topic files, loaded on demand
+  references/           64 topic files, loaded on demand
   templates/backend/    DocType, controller, api, hooks, fixtures, workspace
   templates/frontend/   App.vue, ListPage, DetailPage, FormWizard, page.js
+  templates/mini-app/   runnable app skeleton — doctypes (child/Single/
+                        submittable/tree), report, workflow, dashboard,
+                        background job, connector, service + util layers
   scripts/              validate-compatibility.py
 ```
 
@@ -57,3 +68,15 @@ explicitly that such host directives win over its Global Rules.
   confirmed (`confidence: high` and used twice, or user-confirmed).
 - Version claims (`16.27.1` / `16.6.1` / `16.4.1`) are checked with
   `grep __version__ apps/{frappe,erpnext,hrms}/*/__init__.py`.
+
+
+## Credits
+
+- Routing spine and the first terse references derive from
+  [frappe/skills](https://github.com/frappe/skills) (Frappe Technologies).
+- Fourteen skills' worth of procedures and references adopted from
+  [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills), MIT —
+  full licence text in `LICENSES/frappe-skills-lubusIN-MIT.txt`.
+- Everything else is source-verified against installed Frappe/ERPNext/HRMS v16.
+
+See `NOTICE` for the full attribution.

@@ -177,8 +177,6 @@ frappe.enqueue_doc(
 
 ---
 
----
-
 ## Scheduler Events
 
 ### Configuration in hooks.py

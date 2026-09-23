@@ -102,5 +102,3 @@ def get_report_data(company): ...
 > Rule of thumb: `request_cache` for within-request memoization, `site_cache` for
 > process-local hot data, `redis_cache` / `frappe.cache` for cross-process data.
 > Always invalidate on write (e.g. in `on_update`) for cached DB-derived values.
-
----

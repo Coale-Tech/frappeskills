@@ -131,6 +131,27 @@ doc.save()
               frappe.throw("Not allowed", frappe.PermissionError)
   ```
 - **Be consistent with permission checks across all controller methods.** If some methods on a DocType check for a role explicitly, all mutating methods should do the same — don't rely on implicit DocType perms for some and explicit checks for others.
+- **Don't import another controller at module level if it can import back.** Circular imports between controllers surface as `ImportError`/`AttributeError` at boot. Import inside the method body instead.
+- **Don't add fields by editing the controller or its type hints.** The DocType JSON is the schema. Edit the JSON (or the Desk form, which writes it), then `bench --site <site> migrate`.
+
+## Type hints — `frappe.types.DF`
+
+Saving a standard DocType regenerates a `TYPE_CHECKING` block in its controller that declares every field with a `DF` alias — only when `developer_mode` is on **and** the app's `hooks.py` sets `export_python_type_annotations = True` (`DocType.export_types_to_controller`, `frappe/types/exporter.py`). These are static hints only and change nothing at runtime. Aliases in `frappe/types/DF.py`:
+
+`Data`, `Text`, `SmallText`, `LongText`, `Code`, `TextEditor`, `MarkdownEditor`, `HTMLEditor`, `JSON`, `Int`, `Float`, `Currency`, `Percent`, `Rating`, `Check` (`bool | int`), `Select` (`Literal[...]`), `Link`, `DynamicLink`, `Date`, `Datetime`, `Time`, `Duration`, `Attach`, `AttachImage`, `Password`, `Phone`, `Color`, `Barcode`, `Autocomplete`, `ReadOnly`, `Table` / `TableMultiSelect` (`list[ChildDoc]`).
+
+```python
+class Expense(Document):
+	# begin: auto-generated types
+	from typing import TYPE_CHECKING
+
+	if TYPE_CHECKING:
+		from frappe.types import DF
+
+		amount: DF.Currency
+		status: DF.Literal["Draft", "Approved"]
+	# end: auto-generated types
+```
 
 ---
 

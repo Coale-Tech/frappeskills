@@ -55,7 +55,11 @@ apps/myapp/
   setup.py
 ```
 
-Load the relevant feature references from the main SKILL.md table as needed.
+Load the relevant feature references through `frappe-router` as needed.
+
+Match Frappe's own formatting (`apps/frappe/pyproject.toml`): ruff with **tab
+indentation**, double quotes, line length 110, target `py314`. Run the app's
+configured `ruff format` / `ruff check`; don't hand-format.
 
 ## Step 7: Migrate and verify
 

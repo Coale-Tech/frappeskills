@@ -103,6 +103,8 @@ def create_expense(title: str, amount: float, tags: list | None = None):
     ...
 ```
 
+Validation is applied by `frappe.whitelist()` through `validate_argument_types` (`frappe/utils/typing_validations.py`) **only during HTTP requests and tests**. A direct Python call to the same function is not checked, so never rely on the hints for internal callers. Don't hand-write type coercion that the hints already cover.
+
 - Use `frappe.form_dict` for raw request data:
 ```python
 data = frappe.form_dict

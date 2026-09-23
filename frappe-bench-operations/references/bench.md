@@ -344,6 +344,25 @@ bench reload-doc <module> <doctype-type> <name>   # e.g. bench reload-doc core d
 bench reload-doctype "Sales Invoice"
 ```
 
+## What `migrate` actually does (v16)
+
+`SiteMigration.run` in `frappe/migrate.py`, per site:
+
+1. **setUp** — clear cache, lower the DB lock timeout, set `frappe.flags.in_migrate`.
+2. **pre_schema_updates** — run every app's `before_migrate` hooks.
+3. **run_schema_updates** — `[pre_model_sync]` patches → `frappe.model.sync.sync_all()`
+   (DocType JSON → DB tables/columns) → `[post_model_sync]` patches.
+4. **post_schema_updates** (atomic) — sync scheduled jobs, recreate missing sequences,
+   sync fixtures (unless `--skip-fixtures`), dashboards, customizations (Custom Fields,
+   Property Setters, Custom Permissions), languages, flush deferred inserts, remove
+   orphan DocTypes, then run `after_migrate` hooks.
+5. **tearDown** (always, even on failure) — clear translation, website and
+   notification caches; queue the website search-index rebuild on the `long` queue.
+
+Run it after hand-editing DocType JSON, pulling app updates with schema changes, or
+adding a `patches.txt` entry. A patch listed under the wrong section runs against
+the wrong schema: put it in `[pre_model_sync]` only if it must run before new columns exist.
+
 ## Jobs & Maintenance
 
 ```bash

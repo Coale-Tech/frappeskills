@@ -41,6 +41,20 @@ has_website_permission = {
 }
 ```
 
+## DocType-backed pages — `WebsiteGenerator`
+
+For a DocType whose records each render as a public page (like `Web Page`, `Blog Post`), subclass `WebsiteGenerator` (`frappe/website/website_generator.py`). It manages the `route` field (`set_route` / `make_route` from the title) and cache clearing. Supply template variables by defining `get_context(self, context)` on the controller; the document page renderer calls it if present.
+
+```python
+from frappe.website.website_generator import WebsiteGenerator
+
+class Event(WebsiteGenerator):
+	def get_context(self, context):
+		context.attendees = frappe.get_all("Event Attendee", filters={"event": self.name}, fields=["full_name"])
+```
+
+Use `www/` pages (a `.py` with `get_context(context)` next to the template) for one-off pages not tied to records.
+
 
 ---
 

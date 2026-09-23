@@ -89,6 +89,32 @@ frm.set_query("category", () => {
 });
 ```
 
+### Namespacing and lazy loading
+
+```javascript
+// Create nested namespaces safely (frappe/public/js/frappe/provide.js)
+frappe.provide("myapp.ui");
+myapp.ui.MyWidget = class { /* ... */ };
+
+// Load a bundle only when needed (frappe/public/js/frappe/assets.js)
+frappe.require("myapp_charts.bundle.js", () => render_chart());
+```
+
+Edits to bundled JS do nothing until `bench build --app <app>` or a running `bench watch` rebuilds them.
+
+### Key Desk globals
+
+| Global | Purpose |
+|---|---|
+| `frappe.boot` | Login payload from `frappe/boot.py:get_bootinfo` — sysdefaults, user, lang |
+| `frappe.session.user` | Current user |
+| `frappe.call({method, args})` | Call a whitelisted method via `/api/method` |
+| `frappe.set_route(...)` / `frappe.get_route()` | Desk routing |
+| `frappe.model.get_new_doc`, `.set_value`, `.get_value` | Client-side model helpers |
+| `frappe.meta.get_docfield(doctype, fieldname, name)` | Field metadata, mirrors server `Meta` |
+| `frappe.datetime` | Date formatting and arithmetic |
+| `__("text")` | Translation (mirrors Python `_()`) |
+
 ---
 
 ## Client Scripts

@@ -67,7 +67,6 @@ Sources: REST API, REST API v2, RPC API, Token Based Authentication (official do
 - Use `frappe.get_cached_doc` for cached reads of Documents.
 - Use `frappe.db.set_value` for targeted updates when appropriate.
 - Use `frappe.db.sql` with parameterized queries for raw SQL.
-- Use `frappe.db.commit()` and `frappe.db.rollback()` in controlled contexts.
 - Avoid manual commits inside request handlers unless you know the implications.
 
 ### Query Builder

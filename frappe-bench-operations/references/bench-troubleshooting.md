@@ -5,7 +5,7 @@ or stale filesystem state. Each section states the cause, then the fix.
 
 ## `ModuleNotFoundError: No module named '<new_app>'` inside a queued job
 
-Seen when `bench migrate` fails on a job such as
+Seen when `bench --site <site> migrate` fails on a job such as
 `Role Profile.on_update -> queue_action`, right after installing a new app.
 
 **Cause.** `bench get-app <app>` installs the app on disk and into the venv,
@@ -38,8 +38,8 @@ on any job importing the new app's `hooks.py` — which is every job, via
    `ModuleNotFoundError` on the next job.
 5. A stale worker you cannot kill (someone else's terminal) stays in the RQ
    rotation and will keep racing your fresh worker, intermittently failing jobs
-   with the same stale-module error. It does not block `bench migrate` itself,
-   but it keeps producing new stale locks — expect to repeat the next fix.
+   with the same stale-module error. It does not block `bench --site <site> migrate`
+   itself, but it keeps producing new stale locks — expect to repeat the next fix.
 
 ## `DocumentLockedError: This document is currently locked and queued for execution`
 
@@ -61,7 +61,7 @@ bench --site <site> migrate
 ```
 
 `queue_action` only acquires the lock and enqueues — it does not wait for the
-job — so `bench migrate` proceeds past that line regardless of whether the
+job — so `bench --site <site> migrate` proceeds past that line regardless of whether the
 async job eventually succeeds. If it fails again, clear and retry; each retry
 enqueues a fresh attempt.
 
@@ -94,7 +94,7 @@ and its `lstart` predates your session, it was never a child of what you killed
 and the 500 has another cause.
 
 Reproduce the real error through the actual WSGI app. Do **not** use
-`bench console`'s `get_response` — it has no real `frappe.local.request` and
+`bench --site <site> console`'s `get_response` — it has no real `frappe.local.request` and
 reports a misleading `AttributeError: request`.
 
 ```python

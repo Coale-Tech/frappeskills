@@ -95,7 +95,10 @@ than mocking them — validation depends on them.
 
 ## References
 
-- [references/erpnext-workflows.md](references/erpnext-workflows.md) - Sales, purchase, stock, accounting, manufacturing
+- [references/erpnext-workflows.md](references/erpnext-workflows.md) - Sales, purchase, stock, accounting, manufacturing (index)
+- [references/erpnext-architecture.md](references/erpnext-architecture.md) - Controller hierarchy, transaction lifecycle, GL/SLE posting
+- [references/erpnext-transaction-modules.md](references/erpnext-transaction-modules.md) - Accounting, stock, selling, buying
+- [references/erpnext-other-modules.md](references/erpnext-other-modules.md) - Manufacturing, CRM, projects, assets, extending ERPNext
 - [references/hrms-patterns.md](references/hrms-patterns.md) - Employee, leave, attendance, payroll, recruitment
 
 ## Guardrails

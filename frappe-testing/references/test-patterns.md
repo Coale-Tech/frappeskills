@@ -2,34 +2,31 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `testing/references/test-patterns.md`.
 
-```markdown
-# Test Patterns Reference
-
 ## Overview
 Common testing patterns and best practices for Frappe applications.
 
 ## Test Case Classes
 
-### FrappeTestCase
-Base class for unit and integration tests.
+### IntegrationTestCase
+Base class for tests needing the full Frappe/database environment.
 
 ```python
-from frappe.tests.utils import FrappeTestCase
+from frappe.tests import IntegrationTestCase
 
-class TestMyDocType(FrappeTestCase):
+class TestMyDocType(IntegrationTestCase):
     def test_example(self):
         self.assertEqual(1 + 1, 2)
 ```
 
-### IntegrationTestCase
-For tests requiring full Frappe setup.
+### UnitTestCase
+For pure logic that needs no database. `frappe.tests.utils.FrappeTestCase` is a deprecated
+alias for `IntegrationTestCase` — use `IntegrationTestCase`/`UnitTestCase` from `frappe.tests`.
 
 ```python
-from frappe.tests.utils import IntegrationTestCase
+from frappe.tests import UnitTestCase
 
-class TestWorkflow(IntegrationTestCase):
-    def test_full_workflow(self):
-        # Has access to full Frappe environment
+class TestCalcUtils(UnitTestCase):
+    def test_pure_function(self):
         pass
 ```
 
@@ -263,7 +260,7 @@ def test_transaction_rollback(self):
 
 ### SetUp and TearDown
 ```python
-class TestWithFixtures(FrappeTestCase):
+class TestWithFixtures(IntegrationTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -289,7 +286,7 @@ class TestWithFixtures(FrappeTestCase):
 ```python
 from parameterized import parameterized
 
-class TestCalculations(FrappeTestCase):
+class TestCalculations(IntegrationTestCase):
     @parameterized.expand([
         (10, 5, 15),
         (0, 0, 0),
@@ -339,4 +336,3 @@ self.assertEqual(len(collection), expected_length)
 ```
 
 Sources: Testing, Unit Tests, pytest (official docs)
-```

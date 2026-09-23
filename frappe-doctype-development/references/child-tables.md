@@ -2,9 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `doctype-development/references/child-tables.md`.
 
-```markdown
-# Child Tables Reference
-
 ## Overview
 Child tables implement one-to-many relationships in Frappe. A child DocType is embedded within a parent DocType and stores rows of related data.
 
@@ -331,4 +328,3 @@ frappe.ui.form.on("Parent DocType", {
 - Don't use child tables for many-to-many (use Table MultiSelect or link tables)
 
 Sources: Child Table, Table Field, Child DocType (official docs)
-```

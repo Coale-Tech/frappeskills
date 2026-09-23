@@ -2,9 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `doctype-development/references/virtual-doctypes.md`.
 
-```markdown
-# Virtual DocTypes Reference
-
 ## Overview
 Virtual DocTypes (v13+) allow you to create DocTypes that don't store data in a database table. Instead, data is fetched from external sources like APIs, files, or other databases.
 
@@ -336,4 +333,3 @@ def invalidate_cache():
 6. **Validate on write** — If supporting writes, validate before sending
 
 Sources: Virtual DocType, Custom Data Sources (official docs)
-```

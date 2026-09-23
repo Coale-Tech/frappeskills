@@ -1,6 +1,6 @@
 ---
 name: frappe-manager
-description: Use Frappe Manager (fm) for Docker-based Frappe development and testing environments. Use when setting up local dev without a classic bench, running isolated sites, or managing containerized Frappe workflows.
+description: Run Docker-based Frappe development and testing environments with Frappe Manager (fm). Use when setting up local dev without a classic bench, running isolated sites, or managing containerized Frappe workflows.
 ---
 
 # Frappe Manager (Docker)
@@ -86,7 +86,7 @@ Full command surface and troubleshooting:
 
 ## References
 
-- [references/frappe-manager.md](references/frappe-manager.md) - Full `fm` command surface and workflows
+- [references/frappe-manager.md](references/frappe-manager.md) - Full `fm` command surface, split by topic (installation/sites, dev workflow, SSL/production, Docker config)
 
 ## Guardrails
 

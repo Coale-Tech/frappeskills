@@ -11,15 +11,18 @@ import sys
 from pathlib import Path
 from typing import List, Tuple, Dict
 
-# Version-specific patterns to check
+# Version-specific patterns to check. frappe.xcall/frappe.call and the
+# Workspace DocType all predate v16 (workspace.json creation: 2020-01-23) —
+# only WorkspaceSidebar (creation: 2025-08-12) is actually v16-exclusive.
 V16_ONLY_PATTERNS = [
-    (r'frappe\.xcall\(', 'frappe.xcall() is v16 only, use createResource from frappe-ui instead'),
-    (r'from frappe\.desk\.doctype\.workspace', 'Direct workspace imports are v16, use conditional loading'),
     (r'WorkspaceSidebar', 'WorkspaceSidebar is v16 only'),
 ]
 
-V15_ONLY_PATTERNS = [
-    (r'frappe\.call\(\s*{', 'frappe.call() with dict is v15 style, use createResource from frappe-ui'),
+# Not version-gated — frappe.call({...}) still works in Desk client scripts
+# on both v15 and v16. This only flags it as a style preference in SPA
+# sources, where createResource (frappe-ui) is the current convention.
+SPA_STYLE_PATTERNS = [
+    (r'frappe\.call\(\s*{', 'frappe.call() with a dict is the legacy pattern; prefer createResource from frappe-ui in SPA code'),
 ]
 
 SHARED_PATTERNS = [
@@ -68,20 +71,20 @@ class CompatibilityValidator:
                         f"v16 only: {message}"
                     ))
 
-            # Check for v15-only patterns. `frappe.call({...})` is correct and
-            # current in Desk client scripts — only flag it in SPA sources,
-            # where createResource is the right data layer.
+            # Style preference, not a version-compatibility issue: flag
+            # frappe.call({...}) only in SPA sources, where createResource
+            # is the current convention.
             is_spa_source = any(
                 part in ("frontend", "src", "src2") for part in file_path.parts
             ) or file_path.suffix in (".vue", ".ts")
             if is_spa_source:
-                for pattern, message in V15_ONLY_PATTERNS:
+                for pattern, message in SPA_STYLE_PATTERNS:
                     for match in re.finditer(pattern, content):
                         line_num = content[:match.start()].count('\n') + 1
                         self.warnings.append((
                             str(file_path),
                             line_num,
-                            f"v15 pattern: {message}"
+                            f"style: {message}"
                         ))
 
             # Check for shared patterns (good)

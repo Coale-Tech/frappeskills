@@ -117,6 +117,8 @@ data = frappe.form_dict
 ```python
 frappe.response["meta"] = meta
 ```
+- Uncaught exceptions serialize to `{"exc_type": ..., "exc": ...}`; raise
+  user-facing errors with `frappe.throw(_("…"), title=_("…"))`.
 
 ## Built-in document APIs (v2)
 
@@ -333,91 +335,54 @@ Content-Type: application/json
 
 ## Document API
 
-### Get Document
+Core CRUD primitives (`get_doc`, `new_doc`, `insert`, `delete_doc`, `rename_doc`,
+`submit`/`cancel`) are in
+[controllers.md](../../frappe-doctype-development/references/controllers.md)
+`## Document API Methods`. Additions specific to whitelisted-method responses:
+
+### Reading for a response
 
 ```python
-# By name
-doc = frappe.get_doc("Customer", "CUST-001")
-
-# By filters
-doc = frappe.get_doc("Customer", {"email_id": "test@example.com"})
-
-# As dict
+# As dict — the shape a whitelisted method typically returns
 data = frappe.get_doc("Customer", "CUST-001").as_dict()
 
-# Cached (faster for repeated reads)
-doc = frappe.get_cached_doc("Customer", "CUST-001")
-
-# Last document
+# Last matching document
 doc = frappe.get_last_doc("Sales Invoice",
     filters={"customer": "CUST-001"},
     order_by="creation desc"
 )
 ```
 
-### Create Document
+### Insert / Save Options
 
 ```python
-# Method 1: new_doc
-doc = frappe.new_doc("Customer")
-doc.customer_name = "New Customer"
-doc.customer_type = "Company"
-doc.insert()
-
-# Method 2: get_doc with dict
-doc = frappe.get_doc({
-    "doctype": "Customer",
-    "customer_name": "New Customer",
-    "customer_type": "Company"
-}).insert()
+doc.insert(
+    ignore_links=True,
+    ignore_if_duplicate=True,
+    ignore_mandatory=True,
+)
+doc.save(ignore_version=True)
 ```
+
+`ignore_permissions=True` bypasses all permission checks — only pass it from
+trusted server code, never derived from a whitelisted endpoint's own request.
+See [authentication.md](authentication.md) `### ignore_permissions semantics`
+and [permissions.md](../../frappe-doctype-development/references/permissions.md)
+`## Bypassing permissions`.
 
 ### Update Document
 
 ```python
-# Full update
-doc = frappe.get_doc("Customer", "CUST-001")
-doc.customer_name = "Updated Name"
-doc.save()
-
-# Direct DB update (bypasses controller)
-doc.db_set("status", "Active")
+# Direct DB update (bypasses controller) — set multiple fields at once
 doc.db_set({"status": "Active", "modified_by": frappe.session.user})
 ```
 
-### Submit / Cancel / Delete
+### Amend a Cancelled Document
 
 ```python
-doc.submit()
-doc.cancel()
-
-# Amend cancelled
 amended = frappe.copy_doc(doc)
 amended.amended_from = doc.name
 amended.insert()
-
-# Delete
-frappe.delete_doc("Customer", "CUST-001")
-frappe.delete_doc("Customer", "CUST-001", force=True)
-
-# Rename
-frappe.rename_doc("Customer", "OLD-NAME", "NEW-NAME")
-```
-
-### Insert Options
-
-```python
-doc.insert(
-    ignore_permissions=True,
-    ignore_links=True,
-    ignore_if_duplicate=True,
-    ignore_mandatory=True
-)
-
-doc.save(
-    ignore_permissions=True,
-    ignore_version=True
-)
 ```
 
 ### Child Table Operations
@@ -538,6 +503,34 @@ frappe.publish_realtime("task_progress", {"percent": 50}, user=frappe.session.us
 frappe.publish_realtime("order_updated", {"name": doc.name}, doctype=doc.doctype)
 ```
 
+## Background Jobs
+
+Long-running work belongs in `frappe.enqueue`, not inline in the request:
+
+```python
+@frappe.whitelist()
+def start_export(filters):
+    job = frappe.enqueue(
+        "my_app.jobs.run_export",
+        filters=filters,
+        queue="long",
+        timeout=600,
+    )
+    return {"job_id": job.id}
+
+@frappe.whitelist()
+def check_job_status(job_id):
+    from frappe.utils.background_jobs import get_job
+    job = get_job(job_id)
+    return {"status": job.get_status()}
+```
+
+## Debugging
+
+For a 500 response, check the **Error Log** doctype (`/app/error-log`) for
+exceptions logged via `frappe.log_error`, or tail the bench's `logs/`
+directory (`web.log`, `worker.log`, `scheduler.log`).
+
 ---
 
 ## Best Practices
@@ -552,249 +545,10 @@ frappe.publish_realtime("order_updated", {"name": doc.name}, doctype=doc.doctype
 8. **Use `frappe.log_error()`** for debugging
 9. **Use `frappe.enqueue()`** for long-running tasks
 10. **Commit explicitly** in background jobs
-## Adopted patterns (frappe-skills)
-
-> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `api-development/SKILL.md`.
-
-### Frappe API Development
-
-Build secure, well-designed APIs using Frappe's REST and RPC patterns.
-
-#### When to use
-
-- Creating custom RPC endpoints (`@frappe.whitelist`)
-- Building REST API integrations
-- Implementing webhooks for external systems
-- Setting up API authentication (token, OAuth)
-- Exposing business logic to frontends
-
-#### Inputs required
-
-- API purpose (CRUD, action, integration)
-- Authentication requirements (public, user, API key)
-- Permission requirements per endpoint
-- Request/response format expectations
-
-#### Procedure
-
-##### 0) Choose API pattern
-
-| Need | Pattern |
-|------|---------|
-| DocType CRUD | Use built-in REST API |
-| Custom action | RPC with `@frappe.whitelist` |
-| External callback | Webhook DocType |
-| Batch operations | Background job + status endpoint |
-
-##### 1) Built-in REST API (DocType CRUD)
-
-Frappe provides automatic REST endpoints for all DocTypes:
-
-```bash
-# Create
-POST /api/resource/Customer
-{"customer_name": "Acme Corp"}
-
-# Read
-GET /api/resource/Customer/CUST-001
-
-# Update
-PUT /api/resource/Customer/CUST-001
-{"customer_name": "Acme Corporation"}
-
-# Delete
-DELETE /api/resource/Customer/CUST-001
-
-# List with filters
-GET /api/resource/Customer?filters=[["status","=","Active"]]
-```
-
-##### 2) Custom RPC endpoints
-
-Create whitelisted methods in your app:
-
-```python
-# my_app/api.py
-import frappe
-
-@frappe.whitelist()
-def process_order(order_id, action):
-    """Process an order with the given action."""
-    # Always verify permissions
-    doc = frappe.get_doc("Sales Order", order_id)
-    if not frappe.has_permission("Sales Order", "write", doc):
-        frappe.throw("Not permitted", frappe.PermissionError)
-    
-    # Business logic
-    if action == "approve":
-        doc.status = "Approved"
-        doc.save()
-    
-    return {"status": "success", "order": doc.name}
-
-@frappe.whitelist(allow_guest=True)
-def public_endpoint():
-    """Public endpoint - no auth required."""
-    return {"message": "Hello, World!"}
-```
-
-Call via:
-```bash
-POST /api/method/my_app.api.process_order
-{"order_id": "SO-001", "action": "approve"}
-```
-
-##### 3) Implement authentication
-
-**API Key + Secret (recommended for integrations):**
-```bash
-# Header format
-Authorization: token api_key:api_secret
-```
-
-**Bearer Token:**
-```bash
-Authorization: Bearer <token>
-```
-
-**Session (for logged-in users):**
-Automatic via cookies.
-
-##### 4) Permission checks
-
-**ALWAYS check permissions in RPC methods:**
-
-```python
-@frappe.whitelist()
-def sensitive_action(docname):
-    doc = frappe.get_doc("My DocType", docname)
-    
-    # Check document-level permission
-    if not frappe.has_permission("My DocType", "write", doc):
-        frappe.throw("Not permitted", frappe.PermissionError)
-    
-    # Check role-based permission
-    if "Manager" not in frappe.get_roles():
-        frappe.throw("Manager role required")
-    
-    # Proceed with action
-    ...
-```
-
-##### 5) Input validation
-
-```python
-@frappe.whitelist()
-def create_item(name, qty, price):
-    # Validate required fields
-    if not name:
-        frappe.throw("Name is required")
-    
-    # Validate types
-    qty = frappe.utils.cint(qty)
-    price = frappe.utils.flt(price)
-    
-    # Validate ranges
-    if qty <= 0:
-        frappe.throw("Quantity must be positive")
-    
-    # Proceed
-    ...
-```
-
-##### 6) Response format
-
-**Success response:**
-```python
-return {
-    "status": "success",
-    "data": {...}
-}
-```
-
-**Error handling:**
-```python
-# User-facing error
-frappe.throw("Validation failed", title="Error")
-
-# Permission error
-frappe.throw("Not allowed", frappe.PermissionError)
-
-# Standard exceptions become {"exc_type": "...", "exc": "..."}
-```
-
-##### 7) Background jobs for long operations
-
-```python
-@frappe.whitelist()
-def start_export(filters):
-    job = frappe.enqueue(
-        "my_app.jobs.run_export",
-        filters=filters,
-        queue="long",
-        timeout=600
-    )
-    return {"job_id": job.id}
-
-@frappe.whitelist()
-def check_job_status(job_id):
-    from frappe.utils.background_jobs import get_job
-    job = get_job(job_id)
-    return {"status": job.get_status()}
-```
-
-#### Verification
-
-- [ ] Endpoint responds correctly to valid requests
-- [ ] Permission errors returned for unauthorized access
-- [ ] Input validation rejects invalid data
-- [ ] Error responses are structured and helpful
-- [ ] Run: `bench --site <site> console` → test endpoint manually
-
-#### Failure modes / debugging
-
-- **Method not found**: Check module path in URL matches Python path
-- **Permission denied**: Verify `@frappe.whitelist()` decorator and user permissions
-- **CSRF error**: Use proper auth headers for API calls
-- **500 error**: Check error logs: `bench --site <site> show-log`
-
-#### Escalation
-
-- For OAuth integration, see [references/oauth.md](oauth.md)
-- For webhook patterns, see [references/webhooks.md](webhooks.md)
-- For rate limiting, see [references/rate-limiting.md](rate-limiting.md)
-
-#### References
-
-- [references/rest-api.md](rest-api.md) - REST API details
-- [references/authentication.md](authentication.md) - Auth patterns
-- [references/permissions.md](../../frappe-doctype-development/references/permissions.md) - Permission system
-- [references/webhooks.md](webhooks.md) - Outbound webhooks
-
-#### Guardrails
-
-- **Always validate input**: Never trust client data; validate type, length, and format server-side
-- **Use permission callbacks**: Check `frappe.has_permission()` explicitly in whitelisted methods
-- **Sanitize user input**: Use `frappe.db.escape()` for SQL, avoid `eval()` and dynamic code execution
-- **Handle rate limiting**: Implement rate limits for public APIs to prevent abuse
-- **Return structured errors**: Use `frappe.throw()` with proper HTTP status codes
-
-#### Common Mistakes
-
-| Mistake | Why It Fails | Fix |
-|---------|--------------|-----|
-| Missing `@frappe.whitelist()` | Method returns "Method not found" error | Add decorator to expose method via API |
-| Using GET for mutations | Violates REST conventions, CSRF issues | Use POST/PUT/DELETE for data changes |
-| Not handling errors | 500 errors expose stack traces | Wrap in try/except, use `frappe.throw()` |
-| Exposing sensitive data | Security breach | Filter response fields, check permissions |
-| Missing `allow_guest=True` | Public endpoints return 403 | Add `@frappe.whitelist(allow_guest=True)` for unauthenticated access |
-| SQL injection in queries | Database compromise | Use Query Builder or `frappe.db.escape()` |
-
----
 
 ## Sources
 
-Verified against Frappe v16.9.0 (`frappe/__init__.py` `__version__ = "16.9.0"`):
+Verified against Frappe v16.27.1 (`frappe/__init__.py` `__version__ = "16.27.1"`):
 
 - `apps/frappe/frappe/__init__.py` — `whitelist`, `get_list`/`get_all`/`get_value`, `delete_doc`, `rename_doc`, `get_hooks`, and the `frappe.model.document` re-exports (`get_doc`, `new_doc`, `get_cached_doc`, `get_cached_value`, `get_single_value`, `get_last_doc`, `get_single`, `get_lazy_doc`); `cache` / `client_cache` globals
 - `apps/frappe/frappe/model/document.py` — `get_doc` (singledispatch), `new_doc`, `get_cached_doc`, `get_single_value`, `get_last_doc`, `db_set`

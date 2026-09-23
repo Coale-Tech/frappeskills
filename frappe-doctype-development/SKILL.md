@@ -162,12 +162,15 @@ bench --site <site> migrate && bench --site <site> clear-cache
 
 ## References
 
-- [references/doctypes.md](references/doctypes.md) - DocType JSON, types, layout, Singles
+- [references/doctypes.md](references/doctypes.md) - DocType JSON, types, layout, Singles (index; see references/doctype-architecture.md for internals)
+- [references/doctype-architecture.md](references/doctype-architecture.md) - classification, system fields, naming internals, docstatus, Single/Tree, customization approaches, verified DocType-level flags
 - [references/field-types.md](references/field-types.md) - Every fieldtype and its options
 - [references/child-tables.md](references/child-tables.md) - Parent/child patterns and grids
 - [references/naming.md](references/naming.md) - Naming strategies and renaming
 - [references/controllers.md](references/controllers.md) - Lifecycle hooks and flags
-- [references/permissions.md](references/permissions.md) - Roles, permlevel, `has_permission`
+- [references/permissions.md](references/permissions.md) - Roles, permlevel, `has_permission` (index)
+- [references/permissions-rowlevel.md](references/permissions-rowlevel.md) - `has_permission` hook, `permission_query_conditions`, User Permissions, Sharing
+- [references/permissions-checks.md](references/permissions-checks.md) - Enforcing permissions in RPC methods, decorators, debugging
 - [references/advanced-permissions.md](references/advanced-permissions.md) - User permissions, share, query conditions
 - [references/virtual-doctypes.md](references/virtual-doctypes.md) - Backing a DocType with external data
 - [references/workflow-patterns.md](references/workflow-patterns.md) - States, transitions, actions

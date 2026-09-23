@@ -118,6 +118,7 @@ low-confidence entries older than 90 days with zero uses.
 - **Read whole functions**, not fragments — early returns change everything
 - **Fix the reference that was wrong** instead of leaving both versions alive
 - **Record sparingly**: one strong reusable lesson beats several vague ones
+- **Genericize before recording**: no client/bench/app names, hostnames, or machine topology in `learned-patterns.md` entries — write "a custom app" or "a site", not the real name
 
 ## Common Mistakes
 

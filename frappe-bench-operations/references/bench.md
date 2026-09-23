@@ -1,6 +1,16 @@
 # Bench CLI & Site Management
 
-Every command takes an explicit `--site <site>`. Bare `bench migrate` is never correct.
+Every site-scoped command takes an explicit `--site <site>`. Bare `bench migrate`
+is never correct on a multi-site bench.
+
+> **Bench vs Frappe commands (v16):** `bench` proxies most site-scoped commands to
+> the Frappe CLI (`apps/frappe/frappe/commands/`). Commands like `new-site`,
+> `migrate`, `console`, `execute`, `install-app`, `export-fixtures`, `set-config`,
+> `run-tests` are **Frappe commands** and accept `--site <site>` (or use
+> `bench use <site>` once to set a default). Commands like `bench init`,
+> `bench new-app`, `bench get-app`, `bench update`, `bench start`, `bench restart`,
+> `bench setup ...`, and `bench build` are **bench-tool** commands — they operate on
+> the whole bench, not one site, and do not take `--site`.
 
 ---
 
@@ -10,111 +20,57 @@ Every command takes an explicit `--site <site>`. Bare `bench migrate` is never c
 # New app (MUST pipe input — no heredoc, no --no-input)
 printf '<title>\n<desc>\n<publisher>\n<email>\n<license>\nN\nN\nN\n' | bench new-app <app-name>
 
+# Get an app from a repo
+bench get-app <app-name> <git-url>
+bench get-app <app-name> <git-url> --branch <branch>
+
 # New site (set root_password in common_site_config first: bench set-config -g root_password '<pwd>')
 bench new-site <name>.localhost --admin-password admin
+
+# Set default site (lets you drop --site on later commands)
+bench use <site>
 
 # Install/uninstall app
 bench --site <site> install-app <app-name>
 bench --site <site> uninstall-app <app-name>
 
-# List apps on site
+# List apps on a site / list sites on the bench
 bench --site <site> list-apps
+bench list-sites
 
 # Migrate (apply schema + data changes)
 bench --site <site> migrate
 
-# Set default site
-bench use <site>
-```
-
-## Development
-
-```bash
-# Start dev server (run in BACKGROUND)
-bench start
-
-# Developer mode
-bench set-config -g developer_mode 1
-
-# Python console with site context
-bench --site <site> console
-
-# Execute a Python expression
-bench --site <site> execute frappe.utils.get_url
-
-# Execute with args and kwargs
-bench --site <site> execute path.to.function arg1 arg2 --kwarg1 hello
-
-# Run tests
-bench --site <site> run-tests --app <app-name>
-bench --site <site> run-tests --doctype "DocType Name"
-
-# Build frontend assets
-bench build --app <app-name>
-
-# Watch mode for frontend
-bench watch
-```
-
-## Site maintenance
-
-```bash
-# Backup
-bench --site <site> backup
-
-# Restore
-bench --site <site> restore <path>
-
-# Clear cache
-bench --site <site> clear-cache
-bench --site <site> clear-website-cache
-
-# Set site config
-bench --site <site> set-config <key> <value>
-
-# Global config
-bench set-config -g <key> <value>
-
-# MariaDB console (debugging only)
-bench --site <site> mariadb
-
-# Drop site (DESTRUCTIVE)
+# Drop site (DESTRUCTIVE — ask the user first)
 bench drop-site <site> --db-root-password '<pwd>'
 ```
 
-## Fixtures
-
-```bash
-# Export fixtures defined in hooks.py
-bench --site <site> export-fixtures --app <app-name>
-```
-
----
-
-## Site Lifecycle
-
-## Finding existing sites
+### Finding existing sites
 
 ```bash
 ls sites/
 ```
 
-Ignore these entries: `assets`, `apps.txt`, `common_site_config.json`, `currentsite.txt`. Everything else is a site directory.
+Ignore these entries: `assets`, `apps.txt`, `common_site_config.json`, `currentsite.txt`.
+Everything else is a site directory. `bench list-sites` gives the same list.
 
-## Matching a site to an app
+### Matching a site to an app
 
-Convention: site name often contains the app name (e.g. `gameplan.localhost` for app `gameplan`).
+Convention: site name often contains the app name (e.g. `gameplan.localhost` for
+app `gameplan`). To confirm which apps are on a site:
 
-To confirm which apps are on a site:
 ```bash
 bench --site <site> list-apps
 ```
 
-If multiple sites exist, check each until you find the one with the target app installed.
+If multiple sites exist, check each until you find the one with the target app
+installed.
 
-## Creating a new site
+### Creating a new site
 
-First, check if `root_password` is already set in `sites/common_site_config.json`. If not, recommend the user set it once so future site creation doesn't require the password each time:
+First, check if `root_password` is already set in `sites/common_site_config.json`.
+If not, recommend the user set it once so future site creation doesn't require the
+password each time:
 
 ```bash
 bench set-config -g root_password '<pwd>'
@@ -132,217 +88,141 @@ bench new-site <name>.localhost --db-root-password '<pwd>' --admin-password admi
 
 Naming convention: `<app-name>.localhost` (e.g. `expense_tracker.localhost`).
 
-## Other site commands
+### Site config
 
-Ask the user before you drop a site.
-
-## Site config
-
-Per-site config lives in `sites/<site>/site_config.json`. Global config in `sites/common_site_config.json`.
+Per-site config lives in `sites/<site>/site_config.json`. Global config in
+`sites/common_site_config.json`. `-g`/`--global` on `set-config` writes to the
+latter and does not take `--site`.
 
 ---
-
-> **Bench vs Frappe commands (v16):** `bench` proxies most site-scoped commands to
-> the Frappe CLI (`apps/frappe/frappe/commands/`). Commands like `new-site`, `migrate`,
-> `console`, `execute`, `build`, `clear-cache`, `install-app`, `export-fixtures`,
-> `set-config`, `run-tests` are **Frappe commands**. Commands like `bench init`,
-> `bench new-app`, `bench get-app`, `bench update`, `bench start`, `bench restart`,
-> `bench setup ...`, and `bench mariadb` are **bench-level** (provided by the `bench`
-> tool itself, not Frappe). Site-scoped Frappe commands accept `--site <site>` (or use
-> `bench use <site>` once).
-
-## Site Management
-
-```bash
-# Set default site (run once)
-bench use site_name
-
-# Create new site
-bench new-site site_name
-
-# Drop site
-bench drop-site site_name
-
-# List sites
-bench list-sites
-```
-
-## App Management
-
-```bash
-# Create new app
-bench new-app app_name
-
-# Get app from GitHub
-bench get-app https://github.com/user/app
-
-# Install app on site
-bench install-app app_name
-
-# Uninstall app
-bench uninstall-app app_name
-
-# List installed apps
-bench list-apps
-```
-
-## Database Operations
-
-```bash
-# Run migrations (ALWAYS after DocType changes)
-bench migrate
-
-# Backup database
-bench backup
-
-# Restore from backup
-bench restore /path/to/backup.sql
-
-# Open MariaDB console
-bench mariadb
-```
 
 ## Development
 
 ```bash
-# Build frontend assets
-bench build
+# Start dev server (run under supervision, e.g. hub `start`, not bare background)
+bench start
 
-# Build specific app
-bench build --app app_name
+# Developer mode
+bench set-config -g developer_mode 1
 
-# Watch for changes (auto-rebuild)
+# Python console with site context
+bench --site <site> console
+
+# Execute a dotted method path with site context
+bench --site <site> execute frappe.utils.get_url
+
+# Execute with args / kwargs (Python literal or JSON)
+bench --site <site> execute my_app.api.rebuild --args "['Customer']"
+bench --site <site> execute my_app.api.rebuild --kwargs "{'doctype': 'Customer'}"
+bench --site <site> execute my_app.api.heavy --profile
+
+# Run tests
+bench --site <site> run-tests --app <app-name>
+bench --site <site> run-tests --doctype "DocType Name"
+bench --site <site> run-tests --module my_app.tests.test_api
+bench --site <site> run-parallel-tests --app <app-name>
+bench --site <site> run-ui-tests <app-name> --headless
+
+# Build frontend assets (bench-level, no --site)
+bench build --app <app-name>
+bench build --production
+
+# Watch mode for frontend (bench-level, no --site)
 bench watch
-
-# Clear server cache
-bench clear-cache
-
-# Clear website cache
-bench clear-website-cache
 ```
 
-## Console & Debugging
+### Console usage example
 
-```bash
-# Python console with Frappe context
-bench console
-
-# Example console usage:
-# >>> frappe.get_all("DocType", limit=5)
-# >>> doc = frappe.get_doc("Task", "TASK-001")
-# >>> doc.status = "Completed"
-# >>> doc.save()
-# >>> frappe.db.commit()
+```python
+bench --site <site> console
+>>> frappe.get_all("DocType", limit=5)
+>>> doc = frappe.get_doc("Task", "TASK-001")
+>>> doc.status = "Completed"
+>>> doc.save()
+>>> frappe.db.commit()  # only needed here: console runs outside the request
+>>>                      # lifecycle, so nothing else commits the transaction
 ```
 
-## Testing
+Manual `frappe.db.commit()` is otherwise an anti-pattern inside request handlers,
+controller hooks, patches, or install scripts — the framework commits at the end
+of the request/job. It is legitimate in `bench --site <site> console`/`bench --site <site> execute` scripts,
+long background jobs committing in explicit batches, and code that documents the
+anti-pattern for lint rules.
+
+---
+
+## Site maintenance
 
 ```bash
-# Run all tests for app
-bench run-tests --app app_name
+# Backup / restore
+bench --site <site> backup
+bench --site <site> backup --with-files
+bench --site <site> restore <path>
 
-# Run tests for specific DocType
-bench run-tests --doctype "Customer Request"
+# Clear cache
+bench --site <site> clear-cache
+bench --site <site> clear-website-cache
 
-# Run specific test file
-bench run-tests --module my_app.tests.test_api
+# Clear a log doctype's table (there is no `bench clear-logs`)
+bench --site <site> clear-log-table --doctype "Error Log"
+bench --site <site> clear-log-table --doctype "Error Log" --days 30
 
-# Run with verbose output
-bench run-tests --app app_name -v
-```
+# Set site config / global config
+bench --site <site> set-config <key> <value>
+bench set-config -g <key> <value>
 
-## Production
+# MariaDB console (debugging only)
+bench --site <site> mariadb
 
-```bash
-# Setup production (nginx + supervisor)
-bench setup production
+# Reinstall (DESTRUCTIVE — drops and recreates the site's database)
+bench --site <site> reinstall --admin-password admin
 
-# Restart all services
-bench restart
-
-# Setup SSL
-bench setup lets-encrypt your-domain.com
-```
-
-## Scheduler
-
-```bash
-# Enable scheduler
-bench enable-scheduler
-
-# Disable scheduler
-bench disable-scheduler
-
-# Run specific task manually
-bench execute myapp.tasks.daily_cleanup
-
-# Run scheduler manually (for testing)
-bench execute frappe.utils.scheduler.trigger_scheduler_events
-```
-
-## Fixtures
-
-```bash
-# Export fixtures (based on hooks.py fixtures list)
-bench export-fixtures --app app_name
-
-# Import fixtures
-bench import-doc /path/to/fixture.json
-```
-
-## User Management
-
-```bash
-# Set admin password
-bench set-admin-password new_password
+# Trim orphan tables/columns not in the current schema
+bench --site <site> trim-database --dry-run
 ```
 
 ## Configuration
 
 ```bash
-# Set a site_config.json value (JSON site config)
-bench set-config maintenance_mode 1
+# Set a site_config.json value
+bench --site <site> set-config maintenance_mode 1
 
 # Evaluate the value as a Python object (numbers, lists, dicts, bools)
-bench set-config -p max_file_size 10485760
+bench --site <site> set-config -p max_file_size 10485760
 
 # Set in the bench-level common_site_config.json instead of the site
 bench set-config -g background_workers 4
 
 # Show effective config
-bench show-config
+bench --site <site> show-config
 ```
 
-## Execute Python
+## Data import / export
 
 ```bash
-# Call a dotted method path with the site context
-bench execute frappe.utils.scheduler.enqueue_scheduler_events
-
-# Pass positional / keyword args (as Python literals / JSON)
-bench execute my_app.api.rebuild --args "['Customer']"
-bench execute my_app.api.rebuild --kwargs "{'doctype': 'Customer'}"
-
-# Profile the call
-bench execute my_app.api.heavy --profile
+bench --site <site> data-import --file data.csv --doctype "Customer" --type Insert
+bench --site <site> export-json "Customer" customers.json     # export docs to JSON
+bench --site <site> export-csv "Customer" customers.csv
+bench --site <site> export-doc "Item" "ITEM-001"               # export a single doc
+bench --site <site> import-doc /path/to/fixture.json           # import doc/fixture JSON
+bench --site <site> bulk-rename "Customer" rename-map.csv
 ```
 
-## Data Import / Export
+## Fixtures
 
 ```bash
-bench data-import --file data.csv --doctype "Customer" --type Insert   # or Update
-bench export-json "Customer" customers.json          # export docs to JSON
-bench export-csv "Customer" customers.csv
-bench export-doc "Item" "ITEM-001"                   # export a single doc as fixture
-bench import-doc /path/to/fixture.json               # import doc/fixture JSON
+# Export fixtures defined in hooks.py
+bench --site <site> export-fixtures --app <app-name>
 ```
 
-## Schema Reload (without full migrate)
+## Schema reload (without a full migrate)
 
 ```bash
-bench reload-doc <module> <doctype-type> <name>   # e.g. bench reload-doc core doctype user
-bench reload-doctype "Sales Invoice"
+bench --site <site> reload-doc <module> <doctype-type> <name>   # e.g. reload-doc core doctype user
+bench --site <site> reload-doctype "Sales Invoice"
 ```
+
+---
 
 ## What `migrate` actually does (v16)
 
@@ -361,19 +241,79 @@ bench reload-doctype "Sales Invoice"
 
 Run it after hand-editing DocType JSON, pulling app updates with schema changes, or
 adding a `patches.txt` entry. A patch listed under the wrong section runs against
-the wrong schema: put it in `[pre_model_sync]` only if it must run before new columns exist.
+the wrong schema: put it in `[pre_model_sync]` only if it must run before new
+columns exist.
 
-## Jobs & Maintenance
+---
+
+## Jobs, scheduler & maintenance
 
 ```bash
-bench show-pending-jobs          # inspect the RQ queues
-bench purge-jobs                 # clear queued/failed jobs
-bench worker --queue default,short,long   # run an RQ worker
-bench schedule                   # run the scheduler loop
-bench trim-database --dry-run    # drop orphan tables/columns not in schema
-bench add-database-index --doctype "Sales Invoice" --column customer
-bench doctor                     # scheduler / queue health check
-bench version                    # installed app versions
+# Scheduler on/off
+bench --site <site> enable-scheduler
+bench --site <site> disable-scheduler
+bench --site <site> scheduler status        # pause | resume | disable | enable | status
+
+# Inspect / clear the RQ queues (there is no `bench clear-scheduler-priority-jobs`)
+bench --site <site> show-pending-jobs
+bench --site <site> purge-jobs
+bench --site <site> purge-jobs --queue default
+
+# Run one job manually
+bench --site <site> execute my_app.tasks.daily_cleanup
+
+# Bench-level: run an RQ worker or the scheduler loop (no --site — a worker
+# serves whichever site's job it dequeues)
+bench worker --queue default,short,long
+bench schedule
+
+# Health check and index maintenance
+bench --site <site> doctor
+bench --site <site> add-database-index --doctype "Sales Invoice" --column customer
+
+# Installed app versions (bench-level, not per site)
+bench version
+```
+
+## User management
+
+```bash
+bench --site <site> set-admin-password newpassword
+bench --site <site> add-system-manager user@example.com
+bench --site <site> disable-user user@example.com
+```
+
+## Translations
+
+```bash
+bench --site <site> build-message-files
+bench --site <site> get-untranslated <lang> untranslated.txt
+bench --site <site> import-translations <lang> /path/to/translations.csv
+bench --site <site> new-language <lang-code> <app-name>
+```
+
+## Production
+
+```bash
+# Setup production (nginx + supervisor) — bench-level
+bench setup production <user>
+
+# Restart all services — bench-level
+bench restart
+
+# Setup SSL — bench-level
+bench setup lets-encrypt <domain>
+```
+
+## Environment variables
+
+```bash
+# Point ad hoc Python tooling at an app inside the bench
+export PYTHONPATH=/path/to/frappe-bench/apps/my_app
+
+# Alternative to --site: bench_helper falls back to $FRAPPE_SITE, then the
+# bench's default_site, when no --site is given
+FRAPPE_SITE=<site> bench execute my_app.utils.run_task
 ```
 
 ---
@@ -382,377 +322,92 @@ bench version                    # installed app versions
 
 | Issue | Command |
 |-------|---------|
-| DocType not appearing | `bench migrate` |
-| Vue changes not reflecting | `bench build --app my_app` |
-| Cache issues | `bench clear-cache` |
+| DocType not appearing | `bench --site <site> migrate` |
+| Vue changes not reflecting | `bench build --app <app>` |
+| Cache issues | `bench --site <site> clear-cache` |
 | Permission issues | Check Role Permission Manager |
-| Scheduler not running | `bench enable-scheduler` |
-| Stale data | `bench clear-cache && bench restart` |
+| Scheduler not running | `bench --site <site> enable-scheduler` |
+| Stale data | `bench --site <site> clear-cache && bench restart` |
 
----
+Stale worker processes and stuck locks look like the same symptoms but need a
+different fix — [bench-troubleshooting.md](bench-troubleshooting.md).
 
-## Common Workflows
+## Common workflows
 
-### After Creating a DocType
+### After creating a DocType
 
 ```bash
-bench migrate
+bench --site <site> migrate
 ```
 
-### After Changing Vue Frontend
+### After changing Vue frontend
 
 ```bash
-bench build --app my_app
+bench build --app <app>
 # or for development:
 bench watch
 ```
 
-### After Changing hooks.py
+### After changing hooks.py
 
 ```bash
-bench clear-cache
+bench --site <site> clear-cache
 bench restart  # if in production
 ```
 
-### Fresh Development Setup
+### Fresh development setup
 
 ```bash
 bench new-site dev.local
 bench use dev.local
-bench install-app erpnext
-bench install-app my_app
+bench --site dev.local install-app erpnext
+bench --site dev.local install-app my_app
 bench start
 ```
 
-### Deploy to Production
+### Deploy to production
 
 ```bash
 git pull
-bench install-app my_app  # if new
-bench migrate
+bench --site <site> install-app my_app  # if new
+bench --site <site> migrate
 bench build --production
 bench restart
 ```
 
-### Export and Version Control Fixtures
+### Export and version-control fixtures
 
 ```bash
 # After configuring Custom Fields, Property Setters, etc.
-bench export-fixtures --app my_app
+bench --site <site> export-fixtures --app my_app
 
 # Commit to git
 cd apps/my_app
 git add -A
 git commit -m "Update fixtures"
 ```
-## Adopted patterns (frappe-skills)
-
-> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `frappe-manager/references/bench.md`.
-
-### Bench Commands and App Setup
-
-#### Core Lifecycle
-- `bench init <bench-path>`: create a new bench.
-- `bench new-site <site>`: create a new site.
-- `bench start`: run dev services (web, socketio, redis, etc.).
-
-#### Bench and App Layout
-- A Frappe app is a Python package inside `frappe-bench/apps` and should be listed in `sites/apps.txt`.
-- The `frappe` app is the framework itself; custom apps live alongside it.
-
-#### App Management
-- Confirm you are in a bench directory: `bench find .`
-- `bench new-app <app>`: scaffold a new app.
-- `bench get-app <app> <git-url>`: fetch an app from a repo.
-- `bench --site <site> install-app <app>`: install app on site.
-- `bench --site <site> uninstall-app <app>`: remove app from site.
-
-#### Assets
-- `bench build`: build assets for production.
-- `bench build --app <app>`: build assets for a specific app.
-
-#### Migrations
-- `bench migrate`: run migrations (schema, patches, etc.).
-- Use migration patches for data fixes that must run during upgrades.
-- Patches are Python functions referenced in `patches.txt` and executed by `bench migrate`.
-
-#### Testing
-- `bench --site <site> run-tests`: run tests.
-- `bench --site <site> run-ui-tests <app>`: run UI tests.
-
-#### Maintenance
-- `bench clear-cache`: clear cache.
-- `bench clear-website-cache`: clear website cache.
-- `bench clear-logs`: clear logs.
-
-#### Backup and Restore
-- `bench --site <site> backup`: backup site.
-- `bench --site <site> restore <path>`: restore site.
-
-#### Scheduler
-- `bench --site <site> enable-scheduler` / `disable-scheduler`.
-
-Sources: Bench Commands, Install and Setup Bench, Apps, Create an App, Sites, Database Migrations, Patches (official docs)
-
-> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `frappe-manager/references/bench-commands.md`.
-
-```markdown
-# Bench Commands Reference
-
-## Overview
-Frappe Bench CLI commands for use inside Frappe Manager containers.
-
-## Accessing Bench CLI
-
-```bash
-### Enter container shell
-fm shell mysite
-
-### Now bench commands are available
-bench --help
-```
-
-## Site Management
-
-```bash
-### Create new site
-bench new-site mysite.localhost --db-root-password root --admin-password admin
-
-### Delete site
-bench drop-site mysite.localhost --db-root-password root
-
-### List sites
-ls sites/
-
-### Set default site
-bench use mysite.localhost
-```
-
-## App Management
-
-```bash
-### Get app from frappe.cloud
-bench get-app erpnext
-
-### Get app from GitHub
-bench get-app https://github.com/frappe/hrms.git
-
-### Get specific branch
-bench get-app erpnext --branch version-15
-
-### Install app on site
-bench --site mysite.localhost install-app erpnext
-
-### Uninstall app
-bench --site mysite.localhost uninstall-app erpnext
-
-### List installed apps
-bench --site mysite.localhost list-apps
-
-### Create new custom app
-bench new-app my_custom_app
-```
-
-## Database & Migrations
-
-```bash
-### Run migrations
-bench --site mysite.localhost migrate
-
-### Run all pending patches
-bench --site mysite.localhost migrate --skip-failing
-
-### Backup database
-bench --site mysite.localhost backup
-
-### Backup with files
-bench --site mysite.localhost backup --with-files
-
-### Restore from backup
-bench --site mysite.localhost restore /path/to/backup.sql.gz
-
-### Access MariaDB
-bench --site mysite.localhost mariadb
-```
-
-## Development
-
-```bash
-### Enable developer mode
-bench set-config -g developer_mode 1
-
-### Disable developer mode
-bench set-config -g developer_mode 0
-
-### Build assets
-bench build
-
-### Build specific app
-bench build --app my_app
-
-### Watch mode (live rebuild)
-bench watch
-
-### Clear cache
-bench --site mysite.localhost clear-cache
-
-### Clear website cache
-bench --site mysite.localhost clear-website-cache
-
-### Console (Python REPL)
-bench --site mysite.localhost console
-```
-
-## Testing
-
-```bash
-### Run all tests for app
-bench --site mysite.localhost run-tests --app my_app
-
-### Run specific doctype tests
-bench --site mysite.localhost run-tests --doctype "Sales Order"
-
-### Run specific module tests
-bench --site mysite.localhost run-tests --module my_app.utils.tests
-
-### With coverage
-bench --site mysite.localhost run-tests --app my_app --coverage
-
-### UI tests
-bench --site mysite.localhost run-ui-tests my_app --headless
-```
-
-## Server Management
-
-```bash
-### Start development server
-bench serve
-
-### Start with specific settings
-bench serve --port 8001
-
-### Check service status
-bench doctor
-
-### Version info
-bench version
-
-### Update bench
-bench update
-
-### Update specific app
-bench update --apps erpnext
-```
-
-## User Management
-
-```bash
-### Set admin password
-bench --site mysite.localhost set-admin-password newpassword
-
-### Add system manager
-bench --site mysite.localhost add-system-manager user@example.com
-
-### Disable user
-bench --site mysite.localhost disable-user user@example.com
-```
-
-## Scheduler & Jobs
-
-```bash
-### Enable scheduler
-bench --site mysite.localhost enable-scheduler
-
-### Disable scheduler
-bench --site mysite.localhost disable-scheduler
-
-### Run scheduler manually
-bench --site mysite.localhost scheduler
-
-### Execute specific job
-bench --site mysite.localhost execute my_app.tasks.daily_cleanup
-
-### Clear failed jobs
-bench --site mysite.localhost clear-scheduler-priority-jobs
-```
-
-## Configuration
-
-```bash
-### Set config value
-bench --site mysite.localhost set-config key value
-
-### Set global config
-bench set-config -g key value
-
-### Show config
-bench --site mysite.localhost show-config
-
-### Bench config file
-### Located at: sites/common_site_config.json
-```
-
-## Data Management
-
-```bash
-### Export fixtures
-bench --site mysite.localhost export-fixtures
-
-### Import data
-bench --site mysite.localhost import-doc /path/to/doc.json
-
-### Export data
-bench --site mysite.localhost export-doc "DocType/DocName"
-
-### Bulk data import
-bench --site mysite.localhost data-import --file /path/to/file.csv --doctype "Customer"
-```
-
-## Translations
-
-```bash
-### Update translations
-bench update-translations
-
-### Build translations
-bench build-message-files
-
-### Get untranslated
-bench --site mysite.localhost get-untranslated
-```
-
-## Useful Shortcuts
-
-```bash
-### Quick site console
-bench c
-
-### Quick mariadb
-bench m
-
-### Quick serve
-bench s
-```
-
-## Environment Variables
-
-```bash
-### Set Python path
-export PYTHONPATH=/workspace/frappe-bench/apps/my_app
-
-### Run with specific site
-FRAPPE_SITE=mysite.localhost bench execute my_app.utils.run_task
-```
-
-Sources: Bench CLI, Frappe Commands (official docs)
-```
 
 ---
 
 ## Sources
 
-Frappe CLI commands verified against Frappe v16.9.0 (`bench` proxies these):
+Frappe CLI commands verified against Frappe v16.27.1 (`bench` proxies these):
 
-- `apps/frappe/frappe/commands/site.py` — `new-site`, `drop-site`, `use`, `install-app`, `uninstall-app`, `list-apps`, `backup`, `restore`, `migrate`, `reload-doc`, `reload-doctype`, `set-admin-password`, `add-database-index`, `trim-database`, `trim-tables`
-- `apps/frappe/frappe/commands/utils.py` — `build`, `watch`, `clear-cache`, `clear-website-cache`, `execute` (`--args`/`--kwargs`/`--profile`), `set-config` (`-g`/`-p`), `show-config`, `console`, `run-tests`, `run-parallel-tests`, `export-fixtures`, `export-json`, `export-csv`, `export-doc`, `import-doc`, `data-import`, `doctor`, `show-pending-jobs`, `purge-jobs`, `schedule`, `scheduler`, `worker`, `serve`, `version`, `enable-scheduler`, `disable-scheduler`, `rebuild-global-search`, `build-search-index`
-- `bench init`, `new-app`, `get-app`, `update`, `start`, `restart`, `setup`, `mariadb` are bench-tool commands (not in Frappe's `frappe/commands/`).
+- `apps/frappe/frappe/commands/site.py` — `new-site`, `drop-site`, `use`, `install-app`,
+  `uninstall-app`, `list-apps`, `list-sites`, `backup`, `restore`, `reinstall`, `migrate`,
+  `reload-doc`, `reload-doctype`, `set-admin-password`, `add-system-manager`, `disable-user`,
+  `add-database-index`, `describe-database-table`, `trim-database`, `trim-tables`,
+  `clear-log-table`, `bulk-rename`
+- `apps/frappe/frappe/commands/utils.py` — `build`, `watch`, `clear-cache`,
+  `clear-website-cache`, `execute` (`--args`/`--kwargs`/`--profile`), `set-config`
+  (`-g`/`-p`), `show-config`, `console`, `run-tests`, `run-parallel-tests`, `run-ui-tests`,
+  `export-fixtures`, `export-json`, `export-csv`, `export-doc`, `import-doc`, `data-import`,
+  `mariadb`, `version`
+- `apps/frappe/frappe/commands/scheduler.py` — `enable-scheduler`, `disable-scheduler`,
+  `scheduler`, `doctor`, `show-pending-jobs`, `purge-jobs`, `schedule`, `worker`, `worker-pool`
+- `apps/frappe/frappe/commands/translate.py` — `build-message-files`, `new-language`,
+  `get-untranslated`, `update-translations`, `import-translations`, `migrate-translations`
+- `bench init`, `new-app`, `get-app`, `update`, `start`, `restart`, `setup` are
+  bench-tool commands, not in Frappe's `frappe/commands/`. There is no
+  `bench c`/`bench m`/`bench s` shortcut and no `bench clear-logs` or
+  `bench clear-scheduler-priority-jobs` command.

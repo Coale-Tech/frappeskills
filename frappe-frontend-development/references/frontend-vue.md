@@ -9,7 +9,7 @@ Read this to wire and build one; then go deeper:
   wiring, TypeScript conventions.
 - **[frappe-ui-components.md](frappe-ui-components.md)** — component and
   data-layer catalog: `createResource`, `createListResource`,
-  `createDocumentResource`, form controls, `LinkField`, `Dialog`, toasts.
+  `createDocumentResource`, form controls, `Autocomplete`-based link pickers, `Dialog`, toasts.
 
 ## When an SPA is the wrong choice
 

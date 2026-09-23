@@ -28,7 +28,7 @@ Check for these patterns:
 |---------|--------------|
 | `apps/` + `sites/` directories | Bench installation |
 | `docker-compose.yml` with frappe | Frappe Manager site |
-| `pyproject.toml` or `setup.py` with frappe | Standalone app |
+| `pyproject.toml` with frappe (setup.py only on legacy pre-v15 apps) | Standalone app |
 | `doctype/` directory | Inside an app module |
 
 #### 1) Detect installed apps

@@ -113,7 +113,9 @@ query = frappe.qb.get_query("User", filters=[
 # Pagination
 query = frappe.qb.get_query("User", fields=["name"], limit=20, offset=40)
 
-# Permission-aware (default is ignore_permissions=True)
+# frappe.qb.get_query defaults to ignore_permissions=True (query.py:233) because
+# it's a low-level builder used internally by permission-aware callers like
+# get_list/get_all; pass ignore_permissions=False to opt into a permission_query_conditions-filtered query
 query = frappe.qb.get_query("Expense", ignore_permissions=False)
 
 # Record locking
@@ -304,14 +306,22 @@ value = frappe.db.sql("SELECT COUNT(*) FROM `tabCustomer`")[0][0]
 
 ### Transaction Management
 
+See [`## Transactions`](#transactions) above — Frappe auto-commits/auto-rolls-back
+web requests, background jobs, and patches, so manual `frappe.db.commit()` is
+rarely needed. When it genuinely is (e.g. a long-running `bench execute` batch
+script that must persist partial progress before continuing), always pair it
+with rollback-on-error and log the failure:
+
 ```python
+# bench execute script: commit after each successful doc so a later failure
+# doesn't lose already-processed work
 try:
     doc1.save()
     doc2.save()
     frappe.db.commit()
 except Exception as e:
     frappe.db.rollback()
-    frappe.log_error(f"Error: {str(e)}")
+    frappe.log_error(f"Error: {e}")
     frappe.throw(str(e))
 ```
 
@@ -453,7 +463,7 @@ query = (
 
 ## Sources
 
-Verified against Frappe v16.9.0 (`frappe/__init__.py` `__version__ = "16.9.0"`):
+Verified against Frappe v16.27.1 (`frappe/__init__.py` `__version__ = "16.27.1"`):
 
 - `apps/frappe/frappe/__init__.py` — `whitelist`, `get_list`/`get_all`/`get_value`, `delete_doc`, `rename_doc`, `get_hooks`, and the `frappe.model.document` re-exports (`get_doc`, `new_doc`, `get_cached_doc`, `get_cached_value`, `get_single_value`, `get_last_doc`, `get_single`, `get_lazy_doc`); `cache` / `client_cache` globals
 - `apps/frappe/frappe/model/document.py` — `get_doc` (singledispatch), `new_doc`, `get_cached_doc`, `get_single_value`, `get_last_doc`, `db_set`

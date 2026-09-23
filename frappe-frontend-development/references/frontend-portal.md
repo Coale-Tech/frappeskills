@@ -1,6 +1,14 @@
 # Portal Pages (Public Website)
 
-Server-rendered Jinja templates for public-facing pages.
+> Adopted in part from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `frontend-development/references/portal-development.md`.
+
+Server-rendered Jinja templates for public-facing pages. Portals are the
+customer-facing or public counterpart to Desk — built with plain web
+views/portal pages for simple record exposure, web forms for record
+submission without Desk access, or a full frappe-ui SPA (see
+[frappe-ui-components.md](frappe-ui-components.md)) when the portal needs
+app-like interactivity. Authenticate with standard Frappe auth and enforce
+permissions server-side regardless of which approach you pick.
 
 ## Jinja templates
 
@@ -55,27 +63,14 @@ class Event(WebsiteGenerator):
 
 Use `www/` pages (a `.py` with `get_context(context)` next to the template) for one-off pages not tied to records.
 
+## Web forms
 
----
+For record submission without Desk access, use Frappe's built-in **Web Form**
+doctype instead of hand-writing a Jinja template + controller: it renders a
+public form for a target doctype, applies the doctype's permissions (or a
+dedicated web-form role), and handles create/update/list itself.
 
-## Adopted patterns (frappe-skills)
+## References
 
-> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `frontend-development/references/portal-development.md`.
-
-### Portal development
-
-#### Overview
-- Portals are customer-facing or public interfaces distinct from Desk.
-- Build portals with standard web views, portal pages, or custom frontends.
-
-#### Portal pages
-- Use website/portal pages to expose data with proper permissions.
-- Use web forms to allow submissions without Desk access.
-
-#### Custom frontend
-- Use Frappe UI to build modern portal apps with SPA behavior.
-- Authenticate using standard Frappe auth and enforce permissions server-side.
-
-#### References
 - [Desk UI](https://frappe.io/framework/desk-ui)
 - [Frappe UI GitHub](https://github.com/frappe/frappe-ui)

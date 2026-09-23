@@ -135,7 +135,6 @@ def setup_custom_fields():
                 custom_field.dt = doctype
                 custom_field.update(field_data)
                 custom_field.insert()
-                frappe.db.commit()
                 frappe.msgprint(f"Created custom field {field_name} for {doctype}")
             except Exception as e:
                 frappe.db.rollback()
@@ -162,7 +161,6 @@ def remove_custom_fields():
             if custom_field_name:
                 try:
                     frappe.delete_doc("Custom Field", custom_field_name)
-                    frappe.db.commit()
                 except Exception as e:
                     frappe.db.rollback()
                     frappe.log_error(f"Failed to remove custom field {field_name}: {str(e)}")
@@ -199,8 +197,6 @@ def sync_custom_fields():
                 custom_field.dt = doctype
                 custom_field.update(field_data)
                 custom_field.insert()
-
-            frappe.db.commit()
 ```
 
 ## Registering Fixtures in Hooks
@@ -413,7 +409,7 @@ fixtures = [
 2. **Check existence before creating** to avoid duplicate errors
 3. **Use insert_after** for positioning (not idx)
 4. **Group fields by DocType** in the fixture dictionary
-5. **Commit changes** after successful creation
+5. **Let the framework commit** — no manual `frappe.db.commit()` in hook/install code
 6. **Rollback on error** to maintain data integrity
 7. **Log errors** for debugging
 8. **Register in hooks** for automatic setup
@@ -451,74 +447,10 @@ frappe.has_permission("Custom Field", "create")
 
 ## Complete Example
 
-```python
-# my_app/fixtures/custom_fields.py
-import frappe
-
-def get_custom_fields():
-    return {
-        "Customer": [
-            {
-                "fieldname": "custom_region",
-                "fieldtype": "Link",
-                "label": "Region",
-                "options": "Region",
-                "insert_after": "territory"
-            },
-            {
-                "fieldname": "custom_customer_type",
-                "fieldtype": "Select",
-                "label": "Customer Type",
-                "options": "Retail\nWholesale\nDistributor",
-                "insert_after": "customer_type"
-            }
-        ],
-        "Sales Order": [
-            {
-                "fieldname": "custom_delivery_notes",
-                "fieldtype": "Text",
-                "label": "Delivery Notes",
-                "insert_after": "delivery_date"
-            }
-        ]
-    }
-
-def setup_custom_fields():
-    custom_fields = get_custom_fields()
-
-    for doctype, fields in custom_fields.items():
-        if not frappe.db.exists("DocType", doctype):
-            continue
-
-        for field_data in fields:
-            field_name = field_data.get("fieldname")
-
-            if frappe.db.exists("Custom Field", {"dt": doctype, "fieldname": field_name}):
-                continue
-
-            custom_field = frappe.new_doc("Custom Field")
-            custom_field.dt = doctype
-            custom_field.update(field_data)
-            custom_field.insert()
-
-    frappe.db.commit()
-
-def remove_custom_fields():
-    custom_fields = get_custom_fields()
-
-    for doctype, fields in custom_fields.items():
-        for field_data in fields:
-            field_name = field_data.get("fieldname")
-            custom_field_name = frappe.db.get_value("Custom Field", {
-                "dt": doctype,
-                "fieldname": field_name
-            })
-
-            if custom_field_name:
-                frappe.delete_doc("Custom Field", custom_field_name)
-
-    frappe.db.commit()
-```
+`my_app/fixtures/custom_fields.py` combines `get_custom_fields()`, `setup_custom_fields()`, and
+`remove_custom_fields()` in one module — see [Basic Fixture Structure](#basic-fixture-structure)
+above for the full implementation. No manual `frappe.db.commit()`: the framework commits after
+the `after_install` / `before_uninstall` hooks run (`frappe/installer.py::install_app`).
 
 ---
 
@@ -572,7 +504,7 @@ fixtures = [
 ]
 ```
 
-Fixtures are auto-imported during `bench migrate`.
+Fixtures are auto-imported during `bench --site <site> migrate`.
 
 ---
 
@@ -601,17 +533,15 @@ before_uninstall = "my_app.install.before_uninstall"
 def after_install():
     from my_app.fixtures.custom_fields import setup_custom_fields
     setup_custom_fields()
-    frappe.db.commit()
 
 def before_uninstall():
     from my_app.fixtures.custom_fields import remove_custom_fields
     remove_custom_fields()
-    frappe.db.commit()
 ```
 
 ## Sources
 
-Verified against Frappe v16.9.0 at `<bench>/apps/frappe`:
+Verified against Frappe v16.27.1 at `<bench>/apps/frappe`:
 - `apps/frappe/frappe/custom/doctype/custom_field/custom_field.py` — `create_custom_fields(custom_fields, ignore_validate=False, update=True)`
 - `apps/frappe/frappe/custom/doctype/property_setter/property_setter.py` — `make_property_setter(doctype, fieldname, property, value, property_type, ...)`
 - `apps/frappe/frappe/commands/utils.py` — `export-fixtures` CLI (`--app` option); `apps/frappe/frappe/utils/fixtures.py`

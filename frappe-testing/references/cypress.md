@@ -2,9 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `testing/references/cypress.md`.
 
-```markdown
-# Cypress UI Testing Reference
-
 ## Overview
 Frappe uses Cypress for end-to-end UI testing. Cypress tests simulate real user interactions with the Desk interface.
 
@@ -327,11 +324,11 @@ after(() => {
 
 ### Selectors
 ```javascript
-// ❌ Fragile selectors
+// Don't: fragile selectors
 cy.get(".btn-primary-dark").click();
 cy.get("div > ul > li:nth-child(3)").click();
 
-// ✅ Robust selectors
+// Do: robust selectors
 cy.get("[data-fieldname='customer']").click();
 cy.get(".primary-action").contains("Save").click();
 cy.get("[data-page-container]").contains("Customer").click();
@@ -339,10 +336,10 @@ cy.get("[data-page-container]").contains("Customer").click();
 
 ### Waits
 ```javascript
-// ❌ Fixed waits (slow, unreliable)
+// Don't: fixed waits (slow, unreliable)
 cy.wait(5000);
 
-// ✅ Conditional waits
+// Do: conditional waits
 cy.get(".indicator-pill").should("not.exist");
 cy.get("[data-fieldname='name']").should("be.visible");
 cy.url().should("contain", "/app/customer/");
@@ -350,11 +347,11 @@ cy.url().should("contain", "/app/customer/");
 
 ### Test Independence
 ```javascript
-// ❌ Tests depend on each other
+// Don't: tests depend on each other
 it("creates customer", () => { /* creates CUST-001 */ });
 it("edits customer", () => { /* assumes CUST-001 exists */ });
 
-// ✅ Independent tests
+// Do: independent tests
 beforeEach(() => {
     // Create fresh test data
     cy.request("POST", "/api/resource/Customer", {...});
@@ -367,4 +364,3 @@ afterEach(() => {
 ```
 
 Sources: UI Testing, Cypress Documentation (official docs)
-```

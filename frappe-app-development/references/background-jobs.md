@@ -156,7 +156,6 @@ def process_data(customer):
     try:
         doc = frappe.get_doc("Customer", customer)
         # Process...
-        frappe.db.commit()
     except Exception:
         frappe.db.rollback()
         frappe.log_error("process_data failed")
@@ -251,14 +250,13 @@ def daily_cleanup():
     )
     for log in old_logs:
         frappe.delete_doc("Error Log", log, force=True)
-    frappe.db.commit()
 ```
 
 ---
 
 ## Sources
 
-Verified against Frappe v16.9.0 (`frappe/__init__.py` `__version__ = "16.9.0"`):
+Verified against Frappe v16.27.1 (`frappe/__init__.py` `__version__ = "16.27.1"`):
 
 - `apps/frappe/frappe/__init__.py` — `whitelist`, `get_list`/`get_all`/`get_value`, `delete_doc`, `rename_doc`, `get_hooks`, and the `frappe.model.document` re-exports (`get_doc`, `new_doc`, `get_cached_doc`, `get_cached_value`, `get_single_value`, `get_last_doc`, `get_single`, `get_lazy_doc`); `cache` / `client_cache` globals
 - `apps/frappe/frappe/model/document.py` — `get_doc` (singledispatch), `new_doc`, `get_cached_doc`, `get_single_value`, `get_last_doc`, `db_set`

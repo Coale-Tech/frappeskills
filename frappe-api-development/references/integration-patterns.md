@@ -2,10 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `enterprise-patterns/references/integration-patterns.md`.
 
-```markdown
-# Integration Patterns Reference
-
-## Overview
 Patterns for integrating Frappe applications with external systems.
 
 ## Connector Architecture
@@ -118,6 +114,10 @@ class OAuth2Connector(BaseConnector):
 
 ## Data Sync Patterns
 
+These run as scheduled jobs or `bench execute` scripts, not web request
+handlers — see [database.md](database.md) `## Transactions` for when manual
+`frappe.db.commit()` is (and isn't) needed in that context.
+
 ### Full Sync
 ```python
 def full_sync_customers():
@@ -139,8 +139,8 @@ def full_sync_customers():
         DELETE FROM `tabExternal Customer`
         WHERE external_id NOT IN %(ids)s
     """, {"ids": synced_ids})
-    
-    frappe.db.commit()
+    # No explicit commit: this runs as a scheduled job, which auto-commits
+    # on successful completion (see database.md `## Transactions`).
 ```
 
 ### Incremental Sync
@@ -187,6 +187,9 @@ def delta_sync_with_cursor():
         cursor = response.get("next_cursor")
         settings.sync_cursor = cursor
         settings.save()
+        # Explicit commit: this scheduled job may process thousands of pages
+        # over minutes; committing the cursor after each page means a crash
+        # mid-run resumes from the last page instead of reprocessing everything.
         frappe.db.commit()
         
         if not response.get("has_more"):
@@ -328,7 +331,10 @@ def sync_with_retry(data):
 ### Integration Error Logging
 ```python
 def log_integration_error(connector_name, operation, error, payload=None):
-    """Log integration errors for debugging"""
+    """Log integration errors for debugging. Called from exception handlers in
+    system-owned sync/webhook code, never with caller-supplied doctype/fields —
+    same pattern frappe core uses for Integration Request logging
+    (`frappe/integrations/utils.py` `insert(ignore_permissions=True)`)."""
     frappe.get_doc({
         "doctype": "Integration Error Log",
         "connector": connector_name,
@@ -337,6 +343,9 @@ def log_integration_error(connector_name, operation, error, payload=None):
         "traceback": frappe.get_traceback(),
         "payload": frappe.as_json(payload) if payload else None,
         "timestamp": frappe.utils.now_datetime()
+    # ignore_permissions=True: the caller triggering an error may lack write
+    # access to a log doctype; the log record itself carries no user-supplied
+    # doctype/fields, so this isn't user-controlled privilege escalation.
     }).insert(ignore_permissions=True)
 ```
 
@@ -369,5 +378,5 @@ class RateLimitedConnector(BaseConnector):
                 time.sleep(60 - elapsed)
 ```
 
-Sources: Frappe API Documentation, Integration Best Practices
-```
+See also [rate-limiting.md](rate-limiting.md) for server-side rate limiting and
+[webhooks.md](webhooks.md) for inbound webhook handling.

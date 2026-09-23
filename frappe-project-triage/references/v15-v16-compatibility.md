@@ -317,9 +317,9 @@ DocType JSON structure is identical in both versions:
 }
 ```
 
-## What Actually Changed in v16 (source-verified on bench 16.9.0)
+## What Actually Changed in v16 (source-verified on bench 16.27.1)
 
-> Verified against `apps/frappe/frappe/__init__.py` → `__version__ = "16.9.0"` and the DocType sources below.
+> Verified against `apps/frappe/frappe/__init__.py` → `__version__ = "16.27.1"` and the DocType sources below.
 
 **1. Workspace DocType gained navigation fields (`apps/frappe/frappe/desk/doctype/workspace/workspace.json`).**
 In v16 a Workspace row can itself be a navigation entry, not only a dashboard. New/relevant fields:
@@ -344,6 +344,12 @@ hook (`apps/frappe/frappe/hooks.py`), this drives the app tiles.
 `frappe.custom.doctype.custom_field.custom_field.create_custom_fields(custom_fields, update=True)` — the idiomatic
 way ERPNext/HRMS register fields. See `fixtures-guide.md`.
 
+**6. `extend_doctype_class` (v16+) is a safer alternative to `override_doctype_class`** — it extends the
+base controller instead of fully replacing it (`apps/frappe/frappe/model/base_document.py`).
+
+REST API v2 (`/api/v2/`, since v15) and token-based REST API authentication (since v11.0.3) both work
+unchanged on v16 — prefer them over version-gating for API compatibility.
+
 ## Best Practices
 
 1. **Always use `createResource`** from frappe-ui for API calls
@@ -354,33 +360,11 @@ way ERPNext/HRMS register fields. See `fixtures-guide.md`.
 6. **Use fixtures** for custom fields on standard DocTypes
 7. **Implement version detection** for conditional behavior
 8. **Document version-specific features** in code comments
-## Adopted patterns (frappe-skills)
-
-> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `app-development/references/version-compat.md`.
-
-### Version compatibility notes
-
-#### Frappe v16+
-- `extend_doctype_class` is available as a safer alternative to full controller overrides.
-
-#### Frappe v15+
-- REST API v2 is available under `/api/v2/` routes.
-
-#### Frappe v11.0.3+
-- Token-based authentication for REST API is supported.
-
-#### Guidance
-- When targeting multiple versions, prefer hooks and APIs that exist across versions.
-- If a feature is version-gated, add a clear fallback path or guard in code.
-
-Sources: Hooks (v16), REST API v2 (v15), Token Based Authentication (v11.0.3) (official docs)
-
----
 
 ## Sources
 
-Verified against Frappe v16.9.0 at `<bench>/apps/frappe`:
-- `apps/frappe/frappe/__init__.py` (`__version__ = "16.9.0"`)
+Verified against Frappe v16.27.1 at `<bench>/apps/frappe`:
+- `apps/frappe/frappe/__init__.py` (`__version__ = "16.27.1"`)
 - `apps/frappe/frappe/public/js/frappe/request.js` (`frappe.call`, `frappe.xcall` both defined)
 - `apps/frappe/frappe/desk/doctype/workspace/workspace.json`
 - `apps/frappe/frappe/desk/doctype/workspace_sidebar/workspace_sidebar.json` (created 2025-08-12, v16-only)

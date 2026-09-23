@@ -320,6 +320,8 @@ def update_ticket(name, status):
 ```python
 def on_update(doc, method):
     if doc.has_value_changed("status"):
+        # System-owned audit record written by a trusted hook, not the acting
+        # user; the user may lack create permission on Activity Log.
         frappe.get_doc({
             "doctype": "Activity Log",
             "reference_doctype": doc.doctype,

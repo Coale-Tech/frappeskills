@@ -273,7 +273,7 @@ Reports are auto-discovered if they follow the standard directory structure. No 
 
 ### Failure modes / debugging
 
-- **Report not found**: Check module path and `is_standard` setting; run `bench migrate`
+- **Report not found**: Check module path and `is_standard` setting; run `bench --site <site> migrate`
 - **SQL syntax error**: Test query in `bench --site <site> mariadb` first
 - **No data returned**: Check `docstatus` filter; verify filters match data
 - **Permission denied**: Verify Reference DocType permissions for the user's role

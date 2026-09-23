@@ -38,7 +38,7 @@ def setup_workspace():
 
     # Add number cards (optional stats)
     for card in get_number_cards():
-        workspace.append("cards", card)
+        workspace.append("number_cards", card)
 
     workspace.save()
 
@@ -94,19 +94,15 @@ def get_number_cards():
     """
     Define number cards for workspace
 
-    Number cards show statistics at the top of the workspace
+    Rows of the "Workspace Number Card" child table only link an existing
+    Number Card document (ship it as a fixture) and give it a label.
     """
     return [
         {
+            "number_card_name": "Total {{ plural_doctype }}",
             "label": "Total {{ plural_doctype }}",
-            "count": "{{ app_name }}.api.get_{{ plural_snake }}_count",
-            "route": "",
-            "is_target": False,
-            "indicator": "blue",
-            "card_type": "Custom",
-            "hidden": 0,
         },
-        ]
+    ]
 
 
 def get_quick_list():

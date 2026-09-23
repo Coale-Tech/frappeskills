@@ -1,6 +1,6 @@
 ---
 name: frappe-frontend-development
-description: Build Vue 3 frontends with frappe-ui including components, data fetching, routing, stores, and portal pages. Use when creating custom SPAs, dashboards, or portal interfaces on top of Frappe.
+description: Build Vue 3 frontends with frappe-ui including components, data fetching, routing, stores, and portal pages. Use when implementing a custom SPA or portal interface on top of Frappe.
 ---
 
 # Frappe Frontend Development
@@ -66,7 +66,9 @@ const approve = createResource({
 ```
 
 Never use raw `fetch`. Catalog of resources and components:
-[references/frappe-ui-components.md](references/frappe-ui-components.md).
+[references/frappe-ui-components.md](references/frappe-ui-components.md)
+(index — see also `frappe-ui-core-components.md`, `frappe-ui-data-fetching.md`,
+and `frappe-desk-client-apis.md`).
 
 ### 3) Structure the app
 
@@ -74,8 +76,8 @@ Stores, router, socket wiring, TypeScript layout:
 [references/frontend-architecture.md](references/frontend-architecture.md).
 Shell, sidebar and navigation:
 [references/app-shell-patterns.md](references/app-shell-patterns.md).
-Page and component shapes:
-[references/page-patterns.md](references/page-patterns.md),
+SPA page and component shapes:
+[references/frappe-ui-spa-page-patterns.md](references/frappe-ui-spa-page-patterns.md),
 [references/component-patterns.md](references/component-patterns.md).
 Start from `assets/App.vue.template`, `assets/ListPage.vue.template`,
 `assets/DetailPage.vue.template`, `assets/FormWizard.vue.template`.
@@ -128,9 +130,13 @@ bench --site <site> clear-cache
 
 - [references/frontend-vue.md](references/frontend-vue.md) - SPA entry point, build wiring, when to choose it
 - [references/frontend-architecture.md](references/frontend-architecture.md) - Stores, data layer, router, sockets, TS
-- [references/frappe-ui-components.md](references/frappe-ui-components.md) - Component and data-layer catalog
+- [references/frappe-ui-components.md](references/frappe-ui-components.md) - Component/data-layer catalog index
+- [references/frappe-ui-core-components.md](references/frappe-ui-core-components.md) - Project setup and component catalog
+- [references/frappe-ui-data-fetching.md](references/frappe-ui-data-fetching.md) - Resources, stores, router, utilities
+- [references/frappe-desk-client-apis.md](references/frappe-desk-client-apis.md) - Desk `frappe.*` vanilla-JS APIs
 - [references/component-patterns.md](references/component-patterns.md) - Lists, forms, dialogs, empty states
-- [references/page-patterns.md](references/page-patterns.md) - Page layouts
+- [references/page-patterns.md](references/page-patterns.md) - Page kind index: Desk Pages, Web/Portal pages
+- [references/frappe-ui-spa-page-patterns.md](references/frappe-ui-spa-page-patterns.md) - frappe-ui SPA List/Detail/Form page layouts
 - [references/app-shell-patterns.md](references/app-shell-patterns.md) - Sidebar, nav, layout skeleton
 - [references/frontend-portal.md](references/frontend-portal.md) - Website/portal pages without a build step
 - `assets/App.vue.template`, `assets/ListPage.vue.template`, `assets/DetailPage.vue.template`, `assets/FormWizard.vue.template`, `assets/page.js.template`, `assets/useVersion.js.template`, `assets/tailwind.config.js.template`

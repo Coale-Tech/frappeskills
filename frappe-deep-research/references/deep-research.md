@@ -9,8 +9,8 @@ comparing / verifying* — not building. Building is the rest of this skill.
 is authoritative; docs and web add context. Every non-trivial claim carries a
 source; anything not directly observed is marked `[INFERENCE]`.
 
-Companion operational content: this skill's **Operate** mode — `references/bench.md`
-and `references/bench-troubleshooting.md`.
+Companion operational content: [`frappe-bench-operations`](../../frappe-bench-operations/SKILL.md)'s
+`references/bench.md` and `references/bench-troubleshooting.md`.
 
 ## When to use
 

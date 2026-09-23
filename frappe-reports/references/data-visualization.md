@@ -429,7 +429,7 @@ dc = frappe.get_doc({
 
 ## Sources
 
-Verified against Frappe v16.9.0 at `<bench>/apps/frappe`:
+Verified against Frappe v16.27.1 at `<bench>/apps/frappe`:
 - `apps/frappe/frappe/public/js/frappe/ui/chart.js` — `frappe.Chart` global + `frappe.ui.RealtimeChart`
 - `apps/frappe/frappe/desk/doctype/dashboard_chart/dashboard_chart.json` — chart_type/type/timespan options
 - `apps/frappe/frappe/desk/doctype/number_card/number_card.json` — function/type/stats_time_interval options

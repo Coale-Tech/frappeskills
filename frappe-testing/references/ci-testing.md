@@ -2,9 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `testing/references/ci-testing.md`.
 
-```markdown
-# CI Testing Reference
-
 ## Overview
 Configure continuous integration to run Frappe tests automatically on every commit.
 
@@ -239,7 +236,7 @@ exclude_lines =
       - name: Start Frappe
         run: |
           cd frappe-bench
-          bench serve &
+          bench --site test_site serve &
           sleep 10
       
       - name: Run UI Tests
@@ -297,7 +294,7 @@ exclude_lines =
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "❌ Tests failed in *${{ github.repository }}*"
+                    "text": "Tests failed in *${{ github.repository }}*"
                   }
                 }
               ]
@@ -316,4 +313,3 @@ exclude_lines =
 6. **Set timeouts** — Prevent hung builds from blocking pipeline
 
 Sources: GitHub Actions, Testing, CI/CD (official docs)
-```

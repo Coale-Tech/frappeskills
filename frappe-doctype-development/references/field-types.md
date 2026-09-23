@@ -2,9 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `doctype-development/references/field-types.md`.
 
-```markdown
-# Field Types Reference
-
 ## Overview
 Frappe DocTypes use typed fields to define schema. Each field type has specific behavior, validation, and UI rendering.
 
@@ -332,4 +329,3 @@ Frappe DocTypes use typed fields to define schema. Each field type has specific 
 - Avoid reserved names: `name`, `owner`, `creation`, `modified`, `docstatus`
 
 Sources: Field Types, DocType, Database Schema (official docs)
-```

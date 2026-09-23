@@ -99,7 +99,6 @@ def setup_custom_fields():
                     "dt": doctype,
                     **field_data
                 }).insert()
-                frappe.db.commit()
             except Exception as e:
                 frappe.db.rollback()
                 frappe.log_error(f"Failed to create custom field {doctype}.{field_name}: {e}")
@@ -127,7 +126,6 @@ def remove_custom_fields():
             if custom_field_name:
                 try:
                     frappe.delete_doc("Custom Field", custom_field_name)
-                    frappe.db.commit()
                 except Exception as e:
                     frappe.db.rollback()
                     frappe.log_error(f"Failed to delete custom field {doctype}.{field_name}: {e}")

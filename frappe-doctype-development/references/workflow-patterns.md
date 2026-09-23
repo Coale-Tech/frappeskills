@@ -2,9 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `enterprise-patterns/references/workflow-patterns.md`.
 
-```markdown
-# Workflow Patterns Reference
-
 ## Overview
 Production-grade workflow patterns for enterprise Frappe applications.
 
@@ -152,7 +149,7 @@ class RequestDocument(Document):
                 "approval_level": level + 1,
                 "approver": self.get_approver_for_role(approver_config["role"]),
                 "status": "Pending"
-            }).insert(ignore_permissions=True)
+            }).insert(ignore_permissions=True)  # controller-owned workflow tracking record, not a direct user insert
     
     def check_all_approvals(self):
         pending = frappe.db.count("Approval Entry", {
@@ -267,4 +264,3 @@ def generate_workflow_diagram(workflow_name):
 5. **Test edge cases** - Test all possible state transitions
 
 Sources: Frappe Workflow Documentation, ERPNext Workflow Patterns
-```

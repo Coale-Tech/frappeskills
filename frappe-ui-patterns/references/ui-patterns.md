@@ -2,8 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `ui-patterns/SKILL.md`.
 
-## Frappe UI Patterns
-
 UI/UX patterns and design guidelines extracted from official Frappe applications.
 
 ### When to use
@@ -417,13 +415,14 @@ All Frappe apps follow a consistent shell:
 | Info/Default | Blue (`bg-blue-100 text-blue-700`) | New, Open, Info |
 | Neutral | Gray (`bg-gray-100 text-gray-700`) | Draft, Cancelled, Closed |
 
-**Badge component usage:**
+**Badge component usage** (color comes from `theme`, not `variant` — see
+[frappe-ui-core-components.md](../../frappe-frontend-development/references/frappe-ui-core-components.md)):
 ```vue
-<Badge variant="success">Active</Badge>
-<Badge variant="warning">Pending</Badge>
-<Badge variant="error">Overdue</Badge>
-<Badge variant="info">New</Badge>
-<Badge variant="subtle">Draft</Badge>
+<Badge theme="green">Active</Badge>
+<Badge theme="orange">Pending</Badge>
+<Badge theme="red">Overdue</Badge>
+<Badge theme="blue">New</Badge>
+<Badge theme="gray">Draft</Badge>
 ```
 
 #### 10) Responsive patterns

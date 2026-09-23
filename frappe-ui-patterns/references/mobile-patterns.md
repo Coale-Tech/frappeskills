@@ -2,8 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `ui-patterns/references/mobile-patterns.md`.
 
-## Mobile Patterns
-
 Responsive design patterns for Frappe applications.
 
 ### Breakpoints

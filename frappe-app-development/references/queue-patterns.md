@@ -2,9 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `enterprise-patterns/references/queue-patterns.md`.
 
-```markdown
-# Queue Patterns Reference
-
 ## Overview
 Background job and queue patterns for enterprise Frappe applications.
 
@@ -149,7 +146,7 @@ def process_large_dataset():
             process_single_record(record.name)
         
         offset += batch_size
-        frappe.db.commit()  # Commit each batch
+        frappe.db.commit()  # unbounded while loop — commit each batch so a mid-run failure doesn't lose already-processed pages
 ```
 
 ### Chunked Enqueueing
@@ -173,8 +170,7 @@ def process_chunk(items, chunk_number):
     """Process a chunk of items"""
     for item in items:
         process_item(item)
-    
-    frappe.db.commit()
+
     frappe.publish_realtime("bulk_progress", {
         "chunk": chunk_number,
         "completed": len(items)
@@ -282,11 +278,9 @@ def long_running_job(items):
             description=f"Processing {i + 1} of {total}"
         )
         
-        # Commit periodically
         if (i + 1) % 100 == 0:
-            frappe.db.commit()
+            frappe.db.commit()  # unbounded items list — bound transaction/lock size on a long-running job
     
-    frappe.db.commit()
 ```
 
 ### Job Status Tracking
@@ -386,4 +380,3 @@ def get_queue_stats():
 ```
 
 Sources: Frappe Background Jobs, RQ (Redis Queue), Python-RQ
-```

@@ -45,7 +45,7 @@ my_app/
 
 **CRITICAL: Filename must match `frappe.scrub(doc.name)`**
 - "Construction Management" → `construction_management.json`
-- Mismatch causes orphan deletion on `bench migrate`!
+- Mismatch causes orphan deletion on `bench --site <site> migrate`!
 
 ## 1. Desktop Icons
 
@@ -305,7 +305,6 @@ no_cache = 1
 
 def get_context(context):
     csrf_token = frappe.sessions.get_csrf_token()
-    frappe.db.commit()
     context = frappe._dict()
     context.csrf_token = csrf_token
     context.boot = get_boot()
@@ -405,11 +404,11 @@ website_route_rules = [
 - [ ] Create `www/` entry point (`.html` + `.py`) for SPA
 - [ ] Update `hooks.py` with `add_to_apps_screen` and `website_route_rules`
 - [ ] Use `frappe-ui/vite` plugin in `vite.config.mjs`
-- [ ] Run `npm run build` then `bench migrate` then `bench build`
+- [ ] Run `npm run build` then `bench --site <site> migrate` then `bench build`
 
 ## Sources
 
-Verified against Frappe v16.9.0 at `<bench>/apps/frappe`:
+Verified against Frappe v16.27.1 at `apps/frappe`:
 - `apps/frappe/frappe/desk/doctype/workspace/workspace.json` — Workspace DocType fields & child tables
 - `apps/frappe/frappe/desk/doctype/workspace_link/workspace_link.json`
 - `apps/frappe/frappe/desk/doctype/workspace_shortcut/workspace_shortcut.json`

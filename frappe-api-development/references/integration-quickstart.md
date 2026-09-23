@@ -235,7 +235,7 @@ permission_query_conditions = {
 
 ## Sources
 
-Verified against Frappe v16.9.0 at `<bench>/apps/frappe` (all cross-referenced files confirmed present in `references/`):
+Verified against Frappe v16.27.1 at `<bench>/apps/frappe` (all cross-referenced files confirmed present in `references/`):
 - `apps/frappe/frappe/model/document.py` — `Document` base class (controller lifecycle)
 - `apps/frappe/frappe/realtime.py` — `publish_realtime`
 - `apps/frappe/frappe/permissions.py` + `apps/frappe/frappe/__init__.py` — `has_permission`

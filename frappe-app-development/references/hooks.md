@@ -318,39 +318,10 @@ def on_submit(doc, method):
         message=f"Your invoice for {doc.grand_total} has been finalized."
     )
 ```
-## Adopted patterns (frappe-skills)
-
-> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `doctype-development/references/hooks-extensions.md`.
-
-### Hooks and extension points
-
-#### hooks.py basics
-- Every app can define `hooks.py` to register events, overrides, and assets.
-- Hooks are discovered by Frappe at runtime and merged across installed apps.
-
-#### Extending DocTypes and controllers
-- `override_doctype_class` replaces a DocType controller class (use sparingly).
-- `extend_doctype_class` (v16+) extends a controller without full replacement; prefer this when available.
-
-#### Events
-- Use `doc_events` to attach handlers to DocType lifecycle events (`before_save`, `validate`, `on_submit`, etc.).
-
-#### Scheduled tasks
-- Use scheduler events in `hooks.py` to run periodic jobs.
-
-#### Client-side extensions
-- Attach form scripts via `doctype_js` and `doctype_list_js` hooks.
-
-#### Server-side overrides
-- Use `override_whitelisted_methods` to replace RPC methods from another app when needed.
-
-Sources: Hooks, Scheduler (official docs)
-
----
 
 ## Sources
 
-Verified against Frappe v16.9.0 (`frappe/__init__.py` `__version__ = "16.9.0"`):
+Verified against Frappe v16.27.1 (`frappe/__init__.py` `__version__ = "16.27.1"`):
 
 - `apps/frappe/frappe/__init__.py` — `whitelist`, `get_list`/`get_all`/`get_value`, `delete_doc`, `rename_doc`, `get_hooks`, and the `frappe.model.document` re-exports (`get_doc`, `new_doc`, `get_cached_doc`, `get_cached_value`, `get_single_value`, `get_last_doc`, `get_single`, `get_lazy_doc`); `cache` / `client_cache` globals
 - `apps/frappe/frappe/model/document.py` — `get_doc` (singledispatch), `new_doc`, `get_cached_doc`, `get_single_value`, `get_last_doc`, `db_set`

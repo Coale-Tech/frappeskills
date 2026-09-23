@@ -2,9 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `enterprise-patterns/references/sla-implementation.md`.
 
-```markdown
-# SLA Implementation Reference
-
 ## Overview
 Service Level Agreement implementation patterns for Frappe applications like CRM and Helpdesk.
 
@@ -322,4 +319,3 @@ def get_sla_performance(filters):
 ```
 
 Sources: Frappe Helpdesk, ERPNext Support Module
-```

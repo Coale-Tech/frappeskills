@@ -2,9 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `api-development/references/rate-limiting.md`.
 
-```markdown
-# Rate Limiting Reference
-
 ## Overview
 Rate limiting protects APIs from abuse and ensures fair resource usage. Frappe provides built-in rate limiting decorators and Redis-based throttling.
 
@@ -311,4 +308,3 @@ def get_rate_limit_stats():
 6. **Have a fallback** — Plan for Redis unavailability
 
 Sources: Rate Limiting, API Security (official docs)
-```

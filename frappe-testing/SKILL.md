@@ -32,9 +32,9 @@ and field copies do not need tests — use a throwaway script instead.
 
 ```python
 import frappe
-from frappe.tests.utils import FrappeTestCase
+from frappe.tests import IntegrationTestCase
 
-class TestSampleDoc(FrappeTestCase):
+class TestSampleDoc(IntegrationTestCase):
     def test_negative_amount_rejected(self):
         doc = frappe.get_doc({"doctype": "Sample Doc", "amount": -5})
         with self.assertRaises(frappe.ValidationError):

@@ -2,9 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `doctype-development/references/naming.md`.
 
-```markdown
-# Naming Patterns Reference
-
 ## Overview
 Frappe provides flexible auto-naming for documents. The naming pattern is configured in the DocType's `autoname` property.
 
@@ -263,4 +260,3 @@ Counters reset based on the date pattern:
 - No date pattern — Never resets
 
 Sources: Naming, Autoname, Naming Series (official docs)
-```

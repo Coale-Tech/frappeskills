@@ -133,7 +133,10 @@ Third-party sync shapes: [references/integration-patterns.md](references/integra
 - [references/api.md](references/api.md) - Whitelisted methods, arguments, responses
 - [references/rest-api.md](references/rest-api.md) - Resource API and Python client
 - [references/database.md](references/database.md) - `frappe.db`, `frappe.qb`, transactions, performance
-- [references/authentication.md](references/authentication.md) - Sessions, API keys, tokens
+- [references/authentication.md](references/authentication.md) - Sessions, API keys, tokens (index)
+- [references/authentication-server.md](references/authentication-server.md) - Server-side permission model, rate limiting, CSRF
+- [references/authentication-client.md](references/authentication-client.md) - frappe-ui client auth, route guards, session timeout
+- [references/authentication-api-keys.md](references/authentication-api-keys.md) - Issuing and validating API keys
 - [references/oauth.md](references/oauth.md) - OAuth 2.0 flows and social login
 - [references/webhooks.md](references/webhooks.md) - Outbound event delivery
 - [references/rate-limiting.md](references/rate-limiting.md) - Throttling configuration

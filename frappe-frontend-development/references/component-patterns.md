@@ -2,8 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `ui-patterns/references/component-patterns.md`.
 
-## Component Patterns
-
 Usage patterns for Frappe UI components in app development.
 
 ### Button Patterns
@@ -98,13 +96,13 @@ Usage patterns for Frappe UI components in app development.
   ]"
 />
 
-<!-- Link to DocType (with async search) -->
-<FormControl
+<!-- Link to DocType — no core FormControl type="link"; build a picker from
+     Autocomplete + a search resource (see frappe-ui-core-components.md) -->
+<Autocomplete
   label="Customer"
-  type="link"
   v-model="form.customer"
-  doctype="Customer"
-  :filters="{ status: 'Active' }"
+  :options="customerOptions.data || []"
+  @update:query="(q) => customerOptions.update({ params: { txt: q, filters: { status: 'Active' } } })"
 />
 ```
 
@@ -304,17 +302,14 @@ const columns = [
 #### Badge variants
 
 ```vue
-<!-- Status badges -->
-<Badge variant="subtle">Draft</Badge>
-<Badge variant="success">Active</Badge>
-<Badge variant="warning">Pending</Badge>
-<Badge variant="error">Overdue</Badge>
+<!-- Status badges — color comes from `theme`, not `variant` -->
+<Badge variant="subtle" theme="gray">Draft</Badge>
+<Badge variant="subtle" theme="green">Active</Badge>
+<Badge variant="subtle" theme="orange">Pending</Badge>
+<Badge variant="subtle" theme="red">Overdue</Badge>
 
 <!-- Count badges -->
-<Badge variant="solid">42</Badge>
-
-<!-- Custom colors -->
-<Badge class="bg-purple-100 text-purple-700">Custom</Badge>
+<Badge variant="solid" theme="gray">42</Badge>
 ```
 
 ### Tabs
@@ -343,7 +338,7 @@ const columns = [
     All <Badge class="ml-2">{{ allCount }}</Badge>
   </Tab>
   <Tab name="open">
-    Open <Badge class="ml-2" variant="warning">{{ openCount }}</Badge>
+    Open <Badge class="ml-2" theme="orange">{{ openCount }}</Badge>
   </Tab>
   <Tab name="closed">
     Closed <Badge class="ml-2">{{ closedCount }}</Badge>

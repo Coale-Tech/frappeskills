@@ -2,30 +2,9 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `printing-templates/SKILL.md`.
 
-## Frappe Printing & Templates
+## Worked examples
 
-Create print formats, email templates, and document templates using Jinja in Frappe.
-
-### When to use
-
-- Creating custom print formats for documents
-- Building email templates with dynamic content
-- Generating PDFs from documents
-- Using Jinja templating in web pages
-- Configuring letter heads for branding
-- Using the Print Format Builder
-
-### Inputs required
-
-- Target DocType for the print format
-- Layout requirements (fields, tables, headers)
-- Whether format is standard (version controlled) or custom (DB-stored)
-- Letter Head / branding requirements
-- PDF generation needs
-
-### Procedure
-
-#### 0) Choose format type
+### Choose format type
 
 | Type | How to Create | Version Controlled | Customizable by User |
 |------|--------------|-------------------|---------------------|
@@ -33,7 +12,7 @@ Create print formats, email templates, and document templates using Jinja in Fra
 | Print Format Builder | Drag-and-drop UI | No (DB) | Yes |
 | Custom HTML (Jinja) | Type "new print format" in awesomebar | Optional | Depends |
 
-#### 1) Create a Jinja print format
+### Create a Jinja print format
 
 Create via awesomebar → "New Print Format":
 1. Set a unique name
@@ -91,7 +70,7 @@ Create via awesomebar → "New Print Format":
 </style>
 ```
 
-#### 2) Use Frappe Jinja API
+### Use Frappe Jinja API
 
 **Data fetching in templates:**
 
@@ -141,7 +120,7 @@ Create via awesomebar → "New Print Format":
 <a href="{{ frappe.get_url() }}/app/sales-order/{{ doc.name }}">View Order</a>
 ```
 
-#### 3) Build email templates
+### Build email templates
 
 ```jinja
 Dear {{ doc.customer_name }},
@@ -159,7 +138,7 @@ Thank you,
 {{ frappe.get_fullname() }}
 ```
 
-#### 4) Generate PDFs programmatically
+### Generate PDFs programmatically
 
 ```python
 import frappe
@@ -192,14 +171,14 @@ frappe.sendmail(
 )
 ```
 
-#### 5) Configure Letter Head
+### Configure Letter Head
 
 1. Navigate to Letter Head list → New
 2. Upload company logo and header image
 3. Set as default for the company
 4. Letter Head appears automatically on print formats
 
-#### 6) Use Jinja filters
+### Use Jinja filters
 
 ```jinja
 {{ doc.customer_name|upper }}        {# UPPERCASE #}
@@ -214,7 +193,7 @@ frappe.sendmail(
 {{ data|tojson }}                    {# Convert to JSON #}
 ```
 
-#### 7) Template inheritance and macros
+### Template inheritance and macros
 
 ```jinja
 {# macros/fields.html #}
@@ -234,54 +213,14 @@ frappe.sendmail(
 </table>
 ```
 
-### Verification
 
-- [ ] Print format renders correctly in Print View
-- [ ] All fields display with proper formatting
-- [ ] PDF generation works without errors
-- [ ] Email templates render with correct data
-- [ ] Letter Head appears on printed documents
-- [ ] Translations work in templates (`_()`)
-- [ ] No XSS risks from unescaped content
+## Pitfalls
 
-### Failure modes / debugging
-
-- **Template syntax error**: Check Jinja delimiters (`{{ }}`, `{% %}`); look for unclosed blocks
-- **Field not rendering**: Verify field name matches DocType schema; check child table access pattern
-- **PDF generation fails**: Check wkhtmltopdf installation; verify print format Jinja is valid
-- **Styling issues in PDF**: Use inline styles; avoid complex CSS; test with Print View first
-- **Permission error in template**: Use `frappe.get_all` (no permission check) vs `frappe.get_list`
-
-### Escalation
-
-- For app-level hooks and structure → `frappe-app-development`
-- For DocType schema questions → `frappe-doctype-development`
-
-### References
-
-- [references/jinja.md](print-formats.md) — Jinja templating and Frappe Jinja API
-- [references/printing.md](print-formats.md) — Print formats and PDF generation
-
-### Guardrails
-
-- **Test with actual data**: Always preview with real documents; edge cases break templates
-- **Handle missing fields gracefully**: Use `{{ doc.field or '' }}` or `{% if doc.field %}`
-- **Use `get_url()` for images**: Never hardcode URLs; use `{{ frappe.utils.get_url() }}/files/...`
-- **Escape user content**: Use `{{ value | e }}` for user-generated content to prevent XSS
-- **Keep styling inline**: PDF generators don't support external CSS; use inline `style` attributes
-
-### Common Mistakes
-
-| Mistake | Why It Fails | Fix |
-|---------|--------------|-----|
-| Wrong Jinja syntax | Template error, blank output | Use `{{ }}` for output, `{% %}` for logic; check closing tags |
-| Missing filters | Raw data displayed | Use `frappe.format()` or `frappe.format_date()` for formatting |
-| Hardcoded URLs | Images/links break across sites | Use `{{ frappe.utils.get_url() }}` for absolute URLs |
-| Accessing child table wrong | Empty or error | Use `{% for item in doc.items %}` not `doc.child_table_name` |
-| Complex CSS in print format | Styling lost in PDF | Use inline styles, simple layouts, `<table>` for structure |
-| Not handling None values | `'None'` string in output | Use `{{ value or '' }}` or `{% if value %}` |
-
-> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `printing-templates/references/printing.md`.
+- **Missing fields**: guard with `{{ doc.field or '' }}` or `{% if doc.field %}`; `None` otherwise prints as the string `None`.
+- **User-generated content**: escape with `{{ value | e }}`; use `|safe` only on trusted HTML.
+- **Absolute URLs**: build with `{{ frappe.utils.get_url() }}`, never hardcode a host.
+- **PDF styling**: prefer inline styles and `<table>` layout; the PDF engine lags modern browsers.
+- **Template syntax errors**: check `{{ }}` / `{% %}` delimiters and unclosed blocks; preview in Print View before exporting PDF.
 
 ## Printing and Print Formats
 

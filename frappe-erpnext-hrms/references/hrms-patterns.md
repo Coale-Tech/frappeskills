@@ -16,7 +16,7 @@ Frappe HRMS ("Frappe HR") is an HR and Payroll app built on the Frappe Framework
 ```bash
 bench get-app hrms
 bench --site my-site install-app hrms
-bench migrate
+bench --site my-site migrate
 ```
 
 ---
@@ -713,7 +713,7 @@ Key `hooks.py` declarations that shape how HRMS integrates with Frappe/ERPNext:
 6. **Set up Shift Types** before enabling auto-attendance
 7. **Use Appraisal Templates** for standardized reviews
 8. **Configure leave approvers** in Employee records
-9. **Always run `bench migrate`** after HRMS updates
+9. **Always run `bench --site <site> migrate`** after HRMS updates
 
 ---
 

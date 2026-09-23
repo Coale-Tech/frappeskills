@@ -2,9 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `api-development/references/oauth.md`.
 
-```markdown
-# OAuth 2.0 Integration Reference
-
 ## Overview
 Frappe supports OAuth 2.0 for secure third-party integrations. You can act as both an OAuth Provider (let others authenticate with your Frappe site) and OAuth Consumer (authenticate with external OAuth providers).
 
@@ -324,4 +321,3 @@ def handle_oauth_error(error, error_description=None):
 ```
 
 Sources: OAuth 2.0, OpenID Connect, Social Login (official docs)
-```

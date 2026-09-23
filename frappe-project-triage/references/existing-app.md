@@ -50,7 +50,7 @@ bench --site <site> install-app <app-name>
 ## Step 4: Enable developer mode
 
 ```bash
-bench set-config -g developer_mode 1
+bench --site <site> set-config developer_mode 1
 ```
 
 ## Step 5: Build / modify features

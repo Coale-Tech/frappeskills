@@ -2,31 +2,29 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `ui-patterns/references/app-shell-patterns.md`.
 
-## App Shell Patterns
-
 Detailed layouts for Frappe app shells derived from official apps.
 
 ### CRM Shell Structure
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  🔲 Frappe CRM        Search...                          🔔  👤 User Menu  │
+│  [#] Frappe CRM       Search...                          (!)  @ User Menu  │
 ├──────────────┬──────────────────────────────────────────────────────────────┤
 │              │                                                              │
-│  📊 Leads    │  Leads                      [+ New Lead]                    │
+│  Leads       │  Leads                      [+ New Lead]                    │
 │     (124)    │  ─────────────────────────────────────────                  │
-│              │  🔍 Search    [Status ▾] [Source ▾]    [List|Kanban|Grid]   │
-│  💰 Deals    │                                                              │
+│              │  Search    [Status ▾] [Source ▾]    [List|Kanban|Grid]      │
+│  Deals       │                                                              │
 │     (67)     │  ┌─────────────────────────────────────────────────────┐    │
-│              │  │ ☑ │ 👤 John Doe           │ Hot    │ 2 hours ago    │    │
-│  👥 Contacts │  │   │    Acme Corp          │        │                │    │
+│              │  │[x] │ @ John Doe            │ Hot    │ 2 hours ago    │    │
+│  Contacts    │  │   │    Acme Corp          │        │                │    │
 │              │  ├───┼─────────────────────────────────────────────────┤    │
-│  🏢 Orgs     │  │ ☐ │ 👤 Jane Smith         │ Warm   │ Yesterday      │    │
+│  Orgs        │  │[ ] │ @ Jane Smith          │ Warm   │ Yesterday      │    │
 │              │  │   │    Tech Inc           │        │                │    │
-│  📅 Activities│  └───┴─────────────────────────────────────────────────┘    │
+│  Activities  │  └───┴─────────────────────────────────────────────────┘    │
 │              │                                                              │
 │  ──────────  │                                                              │
-│  ⚙️ Settings │                                                              │
+│  Settings    │                                                              │
 │              │                                                              │
 └──────────────┴──────────────────────────────────────────────────────────────┘
 ```
@@ -35,20 +33,20 @@ Detailed layouts for Frappe app shells derived from official apps.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  🔲 Frappe CRM        Search...                          🔔  👤 User Menu  │
+│  [#] Frappe CRM       Search...                          (!)  @ User Menu  │
 ├──────────────┬─────────────────────────────┬────────────────────────────────┤
 │              │                             │                                │
-│  📊 Leads    │  Leads              [+ New] │  ✕  Lead: John Doe            │
+│  Leads       │  Leads              [+ New] │  x  Lead: John Doe             │
 │     (124)    │  ─────────────────────────  │  ────────────────────────────  │
 │              │                             │                                │
-│  💰 Deals    │  ┌─────────────────────┐   │  [Details] [Activity] [Notes]  │
-│     (67)     │  │ 👤 John Doe    Hot  │◀──│                                │
+│  Deals       │  ┌─────────────────────┐   │  [Details] [Activity] [Notes]  │
+│     (67)     │  │ @ John Doe     Hot  │◀──│                                │
 │              │  │    Acme Corp        │   │  Name: John Doe                │
-│  👥 Contacts │  ├─────────────────────┤   │  Email: john@acme.com          │
-│              │  │ 👤 Jane Smith  Warm │   │  Phone: +1 555-0123            │
-│  🏢 Orgs     │  │    Tech Inc         │   │  Company: Acme Corp            │
-│              │  ├─────────────────────┤   │  Status: Hot 🔥                │
-│              │  │ 👤 Bob Wilson  Cold │   │  Source: Website               │
+│  Contacts    │  ├─────────────────────┤   │  Email: john@acme.com          │
+│              │  │ @ Jane Smith   Warm │   │  Phone: +1 555-0123            │
+│  Orgs        │  │    Tech Inc         │   │  Company: Acme Corp            │
+│              │  ├─────────────────────┤   │  Status: Hot                  │
+│              │  │ @ Bob Wilson   Cold │   │  Source: Website               │
 │              │  │    StartupXYZ       │   │                                │
 │              │  └─────────────────────┘   │  [Convert to Deal]             │
 │              │                             │                                │
@@ -59,25 +57,25 @@ Detailed layouts for Frappe app shells derived from official apps.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  🎫 Helpdesk          Search tickets...                  🔔  👤 Agent      │
+│  Helpdesk             Search tickets...                  (!)  @ Agent      │
 ├──────────────┬──────────────────────────────────────────────────────────────┤
 │              │                                                              │
-│  📥 Tickets  │  Tickets                    [+ New Ticket]                  │
+│  Tickets     │  Tickets                    [+ New Ticket]                  │
 │              │  ─────────────────────────────────────────                  │
 │  VIEWS       │                                                              │
 │  All (234)   │  ┌─────────────────────────────────────────────────────┐    │
-│  Mine (12)   │  │ #1234 │ Cannot login           │ 🔴 High │ 2h ago  │    │
+│  Mine (12)   │  │ #1234 │ Cannot login           │ High    │ 2h ago  │    │
 │  Unassigned  │  │       │ john@customer.com      │ Open    │ SLA: 4h │    │
 │    (45)      │  ├───────┼────────────────────────┼─────────┼─────────┤    │
-│              │  │ #1233 │ Payment issue          │ 🟡 Med  │ 5h ago  │    │
+│              │  │ #1233 │ Payment issue          │ Med     │ 5h ago  │    │
 │  PRIORITY    │  │       │ jane@customer.com      │ Working │ SLA: OK │    │
-│  🔴 High (8) │  ├───────┼────────────────────────┼─────────┼─────────┤    │
-│  🟡 Med (23) │  │ #1232 │ Feature request        │ 🟢 Low  │ 1d ago  │    │
-│  🟢 Low (45) │  │       │ bob@customer.com       │ Open    │         │    │
+│  High (8)    │  ├───────┼────────────────────────┼─────────┼─────────┤    │
+│  Med (23)    │  │ #1232 │ Feature request        │ Low     │ 1d ago  │    │
+│  Low (45)    │  │       │ bob@customer.com       │ Open    │         │    │
 │              │  └───────┴────────────────────────┴─────────┴─────────┘    │
 │  ──────────  │                                                              │
-│  📊 Reports  │                                                              │
-│  ⚙️ Settings │                                                              │
+│  Reports     │                                                              │
+│  Settings    │                                                              │
 └──────────────┴──────────────────────────────────────────────────────────────┘
 ```
 
@@ -85,23 +83,23 @@ Detailed layouts for Frappe app shells derived from official apps.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  👥 HRMS               Search...                         🔔  👤 Employee   │
+│  HRMS                  Search...                         (!)  @ Employee   │
 ├──────────────┬──────────────────────────────────────────────────────────────┤
 │              │                                                              │
-│  🏠 Home     │  My Dashboard                                               │
+│  Home        │  My Dashboard                                               │
 │              │  ─────────────────────────────────────────                  │
 │  ME          │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐   │
-│  📅 Leave    │  │ Leave Balance │  │ Attendance    │  │ Pending       │   │
-│  ⏰ Attendance│  │               │  │               │  │ Approvals     │   │
-│  💰 Payslips │  │  PL: 12 days  │  │  Present: 22  │  │               │   │
-│  📝 Requests │  │  SL: 5 days   │  │  Absent: 1    │  │    3          │   │
+│  Leave       │  │ Leave Balance │  │ Attendance    │  │ Pending       │   │
+│  Attendance  │  │               │  │               │  │ Approvals     │   │
+│  Payslips    │  │  PL: 12 days  │  │  Present: 22  │  │               │   │
+│  Requests    │  │  SL: 5 days   │  │  Absent: 1    │  │    3          │   │
 │              │  │  CL: 3 days   │  │  WFH: 2       │  │               │   │
 │  TEAM        │  └───────────────┘  └───────────────┘  └───────────────┘   │
-│  👥 Directory│                                                              │
-│  📊 Reports  │  Recent Activity                                            │
+│  Directory   │                                                              │
+│  Reports     │  Recent Activity                                            │
 │              │  ─────────────────                                          │
 │  ──────────  │  • Leave request approved - 2 hours ago                     │
-│  ⚙️ Settings │  • Payslip generated - Yesterday                            │
+│  Settings    │  • Payslip generated - Yesterday                            │
 │              │  • Attendance marked - Today 9:00 AM                        │
 └──────────────┴──────────────────────────────────────────────────────────────┘
 ```
@@ -198,11 +196,6 @@ const appTitle = 'My App'
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
-
-const route = useRoute()
-
 const navigation = [
   { name: 'Leads', icon: 'users', to: '/leads', count: 124 },
   { name: 'Deals', icon: 'dollar-sign', to: '/deals', count: 67 },

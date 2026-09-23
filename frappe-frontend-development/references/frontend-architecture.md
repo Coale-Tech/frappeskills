@@ -4,8 +4,9 @@ The **app-level scaffold** a new Frappe v16 Vue-3 + frappe-ui SPA copies:
 bootstrap, stores vs composables vs data-layer, meta caching, router+guard,
 socket invalidation, vite/build wiring, session/auth, and TypeScript conventions.
 
-[frappe-ui-components.md](frappe-ui-components.md) covers per-component API (createResource,
-createListResource, FormControl, LinkField). This file covers the **wiring
+[frappe-ui-components.md](frappe-ui-components.md) covers per-component API
+(createResource, createListResource, FormControl, Autocomplete-based link
+pickers). This file covers the **wiring
 around** those components. Source-verified against two production apps:
 
 - **CRM** `apps/crm/frontend` — mature JS SPA (frappe-ui beta.19,
@@ -305,13 +306,13 @@ plugins.unshift(frappeui({
 - **Multiple SPAs from one config** (Insights): `build.rollupOptions.input =
   { main: index.html, insights_v2: index_v2.html }`, then `cp` each built entry
   into `../insights/www/<name>.html`. `output.manualChunks:{ 'frappe-ui':['frappe-ui'] }`.
-- **frappe-ui version gotcha (verified 2026-07-21):** CRM pins `frappe-ui@1.0.0-beta.19`;
-  Insights pins `frappe-ui@0.1.261` — **different major lines**, so their component
-  APIs and imports diverge (don't copy an Insights snippet into a CRM-era app or
-  vice-versa without checking). On <bench> (frappe `16.27.1`) **CRM is installed,
-  Insights is not** — so for a new v16 app **follow CRM's `1.0.0-beta.x` line** (the
-  modern reference here) and always **pin frappe-ui explicitly** in `package.json`;
-  the API moves between these lines.
+- **frappe-ui version gotcha:** CRM pins `frappe-ui@1.0.0-beta.19`; Insights pins
+  `frappe-ui@0.1.261` — **different major lines**, so their component APIs and
+  imports diverge (don't copy an Insights snippet into a CRM-era app or vice-versa
+  without checking). Match whichever line the app you're extending already has
+  installed; for a brand-new v16 app **follow CRM's `1.0.0-beta.x` line** (the
+  modern reference here) and always **pin frappe-ui explicitly** in
+  `package.json` — the API moves between these lines.
 
 ---
 

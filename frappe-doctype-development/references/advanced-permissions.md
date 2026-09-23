@@ -2,9 +2,6 @@
 
 > Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `enterprise-patterns/references/advanced-permissions.md`.
 
-```markdown
-# Advanced Permissions Reference
-
 ## Overview
 Complex permission patterns for enterprise Frappe applications.
 
@@ -105,7 +102,7 @@ def add_user_permission(user, doctype, value):
         "allow": doctype,
         "for_value": value,
         "is_default": 0
-    }).insert(ignore_permissions=True)
+    }).insert(ignore_permissions=True)  # trusted server code granting a permission record the requesting user cannot create directly
 ```
 
 ## Row-Level Security
@@ -307,7 +304,7 @@ def create_permission_log(**kwargs):
     frappe.get_doc({
         "doctype": "Permission Log",
         **kwargs
-    }).insert(ignore_permissions=True)
+    }).insert(ignore_permissions=True)  # background job (frappe.enqueue) writing a system audit log, not a user-facing insert
 ```
 
 ## Best Practices
@@ -319,4 +316,3 @@ def create_permission_log(**kwargs):
 5. **Use has_permission sparingly** - It's called on every read, keep it fast
 
 Sources: Frappe Permission System, ERPNext Permissions
-```

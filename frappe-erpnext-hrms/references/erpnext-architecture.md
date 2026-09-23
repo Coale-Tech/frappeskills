@@ -218,6 +218,19 @@ Series prefixes (e.g. `ACC-SINV-.YYYY.-`) are defined in each DocType JSON's `na
 options. Amendments append `-1`, `-2` to the original via `amended_from`. Do not hardcode
 `name`; let the series generate it.
 
+### Link-field query overrides
+
+`erpnext/controllers/queries.py` supplies the search functions behind Link fields
+(`item_query` :177, `employee_query` :24, `lead_query` :94, `tax_account_query` :130,
+`get_batch_no` :402, `warehouse_query` :731, `get_filtered_dimensions` :652). Each has the
+standard link-query signature `(doctype, txt, searchfield, start, page_len, filters)` and is
+wired to a field via `"query"` in the DocType JSON's Link field options, not a hook.
+
+To override which query function backs a link field **without editing core**, use Frappe's
+`standard_queries` hook (`frappe/hooks.py:169`, consumed by `frappe/desk/search.py:123-126`) —
+ERPNext itself only sets it for `User`. A custom app can add its own entry keyed by DocType to
+redirect the default link search to a custom function.
+
 ---
 
 ## Sources
@@ -236,5 +249,7 @@ Verified against ERPNext v16.6.1 (`apps/erpnext/erpnext/__init__.py:9`):
 - `apps/erpnext/erpnext/stock/stock_ledger.py` — `make_sl_entries` (:57), `make_entry` (:229)
 - `apps/erpnext/erpnext/accounts/party.py` — `get_party_details` (:59), `get_party_account` (:421), `validate_party_accounts` (:579), `get_due_date` (:624), `set_taxes` (:721)
 - `apps/erpnext/erpnext/__init__.py` — `get_default_company` (:12), `get_default_currency` (:28), `get_default_cost_center` (:35), `is_perpetual_inventory_enabled` (:78)
+- `apps/erpnext/erpnext/controllers/queries.py` — `item_query` (:177), `employee_query` (:24), `warehouse_query` (:731), `get_filtered_dimensions` (:652)
+- `apps/frappe/frappe/hooks.py` — `standard_queries` (:169); `apps/frappe/frappe/desk/search.py` (:123-126)
 - `apps/erpnext/erpnext/hooks.py` — `doc_events` (:336)
 - DocType bases: `sales_invoice.py:57`, `sales_order.py:53`, `delivery_note.py:24` (`on_submit` :460), `purchase_invoice.py:53`, `purchase_order.py:35`, `stock_entry.py:87`

@@ -96,9 +96,13 @@ than mocking them — validation depends on them.
 ## References
 
 - [references/erpnext-workflows.md](references/erpnext-workflows.md) - Sales, purchase, stock, accounting, manufacturing (index)
-- [references/erpnext-architecture.md](references/erpnext-architecture.md) - Controller hierarchy, transaction lifecycle, GL/SLE posting
-- [references/erpnext-transaction-modules.md](references/erpnext-transaction-modules.md) - Accounting, stock, selling, buying
-- [references/erpnext-other-modules.md](references/erpnext-other-modules.md) - Manufacturing, CRM, projects, assets, extending ERPNext
+- [references/erpnext-architecture.md](references/erpnext-architecture.md) - Controller hierarchy, transaction lifecycle, GL/SLE posting, link-field query overrides
+- [references/erpnext-accounting.md](references/erpnext-accounting.md) - GL/Payment Ledger, invoices, Payment/Journal Entry, tax templates, Accounting Dimensions, Budget, withholding tax
+- [references/erpnext-stock.md](references/erpnext-stock.md) - Stock Entry, Bin, valuation APIs, Serial and Batch Bundle, Repost Item Valuation, Landed Cost Voucher
+- [references/erpnext-selling-buying.md](references/erpnext-selling-buying.md) - Sell/buy document chains, mapper functions, `get_item_details`, Pricing Rule, POS Invoice
+- [references/erpnext-manufacturing.md](references/erpnext-manufacturing.md) - BOM, Work Order, Job Card, Production Plan, Subcontracting
+- [references/erpnext-projects-assets-support.md](references/erpnext-projects-assets-support.md) - Projects, Assets and depreciation, Quality Management, Support, Maintenance
+- [references/erpnext-extending.md](references/erpnext-extending.md) - Hook points ERPNext uses to extend itself: `extend_doctype_class`, `doc_events`, `scheduler_events`, `regional_overrides`
 - [references/hrms-patterns.md](references/hrms-patterns.md) - Employee, leave, attendance, payroll, recruitment
 
 ## Guardrails

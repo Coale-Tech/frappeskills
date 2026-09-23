@@ -30,5 +30,21 @@ for root in "${ROOTS[@]}"; do
   [ -L "$root/frappe-app-dev" ] && rm -f "$root/frappe-app-dev" && echo "removed stale link $root/frappe-app-dev"
 done
 
+# omp: /frappe slash command and the frappe-dev agent (all skills preloaded).
+if [ -d "$HOME/.omp/agent" ]; then
+  for kind in commands agents; do
+    mkdir -p "$HOME/.omp/agent/$kind"
+    for src in "$REPO/omp/$kind"/*.md; do
+      target="$HOME/.omp/agent/$kind/$(basename "$src")"
+      if [ -e "$target" ] && [ ! -L "$target" ]; then
+        echo "refusing to replace real file: $target" >&2
+        exit 1
+      fi
+      ln -sfn "$src" "$target"
+      echo "linked $target"
+    done
+  done
+fi
+
 [ "$roots" -gt 0 ] || { echo "no skill root found (~/.claude/skills)" >&2; exit 1; }
 echo "entry point: frappe-router"

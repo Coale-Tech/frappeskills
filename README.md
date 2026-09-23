@@ -66,6 +66,13 @@ git clone git@github.com:Coale-Tech/frappeskills.git ~/.claude/skills-src/frappe
 Edit in the clone, commit from there — the symlinks mean exactly one copy exists
 on disk.
 
+For omp it also links two extras from `omp/` into `~/.omp/agent/`:
+
+- `/frappe <task>`: loads `frappe-router` and the skills it routes the task
+  to. If the task includes the word `all`, it reads all 19 skills instead.
+- `frappe-dev` agent: a task agent with all 19 skills preloaded, for large
+  implementation work.
+
 For any other agent runtime, point its skill root at this directory or copy the
 skill folders into it.
 

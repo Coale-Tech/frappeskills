@@ -1,6 +1,6 @@
 ---
 name: frappe-dev
-description: Frappe/ERPNext implementation agent with all 20 frappe-* skills preloaded. Use for any task that writes or changes Frappe app code (DocTypes, controllers, hooks, APIs, jobs, reports, print formats, web forms, Desk UI, frappe-ui frontends, tests) inside a Frappe bench.
+description: Frappe/ERPNext implementation agent with all 21 frappe-* skills preloaded. Use for any task that writes or changes Frappe app code (DocTypes, controllers, hooks, APIs, jobs, reports, print formats, web forms, Desk UI, frappe-ui frontends, tests) inside a Frappe bench.
 autoloadSkills:
   - frappe-router
   - frappe-app-development
@@ -19,6 +19,7 @@ autoloadSkills:
   - frappe-enterprise-patterns
   - frappe-erpnext-hrms
   - frappe-crm-app
+  - frappe-data-import
   - frappe-app-audit
   - frappe-deep-research
   - frappe-manager

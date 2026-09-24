@@ -37,6 +37,7 @@ erpnext 16.6.x, hrms 16.4.x) with v15 notes throughout.
 | Bench CLI, site management, broken bench recovery | → `frappe-bench-operations` |
 | ERPNext or HRMS domain workflows | → `frappe-erpnext-hrms` |
 | Frappe CRM app: Lead/Deal pipeline, org-hierarchy permissions, telephony/WhatsApp | → `frappe-crm-app` |
+| Convert a raw Excel sheet into a Data Import CSV/XLSX and bulk load records | → `frappe-data-import` |
 | Assess a whole app against framework standards | → `frappe-app-audit` |
 | "How does Frappe actually do X" against installed source | → `frappe-deep-research` |
 
@@ -55,6 +56,7 @@ Before deep work, run `frappe-project-triage` to establish:
 - Custom frontend = `frappe-frontend-development` + `frappe-design-tokens` + `frappe-api-development`
 - Document workflow = `frappe-doctype-development` + `frappe-printing-templates` + `frappe-reports`
 - Enterprise app = `frappe-enterprise-patterns` + `frappe-doctype-development`
+- Bulk data load from a spreadsheet = `frappe-data-import` + `frappe-doctype-development` (to confirm target fields)
 - Unexplained framework behaviour = `frappe-deep-research` + the owning skill
 
 ## Quick decision tree
@@ -76,6 +78,7 @@ Docker dev env?                       → frappe-manager
 Sales / stock / payroll semantics?    → frappe-erpnext-hrms
 Frappe CRM Lead/Deal pipeline?        → frappe-crm-app
 Whole-app quality question?           → frappe-app-audit
+Loading a spreadsheet into records?   → frappe-data-import
 "How does Frappe do X?"               → frappe-deep-research
 ```
 

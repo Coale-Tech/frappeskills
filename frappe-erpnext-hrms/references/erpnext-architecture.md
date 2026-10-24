@@ -71,7 +71,7 @@ child table) rather than hardcoding a warehouse name.
 
 ---
 
-## Controller Hierarchy (verified v16.6.1)
+## Controller Hierarchy (verified ERPNext 16.50.0)
 
 ERPNext transaction DocTypes do **not** subclass `frappe.model.document.Document` directly.
 They inherit a chain of controllers, each adding a layer of behavior. Confirmed against
@@ -79,44 +79,44 @@ They inherit a chain of controllers, each adding a layer of behavior. Confirmed 
 
 ```
 frappe.model.document.Document
-└── StatusUpdater              erpnext/controllers/status_updater.py:180
+└── StatusUpdater              erpnext/controllers/status_updater.py:181
     └── TransactionBase        erpnext/utilities/transaction_base.py:20   (NOT under controllers/)
-        └── AccountsController  erpnext/controllers/accounts_controller.py:103
-            └── StockController erpnext/controllers/stock_controller.py:56
+        └── AccountsController  erpnext/controllers/accounts_controller.py:114
+            └── StockController erpnext/controllers/stock_controller.py:101
                 ├── SellingController        erpnext/controllers/selling_controller.py:18
-                └── SubcontractingController erpnext/controllers/subcontracting_controller.py:26
-                    └── BuyingController     erpnext/controllers/buying_controller.py:29
+                └── SubcontractingController erpnext/controllers/subcontracting_controller.py:27
+                    └── BuyingController     erpnext/controllers/buying_controller.py:33
 ```
 
 > **Naming note (corrects common assumptions):** there is **no** class named
 > `TransactionController` or `TaxesAndTotalsController` in the source. Tax/total math lives in
 > the helper class `calculate_taxes_and_totals` (`erpnext/controllers/taxes_and_totals.py:27`),
 > which is instantiated by `AccountsController.calculate_taxes_and_totals()`
-> (`accounts_controller.py:733`) — it is a plain helper, not a controller subclass.
+> (`accounts_controller.py:863`) — it is a plain helper, not a controller subclass.
 
 ### What each layer provides
 
 | Class | File | Responsibility (verified methods) |
 |-------|------|-----------------------------------|
-| **StatusUpdater** | `controllers/status_updater.py:180` | `update_prevdoc_status`, `update_qty`, over-delivery/over-billing validation, percent-billed/received status. Raises `OverAllowanceError`. |
+| **StatusUpdater** | `controllers/status_updater.py:181` | `update_prevdoc_status`, `update_qty`, over-delivery/over-billing validation, percent-billed/received status. Raises `OverAllowanceError`. |
 | **TransactionBase** | `utilities/transaction_base.py:20` | `validate_posting_time`, contact/address fetch, UOM & duplicate-row validation, rate/currency helpers shared by all transactions. |
-| **AccountsController** | `controllers/accounts_controller.py:103` | Core: `validate()` (217), `set_missing_values()` (726), `calculate_taxes_and_totals()` (733), `validate_qty_is_not_zero()` (1443), payment schedule, party accounts, multi-currency, advances, `on_cancel()` (1955). Raises `AccountMissingError`, `InvalidQtyError`. |
-| **StockController** | `controllers/stock_controller.py:56` | `validate()` (57), `make_gl_entries()` (215) for stock/COGS GL, serial/batch bundle, quality inspection (`QualityInspectionRequiredError`), `repost_future_sle_and_gle`, valuation. |
-| **SellingController** | `controllers/selling_controller.py:18` | `validate()` (59), `set_missing_values()` (109), `set_total_in_words()` (194), `update_stock_ledger()` (650) for outward stock, selling price list, customer/commission logic. |
-| **SubcontractingController** | `controllers/subcontracting_controller.py:26` | Subcontracting BOM/raw-material consumption; base for `BuyingController`. |
-| **BuyingController** | `controllers/buying_controller.py:29` | `validate()` (33), `set_missing_values()` (208), `set_total_in_words()` (384), `update_stock_ledger()` (732) for inward stock, `on_submit()` (928)/`on_cancel()` (942), supplier defaults, landed cost. |
+| **AccountsController** | `controllers/accounts_controller.py:114` | Core: `validate()` (265), `set_missing_values()` (856), `calculate_taxes_and_totals()` (863), `validate_qty_is_not_zero()` (1592), payment schedule, party accounts, multi-currency, advances, `on_cancel()` (2106). Raises `AccountMissingError`, `InvalidQtyError`. |
+| **StockController** | `controllers/stock_controller.py:101` | `validate()` (107), `make_gl_entries()` (333) for stock/COGS GL, serial/batch bundle, quality inspection (`QualityInspectionRequiredError`), `repost_future_sle_and_gle`, valuation. |
+| **SellingController** | `controllers/selling_controller.py:18` | `validate()` (51), `set_missing_values()` (102), `set_total_in_words()` (187), `update_stock_ledger()` (653) for outward stock, selling price list, customer/commission logic. |
+| **SubcontractingController** | `controllers/subcontracting_controller.py:27` | Subcontracting BOM/raw-material consumption; base for `BuyingController`. |
+| **BuyingController** | `controllers/buying_controller.py:33` | `validate()` (37), `set_missing_values()` (206), `set_total_in_words()` (401), `update_stock_ledger()` (828) for inward stock, `on_submit()` (1035)/`on_cancel()` (1049), supplier defaults, landed cost. |
 | `calculate_taxes_and_totals` (helper) | `controllers/taxes_and_totals.py:27` | Item amount, tax rows, grand total, rounding, in-words — invoked from `AccountsController`. |
 
 ### Which controller a DocType subclasses (verified)
 
 | DocType | Base class | File |
 |---------|-----------|------|
-| Sales Invoice | `SellingController` | `accounts/doctype/sales_invoice/sales_invoice.py:57` |
-| Sales Order | `SellingController` | `selling/doctype/sales_order/sales_order.py:53` |
-| Delivery Note | `SellingController` | `stock/doctype/delivery_note/delivery_note.py:24` |
-| Purchase Invoice | `BuyingController` | `accounts/doctype/purchase_invoice/purchase_invoice.py:53` |
-| Purchase Order | `BuyingController` | `buying/doctype/purchase_order/purchase_order.py:35` |
-| Stock Entry | `StockController, SubcontractingInwardController` | `stock/doctype/stock_entry/stock_entry.py:87` |
+| Sales Invoice | `SellingController` | `accounts/doctype/sales_invoice/sales_invoice.py:64` |
+| Sales Order | `SellingController` | `selling/doctype/sales_order/sales_order.py:70` |
+| Delivery Note | `SellingController` | `stock/doctype/delivery_note/delivery_note.py:27` |
+| Purchase Invoice | `BuyingController` | `accounts/doctype/purchase_invoice/purchase_invoice.py:58` |
+| Purchase Order | `BuyingController` | `buying/doctype/purchase_order/purchase_order.py:36` |
+| Stock Entry | `StockController, SubcontractingInwardController` | `stock/doctype/stock_entry/stock_entry.py:125` |
 
 ### When to subclass which
 
@@ -132,7 +132,7 @@ frappe.model.document.Document
 
 ---
 
-## Transaction Lifecycle & Ledger Posting (verified v16.6.1)
+## Transaction Lifecycle & Ledger Posting (verified ERPNext 16.50.0)
 
 ### Event order on a submittable transaction
 
@@ -152,7 +152,7 @@ valuation computed while writing SLEs.
 
 ### Delivery Note `on_submit` (concrete, verified)
 
-`stock/doctype/delivery_note/delivery_note.py:460-492` — canonical outward-stock + GL order:
+`stock/doctype/delivery_note/delivery_note.py:448-483` — canonical outward-stock + GL order:
 
 ```python
 def on_submit(self):
@@ -167,7 +167,7 @@ def on_submit(self):
 
 The comment in source is explicit: *"Updating stock ledger should always be called after
 updating prevdoc status, because updating reserved qty in bin depends upon updated delivered
-qty in SO"* (`delivery_note.py:488`). `on_cancel` mirrors this and calls
+qty in SO"* (`delivery_note.py:476`). `on_cancel` mirrors this and calls
 `make_gl_entries_on_cancel()` instead.
 
 ### General Ledger posting path
@@ -177,9 +177,9 @@ qty in SO"* (`delivery_note.py:488`). `on_cancel` mirrors this and calls
 | Function | Line | Role |
 |----------|------|------|
 | `make_gl_entries(gl_map, cancel=False, adv_adj=False, ...)` | 29 | Entry point. Validates, processes, and writes GL Entry rows. |
-| `process_gl_map(gl_map, merge_entries=True, ...)` | 189 | Round-off, drop zero-value rows, merge. |
-| `merge_similar_entries(gl_map, ...)` | 274 | Collapse rows with same account/party/dimensions. |
-| `make_entry(args, adv_adj, update_outstanding, ...)` | 425 | Creates one `GL Entry` doc (`ignore_permissions = 1`). |
+| `process_gl_map(gl_map, merge_entries=True, ...)` | 190 | Round-off, drop zero-value rows, merge. |
+| `merge_similar_entries(gl_map, ...)` | 275 | Collapse rows with same account/party/dimensions. |
+| `make_entry(args, adv_adj, update_outstanding, ...)` | 426 | Creates one `GL Entry` doc (`ignore_permissions = 1`). |
 
 Controllers build a `gl_map` (list of dicts, usually via `self.get_gl_dict(...)`) and call
 `make_gl_entries(gl_map)`. **Never insert `GL Entry` docs by hand** — go through the parent
@@ -191,12 +191,12 @@ transaction's `make_gl_entries()`.
 
 | Function | Line | Role |
 |----------|------|------|
-| `make_sl_entries(sl_entries, allow_negative_stock=False, ...)` | 57 | Entry point; writes `Stock Ledger Entry` rows and updates `Bin`. |
-| `make_entry(args, ...)` | 229 | Creates one `Stock Ledger Entry` doc. |
+| `make_sl_entries(sl_entries, allow_negative_stock=False, ...)` | 109 | Entry point; writes `Stock Ledger Entry` rows and updates `Bin`. |
+| `make_entry(args, ...)` | 253 | Creates one `Stock Ledger Entry` doc. |
 | `update_entries_after(...)` | — | Recomputes running qty/valuation for all SLEs after a given point (backdated/repost). |
 
-`SellingController.update_stock_ledger()` (`selling_controller.py:650`) and
-`BuyingController.update_stock_ledger()` (`buying_controller.py:732`) assemble the `sl_entries`
+`SellingController.update_stock_ledger()` (`selling_controller.py:653`) and
+`BuyingController.update_stock_ledger()` (`buying_controller.py:828`) assemble the `sl_entries`
 list and call `make_sl_entries()`. Perpetual inventory (`is_perpetual_inventory_enabled(company)`,
 `erpnext/__init__.py:78`) gates whether stock movements also produce GL entries.
 
@@ -204,11 +204,11 @@ list and call `make_sl_entries()`. Perpetual inventory (`is_perpetual_inventory_
 
 | Function | Line | Purpose |
 |----------|------|---------|
-| `get_party_details(party, party_type="Customer", ...)` | 59 | `@frappe.whitelist()` — resolve address, contact, tax template, payment terms, currency, price list for a customer/supplier. Called from client forms. |
-| `get_party_account(party_type, party, company, ...)` | 421 | Receivable/Payable account: party record → group → company default. |
-| `validate_party_accounts(doc)` | 579 | Ensures party account currency matches company. |
-| `get_due_date(posting_date, party_type, party, ...)` | 624 | Due date from the party's Payment Terms Template. |
-| `set_taxes(party, party_type, posting_date, ...)` | 721 | Resolve the applicable tax template for a party. |
+| `get_party_details(party, party_type="Customer", ...)` | 78 | `@frappe.whitelist()` — resolve address, contact, tax template, payment terms, currency, price list for a customer/supplier. Called from client forms. |
+| `get_party_account(party_type, party, company, ...)` | 460 | Receivable/Payable account: party record → group → company default. |
+| `validate_party_accounts(doc)` | 637 | Ensures party account currency matches company. |
+| `get_due_date(posting_date, party_type, party, ...)` | 682 | Due date from the party's Payment Terms Template. |
+| `set_taxes(party, party_type, posting_date, ...)` | 779 | Resolve the applicable tax template for a party. |
 
 ### Naming series
 
@@ -221,8 +221,8 @@ options. Amendments append `-1`, `-2` to the original via `amended_from`. Do not
 ### Link-field query overrides
 
 `erpnext/controllers/queries.py` supplies the search functions behind Link fields
-(`item_query` :177, `employee_query` :24, `lead_query` :94, `tax_account_query` :130,
-`get_batch_no` :402, `warehouse_query` :731, `get_filtered_dimensions` :652). Each has the
+(`item_query` :181, `employee_query` :28, `lead_query` :98, `tax_account_query` :134,
+`get_batch_no` :455, `warehouse_query` :820, `get_filtered_dimensions` :729). Each has the
 standard link-query signature `(doctype, txt, searchfield, start, page_len, filters)` and is
 wired to a field via `"query"` in the DocType JSON's Link field options, not a hook.
 
@@ -235,21 +235,22 @@ redirect the default link search to a custom function.
 
 ## Sources
 
-Verified against ERPNext v16.6.1 (`apps/erpnext/erpnext/__init__.py:9`):
+Verified against ERPNext 16.50.0 / Frappe 16.51.1 (`apps/erpnext/erpnext/__init__.py:9`):
 
-- `apps/erpnext/erpnext/controllers/status_updater.py` — `StatusUpdater(Document)` (:180)
+- `apps/erpnext/erpnext/controllers/status_updater.py` — `StatusUpdater(Document)` (:181)
 - `apps/erpnext/erpnext/utilities/transaction_base.py` — `TransactionBase(StatusUpdater)` (:20)
-- `apps/erpnext/erpnext/controllers/accounts_controller.py` — `AccountsController(TransactionBase)` (:103), `validate` (:217), `set_missing_values` (:726), `calculate_taxes_and_totals` (:733), `on_cancel` (:1955)
-- `apps/erpnext/erpnext/controllers/stock_controller.py` — `StockController(AccountsController)` (:56), `make_gl_entries` (:215)
-- `apps/erpnext/erpnext/controllers/selling_controller.py` — `SellingController(StockController)` (:18), `update_stock_ledger` (:650)
-- `apps/erpnext/erpnext/controllers/subcontracting_controller.py` — `SubcontractingController(StockController)` (:26)
-- `apps/erpnext/erpnext/controllers/buying_controller.py` — `BuyingController(SubcontractingController)` (:29), `update_stock_ledger` (:732), `on_submit` (:928)
+- `apps/erpnext/erpnext/controllers/accounts_controller.py` — `AccountsController(TransactionBase)` (:114), `validate` (:265), `set_missing_values` (:856), `calculate_taxes_and_totals` (:863), `validate_qty_is_not_zero` (:1592), `on_cancel` (:2106)
+- `apps/erpnext/erpnext/controllers/stock_controller.py` — `StockController(AccountsController)` (:101), `validate` (:107), `make_gl_entries` (:333)
+- `apps/erpnext/erpnext/controllers/selling_controller.py` — `SellingController(StockController)` (:18), `validate` (:51), `set_missing_values` (:102), `update_stock_ledger` (:653)
+- `apps/erpnext/erpnext/controllers/subcontracting_controller.py` — `SubcontractingController(StockController)` (:27)
+- `apps/erpnext/erpnext/controllers/buying_controller.py` — `BuyingController(SubcontractingController)` (:33), `validate` (:37), `update_stock_ledger` (:828), `on_submit` (:1035), `on_cancel` (:1049)
 - `apps/erpnext/erpnext/controllers/taxes_and_totals.py` — `calculate_taxes_and_totals` helper (:27)
-- `apps/erpnext/erpnext/accounts/general_ledger.py` — `make_gl_entries` (:29), `process_gl_map` (:189), `make_entry` (:425)
-- `apps/erpnext/erpnext/stock/stock_ledger.py` — `make_sl_entries` (:57), `make_entry` (:229)
-- `apps/erpnext/erpnext/accounts/party.py` — `get_party_details` (:59), `get_party_account` (:421), `validate_party_accounts` (:579), `get_due_date` (:624), `set_taxes` (:721)
-- `apps/erpnext/erpnext/__init__.py` — `get_default_company` (:12), `get_default_currency` (:28), `get_default_cost_center` (:35), `is_perpetual_inventory_enabled` (:78)
-- `apps/erpnext/erpnext/controllers/queries.py` — `item_query` (:177), `employee_query` (:24), `warehouse_query` (:731), `get_filtered_dimensions` (:652)
+- `apps/erpnext/erpnext/controllers/mapper.py` — `get_qty_already_mapped()` helper (ERPNext 16.50) (:1)
+- `apps/erpnext/erpnext/accounts/general_ledger.py` — `make_gl_entries` (:29), `process_gl_map` (:190), `merge_similar_entries` (:275), `make_entry` (:426)
+- `apps/erpnext/erpnext/stock/stock_ledger.py` — `make_sl_entries` (:109), `make_entry` (:253)
+- `apps/erpnext/erpnext/accounts/party.py` — `get_party_details` (:78), `get_party_account` (:460), `validate_party_accounts` (:637), `get_due_date` (:682), `set_taxes` (:779)
+- `apps/erpnext/erpnext/__init__.py` — `get_default_company` (:13), `get_default_currency` (:29), `get_default_cost_center` (:36), `is_perpetual_inventory_enabled` (:79), `normalize_ctx_input` (:171)
+- `apps/erpnext/erpnext/controllers/queries.py` — `item_query` (:181), `employee_query` (:28), `lead_query` (:98), `warehouse_query` (:820), `get_filtered_dimensions` (:729)
 - `apps/frappe/frappe/hooks.py` — `standard_queries` (:169); `apps/frappe/frappe/desk/search.py` (:123-126)
-- `apps/erpnext/erpnext/hooks.py` — `doc_events` (:336)
-- DocType bases: `sales_invoice.py:57`, `sales_order.py:53`, `delivery_note.py:24` (`on_submit` :460), `purchase_invoice.py:53`, `purchase_order.py:35`, `stock_entry.py:87`
+- `apps/erpnext/erpnext/hooks.py` — `doc_events` (:377), `extend_bootinfo` (:710)
+- DocType bases: `sales_invoice.py:64`, `sales_order.py:70`, `delivery_note.py:27` (`on_submit` :448), `purchase_invoice.py:58`, `purchase_order.py:36`, `stock_entry.py:125`

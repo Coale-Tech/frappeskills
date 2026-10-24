@@ -121,4 +121,4 @@ Verified against Frappe 16.51.1 and 16.35.0:
 - `apps/frappe/frappe/commands/test_commands.py:997-1061` — `TestRunUITests`:
   `test_runs_playwright_when_the_app_has_its_config`, `test_runs_cypress_for_an_app_that_still_uses_it`,
   `test_fails_for_an_app_without_ui_tests`
-- `apps/frappe/cypress.config.js` (coale_v16) — `defineConfig` options (Cypress 13)
+- `apps/frappe/cypress.config.js` (16.35 bench) — `defineConfig` options (Cypress 13)

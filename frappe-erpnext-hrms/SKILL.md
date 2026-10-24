@@ -8,6 +8,10 @@ description: "Work with ERPNext and HRMS domain workflows including sales orders
 Extend ERPNext and HRMS without breaking the accounting, stock or payroll
 semantics they enforce.
 
+> **Version:** ERPNext 16.50.0 / HRMS 16.50.0 (frappe 16.51.1). Baseline: ERPNext 16.6.1 / HRMS 16.4.1.
+> Tag `(ERPNext 16.50)` marks changed behaviour; `(HRMS 16.50)` marks HRMS changes.
+> Upgrade checklist: [`frappe-deprecation-and-migration/references/erpnext-16-50-upgrade-checklist.md`](../frappe-deprecation-and-migration/references/erpnext-16-50-upgrade-checklist.md).
+
 ## When to use
 
 - Extending sales, purchase, stock, accounting or manufacturing flows
@@ -107,6 +111,10 @@ than mocking them — validation depends on them.
 - [references/erpnext-extending.md](references/erpnext-extending.md) - Hook points ERPNext uses to extend itself: `extend_doctype_class`, `doc_events`, `scheduler_events`, `regional_overrides`
 - [references/hrms-patterns.md](references/hrms-patterns.md) - Organization, Employee, Leave, Attendance
 - [references/hrms-payroll-and-talent.md](references/hrms-payroll-and-talent.md) - Payroll, Recruitment, Performance, Expense Claims
+- [references/hrms-v16-50-payroll-talent.md](references/hrms-v16-50-payroll-talent.md) - HRMS 16.50 payroll, expense claim, employee advance changes
+- [references/hrms-v16-50-core.md](references/hrms-v16-50-core.md) - HRMS 16.50 core HR: Holiday List Assignment, Upload Attendance removal, role permissions
+- [references/erpnext-v16-50-accounts.md](references/erpnext-v16-50-accounts.md) - ERPNext 16.50 accounting: account freezing move, repost settings, AR/AP ageing filter
+- [references/erpnext-v16-50-stock-mfg.md](references/erpnext-v16-50-stock-mfg.md) - ERPNext 16.50 stock/manufacturing: BOM secondary items, serial-batch setting, valuation changes
 
 ## Guardrails
 
@@ -138,6 +146,10 @@ than mocking them — validation depends on them.
 - `on_cancel` not implemented when `on_submit` creates linked documents or sends notifications
 - `import erpnext` at module level without an installed-app guard
 - Same event handler registered in both `doc_events` in `hooks.py` and in a controller method
+- `frappe.get_single("Accounts Settings").acc_frozen_upto` — moved to `Company.accounts_frozen_till_date` `(ERPNext 16.50)`
+- `"Upload Attendance"` DocType referenced anywhere — deleted in HRMS 16.50 `(HRMS 16.50)`
+- `BOMScrapItem` or `BOM.scrap_items` in code — renamed to `BOMSecondaryItem` / `secondary_items` `(ERPNext 16.50)`
+- `frappe.get_doc("Repost Accounting Ledger Settings")` — singleton removed; use `Accounts Settings.repost_allowed_types` and the `repost_allowed_doctypes` hook `(ERPNext 16.50)`
 
 ## Common Mistakes
 
@@ -149,3 +161,7 @@ than mocking them — validation depends on them.
 | Side effects not reversed on cancel | Orphan data | Implement `on_cancel` |
 | Mocking domain masters in tests | Validation fails | Create real records |
 | Importing `erpnext` unconditionally | Crash on Frappe-only sites | Guard the import |
+| `acc_frozen_upto` from Accounts Settings `(ERPNext 16.50)` | Field moved to Company | Read `Company.accounts_frozen_till_date` |
+| `"Upload Attendance"` DocType `(HRMS 16.50)` | DocType deleted | Use Employee Attendance Tool |
+| `BOM.scrap_items` / `BOMScrapItem` `(ERPNext 16.50)` | Renamed in migration | Use `secondary_items` / `BOMSecondaryItem` |
+| `"Salary Slip Standard"` print format `(HRMS 16.50)` | Renamed | Use `"Salary Slip Classic"` |

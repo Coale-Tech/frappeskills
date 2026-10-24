@@ -8,27 +8,33 @@ or manufacturing. Part of [erpnext-workflows.md](erpnext-workflows.md).
 ## Projects
 
 `Project.percent_complete_method` (Select: `Manual`, `Task Completion`,
-`Task Progress`, `Task Weight` — `project.json:112`) controls whether the
+`Task Progress`, `Task Weight` — `project.json:117`) controls whether the
 project's own `percent_complete` is set by hand or rolled up from its Tasks;
 `Task.progress` (Percent, `task.json:191-194`) is the per-task input that
-feeds `Task Progress`/`Task Weight` mode. `Project.status` is `Open`,
-`Completed`, `Cancelled` (`project.json:86`) — there is no separate
-"In Progress" project status; progress is tracked via `percent_complete`,
-not a status value.
+feeds `Task Progress`/`Task Weight` mode. `Project.status` **(ERPNext 16.50)**
+is `Open`, `On hold`, `Completed`, `Cancelled` (`project.json:85`) — the
+`On hold` value was added in ERPNext 16.50 (ERPNext <=16.6: `Open`,
+`Completed`, `Cancelled` only); progress is tracked via `percent_complete`.
 
 `Timesheet` bills logged time to a customer:
 
 ```python
 from erpnext.projects.doctype.timesheet.timesheet import make_sales_invoice
-make_sales_invoice(source_name, item_code=None, customer=None, currency=None)  # timesheet.py:412
+make_sales_invoice(source_name, item_code=None, customer=None, currency=None)  # timesheet.py:450
 ```
 
 `Activity Cost` sets a billing/costing rate per Activity Type + Employee,
 consumed when a Timesheet row computes its billing amount.
 
+**Project User access control (ERPNext 16.50):** `Project User` rows now require a
+corresponding `frappe.share` entry — the patch `access_control_for_project_users`
+backfills these. Custom code that programmatically adds users to `Project.users` must
+also call `frappe.share.add_docshare("Project", project_name, user=user)` to grant
+the share permission; otherwise the user cannot open the Project from Desk.
+
 ## Assets
 
-`Asset.status` (Select, `asset.json:350`) is exactly: `Draft`, `Submitted`,
+`Asset.status` (Select, `asset.json:349`) is exactly: `Draft`, `Submitted`,
 `Cancelled`, `Partially Depreciated`, `Fully Depreciated`, `Sold`,
 `Scrapped`, `In Maintenance`, `Out of Order`, `Issue`, `Receipt`,
 `Capitalized`, `Work In Progress` — a wider lifecycle than most custom
@@ -39,7 +45,7 @@ Depreciation is computed into `Asset Depreciation Schedule` /
 `Asset.depreciation_method`, and posted by a scheduled job:
 
 ```python
-# hooks.py:476 — scheduler_events daily
+# hooks.py:524 — scheduler_events daily_maintenance
 "erpnext.assets.doctype.asset.depreciation.post_depreciation_entries"
 ```
 
@@ -52,6 +58,14 @@ stock/service costs into a capitalized Asset), `Asset Repair` (+
 entry). **`Asset Repair Purchase Invoice` (v16)** links an Asset Repair to
 the Purchase Invoice(s) that billed the repair — absent from the v15
 baseline, where repair costs were not linked to a Purchase Invoice this way.
+
+**`Asset.asset_type` Select field (ERPNext 16.50):** The three Check fields
+`is_existing_asset`, `is_composite_asset`, `is_composite_component` present
+in ERPNext <=16.6 have been replaced by a single Select field `asset_type`
+(`asset.json:552`) with options `""` (blank/standard), `"Existing Asset"`,
+`"Composite Asset"`, `"Composite Component"`. Custom apps referencing the old
+check fields MUST migrate: `doc.is_existing_asset == 1` →
+`doc.asset_type == "Existing Asset"`, and so on.
 
 ## Quality Management
 
@@ -93,14 +107,16 @@ customer maintenance contract.
 
 ## Sources
 
-Verified against ERPNext v16.6.1 and the v15.119.0 baseline:
+Verified against ERPNext 16.50.0 / Frappe 16.51.1:
 
-- `apps/erpnext/erpnext/projects/doctype/project/project.json` — `percent_complete_method` options (:112), `status` options (:86)
+- `apps/erpnext/erpnext/projects/doctype/project/project.json` — `percent_complete_method` options (:117), `status` options (:85) — `On hold` added (ERPNext 16.50)
 - `apps/erpnext/erpnext/projects/doctype/task/task.json` — `progress` field (:191-194)
-- `apps/erpnext/erpnext/projects/doctype/timesheet/timesheet.py` — `make_sales_invoice` (:412)
-- `apps/erpnext/erpnext/assets/doctype/asset/asset.json` — `status` options (:350), `depreciation_method` (:268)
-- `apps/erpnext/erpnext/hooks.py` — `post_depreciation_entries` scheduler event (:476)
-- Directory listing: `apps/erpnext/erpnext/assets/doctype/` — `asset_depreciation_schedule`, `depreciation_schedule`, `asset_movement(+item)`, `asset_capitalization(+asset_item,+service_item,+stock_item)`, `asset_repair(+consumed_item)`, `asset_repair_purchase_invoice` (v16-only, absent from v15 baseline listing), `asset_value_adjustment`
+- `apps/erpnext/erpnext/projects/doctype/timesheet/timesheet.py` — `make_sales_invoice` (:450)
+- `apps/erpnext/erpnext/assets/doctype/asset/asset.json` — `status` options (:349), `asset_type` Select field (:552) (ERPNext 16.50 replaces `is_existing_asset`/`is_composite_asset`/`is_composite_component`)
+- `apps/erpnext/erpnext/hooks.py` — `post_depreciation_entries` scheduler event (:524)
+- `apps/erpnext/erpnext/patches/v16_0/migrate_asset_type_checkboxes_to_select.py` — migration of three Check fields to `asset_type` Select (ERPNext 16.50)
+- `apps/erpnext/erpnext/patches/v16_0/access_control_for_project_users.py` — Project User → frappe.share backfill (ERPNext 16.50)
+- Directory listing: `apps/erpnext/erpnext/assets/doctype/` — `asset_depreciation_schedule`, `depreciation_schedule`, `asset_movement(+item)`, `asset_capitalization(+asset_item,+service_item,+stock_item)`, `asset_repair(+consumed_item)`, `asset_repair_purchase_invoice` (v16+), `asset_value_adjustment`
 - Directory listing: `apps/erpnext/erpnext/quality_management/doctype/` — full module list
 - `apps/erpnext/erpnext/stock/doctype/item/item.json` — `inspection_required_before_purchase`/`inspection_required_before_delivery`/`quality_inspection_template` (:116-118)
 - Directory listing: `apps/erpnext/erpnext/support/doctype/` — `issue(+priority,+type)`, `warranty_claim`

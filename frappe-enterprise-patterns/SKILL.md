@@ -135,6 +135,9 @@ aggregation to scheduled rollups when tables pass millions of rows.
 - `frappe.get_all` or `frappe.qb` called inside a loop without a batch limit or pagination
 - Exception swallowed with `frappe.log_error` and no document state updated for operator visibility
 - `track_changes` disabled on a DocType where an audit trail is a business requirement
+- `required_apps = ["erpnext"]` without the `"frappe/"` prefix — Frappe Cloud validates org prefixes and rejects bare names for non-default orgs; use `["frappe/erpnext"]`
+- `override_doctype_class` used where `extend_doctype_class` (v16+) would add behaviour without replacing the upstream controller — a full override silently drops all future upstream controller improvements
+- `doc_events` registered on a third-party DocType (CRM, HRMS, etc.) without guarding against the DocType being absent, renamed, or on a different version
 
 ## Common Mistakes
 
@@ -147,3 +150,6 @@ aggregation to scheduled rollups when tables pass millions of rows.
 | Unbounded list queries | Timeouts at scale | Paginate and index |
 | Custom audit table for field history | Duplicates core | `track_changes` or Milestone Tracker |
 | Premature enterprise architecture | Complexity without users | Start simple, extract later |
+| `required_apps = ["erpnext"]` in hooks.py | Frappe Cloud rejects bare app names without `"frappe/"` prefix | Use `["frappe/erpnext"]` |
+| `override_doctype_class` without calling `super()` for unmodified events | Drops all upstream controller event handlers silently | Subclass and delegate unmodified events to `super()`; prefer `extend_doctype_class` for additive-only changes |
+| `doc_events` on a third-party DocType without version guard | Silent no-op if DocType renamed or absent after an upgrade | Check `frappe.db.table_exists("DocType Name")` or confirm with `list-apps` before registering |

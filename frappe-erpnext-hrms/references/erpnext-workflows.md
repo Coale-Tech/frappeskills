@@ -24,7 +24,7 @@ See also [hrms-patterns.md](hrms-patterns.md) for Employee, leave, attendance, p
 
 ## Sources
 
-Verified against ERPNext v16.6.1 (`apps/erpnext/erpnext/__init__.py` `__version__`) and Frappe v16.35.0 (`apps/frappe/frappe/__init__.py` `__version__`):
+Verified against ERPNext 16.50.0 / Frappe 16.51.1 (`apps/erpnext/erpnext/__init__.py` `__version__`); baseline ERPNext 16.6.1 / Frappe 16.35.0:
 
 - `apps/frappe/frappe/model/docstatus.py` — `DocStatus.DRAFT`/`SUBMITTED`/`CANCELLED` = `0`/`1`/`2`
 - Per-topic source citations live in each linked reference file (`erpnext-architecture.md`, `erpnext-accounting.md`, `erpnext-stock.md`, `erpnext-selling-buying.md`, `erpnext-manufacturing.md`, `erpnext-projects-assets-support.md`, `erpnext-extending.md`, `hrms-patterns.md`); this index file makes no additional standalone API claims

@@ -79,11 +79,14 @@ Frappe role permissions alone. SLA selection evaluates `condition`
 ### 5) Route integrations through the existing provider shape
 
 Telephony follows the existing `crm/integrations/<provider>/` shape.
-**CRM 2.x (16.51):** WhatsApp uses the new `whatsapp` app (`WA Message`, `WA Account`,
-`WA Template` doctypes). The old `frappe_whatsapp` community app and `WhatsApp Message`
-doctype are replaced. Automation Engine hooks (`automation_relationships`,
-`automation_actions`, `automation_events`) enable trigger-based Lead/Deal flows:
-[references/crm-integrations.md](references/crm-integrations.md).
+**CRM 2.x:** WhatsApp uses the `whatsapp` app (`WA Message`, `WA Account`, `WA Template`).
+The `whatsapp_access_guard` hook gates all WA endpoints on CRM roles. Migration from
+`frappe_whatsapp` runs via `migrate_from_frappe_whatsapp` patch.
+Automation Engine (`automation_relationships`, `automation_actions`, `automation_events`)
+enables trigger-based flows without custom `doc_events`. Facebook Lead Ads sync via
+`lead_syncing/` remains; Google/LinkedIn/TikTok configs are removed.
+Details: [references/crm-integrations.md](references/crm-integrations.md) and
+[references/crm-whatsapp.md](references/crm-whatsapp.md).
 
 ### 6) Frontend work goes through the generic `api/doc.py` surface
 
@@ -123,11 +126,13 @@ wrapping `frappe-ui`'s `createResource`. Details:
 
 ## References
 
-- [references/crm-data-model.md](references/crm-data-model.md) - Lead/Deal pipeline, conversion field-mapping, supporting DocTypes, default list/kanban views
+- [references/crm-data-model.md](references/crm-data-model.md) - Lead/Deal pipeline, conversion field-mapping, supporting DocTypes, new CRM 2.x fields
 - [references/crm-customization.md](references/crm-customization.md) - CRM Fields Layout, CRM Form Script, CRM View Settings, `override_doctype_class`, `doc_events` table
 - [references/crm-permissions-sla.md](references/crm-permissions-sla.md) - Org-hierarchy row permissions, CRM Service Level Agreement, condition/condition_json pattern
-- [references/crm-integrations.md](references/crm-integrations.md) - ERPNext bridge (same-site/cross-site), telephony, WhatsApp, lead syncing, domain enrichment
-- [references/crm-frontend-architecture.md](references/crm-frontend-architecture.md) - Vue3 SPA structure, Pinia stores, realtime, generic `api/doc.py` backend surface
+- [references/crm-integrations.md](references/crm-integrations.md) - ERPNext bridge (same-site/cross-site), telephony, lead syncing, domain enrichment, Automation Engine
+- [references/crm-frontend-architecture.md](references/crm-frontend-architecture.md) - Vue3 SPA structure (frappe-ui 1.0.0-rc.2), Pinia stores, setup wizard, `api/doc.py`, public forms
+- [references/crm-whatsapp.md](references/crm-whatsapp.md) - WhatsApp integration, WA app architecture, migration from frappe_whatsapp, automation events
+- [references/crm-2-0-changes.md](references/crm-2-0-changes.md) - CRM 2.0 breaking changes: removed/new doctypes, patches, API modules, migration checklist
 
 ## Guardrails
 
@@ -150,7 +155,7 @@ wrapping `frappe-ui`'s `createResource`. Details:
 | "Sales Manager role will restrict the user's Lead visibility" | The `Sales Manager` role bypasses the hierarchy filter; restriction requires the user to be in `CRM Sales Hierarchy`. |
 | "I can fork `Contact` to add CRM-specific fields without touching core" | A forked DocType diverges from core Contact and breaks on upgrade; use `override_doctype_class`. |
 | "CRM 2.x still uses `WhatsApp Message` doctype and `frappe_whatsapp`" | CRM 2.x requires the `whatsapp` app; doctypes are now `WA Message`, `WA Account`, `WA Template` — `WhatsApp Message` hooks are dead. |
-| "My whitelist extension doesn't need type annotations in CRM" | CRM 2.x declares `require_type_annotated_api_methods = True`; the framework doesn't raise on untyped methods, but only annotated params are validated. Follow the convention. |
+| "CRM 2.x removed lead_syncing entirely" | `crm.lead_syncing` module remains; Facebook Lead Ads sync via `Lead Sync Source` is still active. Only Google/LinkedIn/TikTok-specific configs and the Meta **messaging** module were removed. |
 
 ## Red Flags
 
@@ -172,3 +177,5 @@ wrapping `frappe-ui`'s `createResource`. Details:
 | Forking `Contact`'s Desk controller for CRM-only fields | Diverges from core, breaks on upgrade | Extend via `override_doctype_class` |
 | Treating `is_whatsapp_installed()` as "integration enabled" | App can be installed but disabled in settings | Check both install and enable flags |
 | Writing directly to ERPNext's DB from CRM hooks | Breaks when ERPNext is on a different site | Use `get_erpnext_site_client` / same-site `doc_events` per `is_erpnext_in_different_site` |
+| Hooking `doc_events["WhatsApp Message"]` in a CRM 2.x custom app | Doctype is gone; the hook silently never fires | Use `doc_events["WA Message"]` |
+| Granting Guest `read` on a Link-target doctype for a public form | Over-exposes data; the builder's `grant_guest_link_access` grants only `select`, not `read` | Use `api/form.py:grant_guest_link_access` via the CRM Forms builder or directly from install code |

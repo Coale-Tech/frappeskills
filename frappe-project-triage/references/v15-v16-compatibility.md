@@ -407,15 +407,16 @@ unchanged on v16 — prefer them over version-gating for API compatibility.
 
 ## Verified Version Matrix
 
-| Version set | Bench | Status |
-|---|---|---|
-| frappe 16.35.0 / erpnext 16.6.1 / hrms 16.4.1 | coale_v16 | Baseline: all v16 examples fully verified |
-| frappe 16.51.1 / erpnext 16.50.0 / hrms 16.50.0 | 16.51.1 bench | Delta pass: see `## What Changed in 16.51` below |
+| Version set | Notes |
+|---|---|
+| frappe 16.35.0 / erpnext 16.6.1 / hrms 16.4.1 | Baseline bench — all v16 examples fully verified |
+| frappe 16.51.1 / erpnext 16.50.0 / hrms 16.50.0 | Delta pass — see `## What Changed in frappe 16.51` and `## What Changed in ERPNext/HRMS 16.50` below |
 
-## What Changed in 16.51 (source-verified: 16.51.1 bench vs coale_v16)
+## What Changed in frappe 16.51 (source-verified)
 
-Use `(16.51)` to tag behaviour present in 16.51.1 and absent in 16.35.0.
-Use `(<=16.35)` to tag the old form when both versions are in use.
+Use `(frappe 16.51)` to tag behaviour present in frappe 16.51.1 and absent in 16.35.0.
+Use `(frappe <=16.35)` to tag the old form.
+ERPNext/HRMS facts use `(ERPNext 16.50)` / `(HRMS 16.50)` / `(ERPNext <=16.6)` / `(HRMS <=16.4)`.
 
 ### 1. Sidebar fixture path: `workspace_sidebar/` removed (16.51)
 
@@ -514,7 +515,60 @@ frappe = ">=16.0.0-dev,<17.0.0"
 ```
 
 `required_apps` in `hooks.py` is separate from this (declares runtime app deps).
-Verified: `a 16.51.1 bench app's `pyproject.toml`` (16.51.1 bench).
+Verified: ERPNext 16.50 and HRMS 16.50 `pyproject.toml` on the target bench.
+
+## What Changed in ERPNext 16.50 / HRMS 16.50 (source-verified)
+
+Use `(ERPNext 16.50)` / `(HRMS 16.50)` for new behaviour; `(ERPNext <=16.6)` / `(HRMS <=16.4)` for old.
+Full upgrade checklist: [`frappe-deprecation-and-migration/references/erpnext-16-50-upgrade-checklist.md`](../../frappe-deprecation-and-migration/references/erpnext-16-50-upgrade-checklist.md).
+
+### 10. ERPNext 16.50 — Python ≥ 3.14 and frappe ≥ 16.50 required
+
+`pyproject.toml` `requires-python = ">=3.14"` (up from 3.10). `frappe-dependencies: frappe = ">=16.50.0,<17.0.0"`.
+HRMS additionally requires `erpnext = ">=16.0.0,<17.0.0"`. A bench must pull Frappe to 16.51 before updating ERPNext/HRMS to 16.50.
+
+### 11. ERPNext 16.50 — Account Freezing settings moved to Company
+
+`Accounts Settings.acc_frozen_upto` → `Company.accounts_frozen_till_date`.
+`Accounts Settings.frozen_accounts_modifier` → `Company.role_allowed_for_frozen_entries`.
+Patch `migrate_account_freezing_settings_to_company` copies values to all companies.
+
+### 12. ERPNext 16.50 — `repost_allowed_doctypes` hook added; Repost Accounting Ledger Settings removed
+
+`(ERPNext <=16.6):` allowed types lived in the `Repost Accounting Ledger Settings` singleton.
+`(ERPNext 16.50):` the singleton is merged into `Accounts Settings.repost_allowed_types`. The `repost_allowed_doctypes` hook is still read (install/migrate seeding and `_repost_vouchers` at runtime). Code that reads the old singleton breaks.
+
+### 13. ERPNext 16.50 — AR/AP Ageing filter `calculate_ageing_with` → `age_as_on`
+
+Filter key and option `"Today Date"` → `"Today"` in Accounts Receivable/Payable and their Summary reports.
+Saved Auto Email Reports, Dashboard Charts, and Number Cards are migrated by `rename_ar_ap_ageing_filter`.
+Custom code passing the old key falls back to default silently.
+
+### 14. ERPNext 16.50 — Role permission grants expanded on several DocTypes
+
+Patches `mirror_select_perms_to_custom_docperm` and `mirror_release_perms_to_custom_docperm` add new `select`/`release`
+grants for roles on Account, Asset, Serial and Batch Bundle, Payment Terms Template, POS Invoice, and others. DocTypes
+with existing Custom DocPerm rows get the new grants mirrored in. Review permission setups on these DocTypes.
+
+### 15. HRMS 16.50 — Salary Slip print formats renamed
+
+| Old name (HRMS <=16.4) | New name (HRMS 16.50) |
+|---|---|
+| `Salary Slip Standard` | `Salary Slip Classic` |
+| `Salary Slip with Year to Date` | `Salary Slip Detailed` |
+| `Salary Slip based on Timesheet` | `Salary Slip Classic` |
+
+Print Settings, Email Templates, or custom code referencing old names must be updated.
+
+### 16. HRMS 16.50 — `Holiday List Assignment` DocType introduced
+
+Existing employee- and company-level holiday list settings are migrated to submitted `Holiday List Assignment`
+records by patch `create_holiday_list_assignments`. Verify payroll calendar after migration.
+
+### 17. HRMS 16.50 — Multi-currency Expense Claims auto-enabled
+
+`HR Settings.enable_multi_currency_expense_claim` is set to `1` if any multi-currency expense records exist.
+Verify expense claim workflows after migration.
 
 ## Best Practices
 
@@ -575,7 +629,7 @@ Verified against Frappe v16.35.0 at `<bench>/apps/frappe`, diffed against a v15.
 - `frappe-ui` `v1-release/changelog.md` and `v1-release/deprecated-removals.md` (0.1.x -> 1.0 beta
   breaking changes and deprecation table)
 
-16.51 delta verified against a 16.51.1 bench (frappe 16.51.1 / erpnext 16.50.0 / hrms 16.50.0):
+ERPNext 16.50 / HRMS 16.50 delta verified against a target bench (frappe 16.51.1 / erpnext 16.50.0 / hrms 16.50.0):
 - `apps/frappe/frappe/desk/doctype/sidebar/` and `sidebar/convert_fixtures.py` (workspace_sidebar/ removal)
 - `apps/frappe/frappe/public/js/frappe/views/breadcrumbs.js` (`deprecated()` calls on clear/toggle)
 - `apps/frappe/frappe/public/js/frappe/desk.js:291-308` (`frappe.boot.user.all_reports` getter)
@@ -585,5 +639,14 @@ Verified against Frappe v16.35.0 at `<bench>/apps/frappe`, diffed against a v15.
 - `apps/frappe/pyproject.toml` (typst~=0.15.0 new dependency; RestrictedPython~=8.5)
 - `apps/erpnext/erpnext/manufacturing/doctype/bom/bom.py` (secondary_items, BOMSecondaryItem)
 - `apps/hrms/hrms/patches/v16_0/delete_upload_attendance_doctype.py` (Upload Attendance deletion)
-- `apps/crm/crm/hooks.py:270` (WA Message doc_events; WhatsApp Message absent)
-- a 16.51.1 bench app's `pyproject.toml` (`frappe-dependencies` pin `>=16.0.0-dev,<17.0.0`)
+- `apps/crm/crm/hooks.py` (WA Message doc_events; WhatsApp Message absent)
+- `apps/erpnext/pyproject.toml` (`requires-python = ">=3.14"`, `frappe = ">=16.50.0,<17.0.0"`)
+- `apps/hrms/pyproject.toml` (`frappe = ">=16.50.0,<17.0.0"`, `erpnext = ">=16.0.0,<17.0.0"`)
+- `apps/erpnext/erpnext/patches.txt` (v16_0 section diff: baseline vs 16.50.0)
+- `apps/hrms/hrms/patches.txt` (v16_0 section diff: baseline vs 16.50.0)
+- `apps/erpnext/erpnext/patches/v16_0/migrate_account_freezing_settings_to_company.py`
+- `apps/erpnext/erpnext/patches/v16_0/merge_repost_settings_to_accounts_settings.py`
+- `apps/erpnext/erpnext/patches/v16_0/rename_ar_ap_ageing_filter.py`
+- `apps/hrms/hrms/patches/v16_0/delete_old_salary_slip_print_formats.py`
+- `apps/hrms/hrms/patches/v16_0/create_holiday_list_assignments.py`
+- `apps/hrms/hrms/patches/v16_0/enable_multi_currency_expense_claim_for_existing_users.py`

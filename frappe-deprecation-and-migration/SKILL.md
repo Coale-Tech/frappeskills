@@ -164,6 +164,7 @@ Process: grep every `hooks.py` key against the actual function paths, remove unr
 ## References
 
 - [`references/patch-patterns.md`](references/patch-patterns.md) — Verified patch patterns: idempotency guard, batch commit, drop column, delete DocType
+- [`references/erpnext-16-50-upgrade-checklist.md`](references/erpnext-16-50-upgrade-checklist.md) — ERPNext 16.6→16.50 / HRMS 16.4→16.50 verified upgrade checklist: breaking patches, field moves, deleted DocTypes, permission changes
 
 ## Guardrails
 
@@ -203,5 +204,8 @@ Process: grep every `hooks.py` key against the actual function paths, remove unr
 | Skipping `frappe.reload_doctype()` before querying | Stale meta cache; field not found | Call `frappe.reload_doctype("DocType Name")` at patch start |
 | Not committing inside a loop | Entire batch held in one transaction; table lock | `frappe.db.commit()` after each batch |
 | Deleting a DocType that still has records | `frappe.delete_doc` raises | Backfill/archive records first, then delete |
-| `from frappe.model.db_query import mask_field_value` (16.51) | `ImportError` — moved to `frappe.model.utils.mask` | Update import to `from frappe.model.utils.mask import mask_field_value` |
-| `from frappe.desk.form.assign_to import add` (16.51) | `ImportError` — renamed to `_add` (private) | Replace with `from frappe.desk.form.assign_to import _add` |
+| `from frappe.model.db_query import mask_field_value` (frappe 16.51) | `ImportError` — moved to `frappe.model.utils.mask` | Update import to `from frappe.model.utils.mask import mask_field_value` |
+| `from frappe.desk.form.assign_to import add` (frappe 16.51) | `ImportError` — renamed to `_add` (private) | Replace with `from frappe.desk.form.assign_to import _add` |
+| Reading `frappe.get_single("Accounts Settings").acc_frozen_upto` after ERPNext 16.50 | Field moved to `Company` (now `accounts_frozen_till_date`) | Read from the Company document instead |
+| Referencing `"Salary Slip Standard"` or `"Salary Slip with Year to Date"` after HRMS 16.50 | Print formats renamed by `delete_old_salary_slip_print_formats` patch | Use `"Salary Slip Classic"` / `"Salary Slip Detailed"` |
+| Reading the `Repost Accounting Ledger Settings` singleton on ERPNext 16.50 | Merged into `Accounts Settings.repost_allowed_types` by patch | Read Accounts Settings; custom voucher doctypes also go in the `repost_allowed_doctypes` hook |

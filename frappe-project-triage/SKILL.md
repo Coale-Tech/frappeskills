@@ -74,10 +74,11 @@ Match the app's conventions; do not introduce a second style.
 python3 scripts/validate-compatibility.py <bench>/apps/<app>
 ```
 
-Flags v15/v16 hazards and 16.51+ removed/deprecated APIs: `workspace_sidebar/` fixture
-path, `frappe.breadcrumbs.clear/toggle`, `frappe.boot.user.all_reports`,
-`from frappe.model.db_query import mask_field_value`, ERPNext `BOMScrapItem`, HRMS
-`"Upload Attendance"`, CRM `"WhatsApp Message"` doctype name.
+Flags v15/v16 hazards and removed/deprecated APIs in frappe 16.51 and ERPNext/HRMS 16.50:
+`workspace_sidebar/` fixture path, `frappe.breadcrumbs.clear/toggle`, `frappe.boot.user.all_reports`,
+`from frappe.model.db_query import mask_field_value`, ERPNext `BOMScrapItem`, `acc_frozen_upto`,
+`Repost Accounting Ledger Settings` singleton, HRMS `"Upload Attendance"` / old salary slip print format names,
+CRM `"WhatsApp Message"` doctype name.
 See [references/v15-v16-compatibility.md](references/v15-v16-compatibility.md).
 
 ### 6) Choose the working skill

@@ -6,7 +6,7 @@ Comprehensive reference for Frappe HRMS: Employee Management, Leave, Attendance,
 
 ## Overview
 
-Frappe HRMS ("Frappe HR") is an HR and Payroll app built on the Frappe Framework. It is **not standalone**: `hooks.py` declares `required_apps = ["frappe/erpnext"]`, and payroll GL posting reuses ERPNext's Journal Entry / accounting stack. This reference is verified against **HRMS 16.4.1** (`hrms/__init__.py`), which depends on ERPNext 16.x and Frappe 16.x.
+Frappe HRMS ("Frappe HR") is an HR and Payroll app built on the Frappe Framework. It is **not standalone**: `hooks.py` declares `required_apps = ["frappe/erpnext"]`, and payroll GL posting reuses ERPNext's Journal Entry / accounting stack. This reference is verified against **HRMS 16.4.1** (baseline) through **HRMS 16.50.0** (delta). HRMS 16.50 breaking changes and new capabilities for the core areas are in [hrms-v16-50-core.md](hrms-v16-50-core.md).
 
 - **Repository**: https://github.com/frappe/hrms
 - **Documentation**: https://docs.frappe.io/hrms
@@ -487,16 +487,17 @@ Key `hooks.py` declarations that shape how HRMS integrates with Frappe/ERPNext:
 
 ## Sources
 
-Verified against HRMS 16.4.1 / coale_v16 and HRMS 16.50.0 / 16.51.1 bench (Frappe 16.51.1). Paths relative to `apps/hrms/hrms/` unless noted:
+Verified against HRMS 16.4.1 (baseline) and HRMS 16.50.0 (Frappe 16.51.1 bench). 16.50 delta detail in [hrms-v16-50-core.md](hrms-v16-50-core.md). Paths relative to `apps/hrms/hrms/` unless noted:
 
-- `__init__.py` (version), `hooks.py` (app wiring, doc_events, scheduler_events, override_doctype_class, accounting flags; 16.51.1 bench: `audit_trail_doctypes` :302, `require_type_annotated_api_methods` :415, `app_home = "/desk/hr-setup"`)
+- `__init__.py` (version), `hooks.py` (app wiring, doc_events, scheduler_events, override_doctype_class, accounting flags; HRMS 16.50: `audit_trail_doctypes`, `code_only_modules`, `extend_bootinfo`, `require_type_annotated_api_methods`, `app_home = "/desk/hr-setup"`)
 - `overrides/employee_master.py` (`EmployeeMaster(Employee)`, autoname via HR Settings)
 - `apps/erpnext/erpnext/setup/doctype/employee/employee.py` + `employee.json` (Employee DocType)
-- `hr/doctype/leave_application/leave_application.py` (`validate`, `on_submit`, `create_leave_ledger_entry`, `update_attendance`, `get_leave_balance_on`, `get_leave_details`; 16.51.1 bench :165 "calendar days" vs coale_v16 :169 "working days")
+- `hr/doctype/leave_application/leave_application.py` (`validate`, `on_submit`, `create_leave_ledger_entry`, `update_attendance`, `get_leave_balance_on`, `get_leave_details`; HRMS 16.50: `validate_leave_approver`, `set_leave_approver_name`, `get_leave_approver_and_mandatory`, `validate_leave_access`; HRMS 16.50 :165 "calendar days" vs <=16.4 :169 "working days")
 - `hr/doctype/leave_ledger_entry/leave_ledger_entry.py` (`create_leave_ledger_entry`, `process_expired_allocation`)
 - `hr/utils.py` (`allocate_earned_leaves`, `generate_leave_encashment`, `validate_active_employee`)
-- `hr/doctype/attendance/attendance.py` (`validate`, `mark_attendance`, duplicate/overlap checks)
-- `hr/doctype/shift_type/shift_type.py` (`process_auto_attendance`, `process_auto_attendance_for_all_shifts`)
-- `hr/doctype/shift_assignment/shift_assignment.py` (16.51.1 bench) — `mark_expired_shift_assignments_as_inactive`
+- `hr/doctype/attendance/attendance.py` (`validate`, `mark_attendance`, duplicate/overlap checks; HRMS 16.50: `mark_bulk_attendance` enhanced with access guard + async, `get_employee_shift`, `validate_employee_access`)
+- `hr/doctype/shift_type/shift_type.py` (`process_auto_attendance`, `process_auto_attendance_for_all_shifts`; HRMS 16.50: `get_scheduled_shift_at`)
+- `hr/doctype/shift_assignment/shift_assignment.py` (HRMS 16.50: `mark_expired_shift_assignments_as_inactive`, `get_valid_shifts_for_time`)
 - `controllers/employee_boarding_controller.py` (`EmployeeBoardingController`, `update_employee_boarding_status`)
-- Patch: `hrms/patches/v16_0/delete_upload_attendance_doctype.py` (16.51.1 bench) — `frappe.delete_doc("DocType", "Upload Attendance", ...)`
+- `api/roster.py` (HRMS 16.50 Roster PWA backend)
+- `patches/v16_0/delete_upload_attendance_doctype.py`, `set_leave_approver_name_in_leave_application.py`, `set_job_offer_in_employee.py`, `add_default_hr_role_permissions.py`

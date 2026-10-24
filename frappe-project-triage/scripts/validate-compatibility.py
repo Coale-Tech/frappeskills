@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Frappe v15/v16/16.51 Compatibility Validation Script
+Frappe v15/v16/frappe-16.51/ERPNext-16.50 Compatibility Validation Script
 
-Flags v15/v16 hazards and APIs removed or deprecated in 16.51.1 / ERPNext 16.50.0.
-Run after generating code to check for compatibility issues.
+Flags v15/v16 hazards and APIs removed or deprecated in frappe 16.51.1, ERPNext 16.50.0,
+and HRMS 16.50.0. Run after generating code to check for compatibility issues.
 """
 
 import re
@@ -46,7 +46,8 @@ FIXTURE_PATTERNS = [
 
 # Hazards introduced between frappe 16.35.0 and 16.51.1 / erpnext 16.6.1 → 16.50.0.
 # Each entry: (pattern, frozenset of file suffixes or None for all, level, message)
-# Source-verified: 16.51.1 bench (16.51.1/16.50.0/16.50.0) vs coale_v16 (16.35.0/16.6.1/16.4.1).
+# Source-verified: target bench (frappe 16.51.1 / erpnext 16.50.0 / hrms 16.50.0)
+# vs baseline bench (frappe 16.35.0 / erpnext 16.6.1 / hrms 16.4.1).
 V16_51_HAZARD_PATTERNS: List[Tuple] = [
     # mask_field_value no longer re-exported from db_query in 16.51
     (r'from frappe\.model\.db_query import mask_field_value',
@@ -76,10 +77,22 @@ V16_51_HAZARD_PATTERNS: List[Tuple] = [
     (r'frappe\.boot\.user\.all_reports\b',
      frozenset({'.js', '.vue', '.ts'}), 'warn',
      'frappe.boot.user.all_reports deprecated in 16.51; use frappe.boot.allowed_reports'),
-    # Any file: workspace_sidebar/ fixture directory removed in 16.51
+    # Any file: workspace_sidebar/ fixture directory removed in frappe 16.51
     (r'workspace_sidebar/',
      None, 'warn',
-     'workspace_sidebar/ fixture dir removed in 16.51; run bench --site <site> convert-sidebar-fixtures'),
+     'frappe 16.51: workspace_sidebar/ fixture dir removed; run bench --site <site> convert-sidebar-fixtures'),
+    # ERPNext 16.50: acc_frozen_upto/frozen_accounts_modifier moved to Company
+    (r'\bacc_frozen_upto\b|\bfrozen_accounts_modifier\b',
+     frozenset({'.py'}), 'warn',
+     'ERPNext 16.50: acc_frozen_upto/frozen_accounts_modifier moved from Accounts Settings to Company (accounts_frozen_till_date/role_allowed_for_frozen_entries)'),
+    # ERPNext 16.50: Repost Accounting Ledger Settings singleton merged into Accounts Settings
+    (r'Repost Accounting Ledger Settings',
+     frozenset({'.py', '.js', '.json'}), 'warn',
+     'ERPNext 16.50: Repost Accounting Ledger Settings was merged into Accounts Settings.repost_allowed_types'),
+    # HRMS 16.50: old salary slip print format names renamed
+    (r'"Salary Slip Standard"|"Salary Slip with Year to Date"',
+     frozenset({'.py', '.json'}), 'warn',
+     'HRMS 16.50: Salary Slip Standard → Salary Slip Classic; Salary Slip with Year to Date → Salary Slip Detailed'),
 ]
 
 class CompatibilityValidator:
@@ -147,7 +160,7 @@ class CompatibilityValidator:
                 if suffixes is None or file_path.suffix in suffixes:
                     for match in re.finditer(pattern, content):
                         line_num = content[:match.start()].count('\n') + 1
-                        entry = (str(file_path), line_num, f'16.51: {message}')
+                        entry = (str(file_path), line_num, message)
                         if level == 'error':
                             self.errors.append(entry)
                         else:
@@ -169,7 +182,7 @@ class CompatibilityValidator:
         """Generate a compatibility report."""
         report_lines = [
             "=" * 60,
-            "Frappe v15/v16/16.51 Compatibility Report",
+            "Frappe v15/v16/frappe-16.51/ERPNext-16.50 Compatibility Report",
             "=" * 60,
             ""
         ]

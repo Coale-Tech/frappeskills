@@ -82,11 +82,11 @@ just "time to first response."
 
 ## Sources
 
-Verified against CRM 1.58.5 (coale_v16) and CRM 2.0.0-dev (16.51.1 bench):
+Verified against CRM 1.58.5 (16.35 bench) and CRM 2.0.0-dev (16.51.1 bench):
 
 - `crm/permissions/org_hierarchy.py` — `_permission_query_conditions`, `_has_permission`, `hierarchy_enabled`, `_in_hierarchy`
 - `crm/hooks.py` (16.51.1 bench) — `permission_query_conditions`/`has_permission` for Lead/Deal active (:138-140)
-- `crm/hooks.py` (coale_v16) — same entries commented out (:122-123); row permissions NOT enforced in CRM 1.x
+- `crm/hooks.py` (16.35 bench) — same entries commented out (:122-123); row permissions NOT enforced in CRM 1.x
 - `crm/fcrm/doctype/crm_service_level_agreement/crm_service_level_agreement.json` — field list
 - `crm/fcrm/doctype/crm_service_level_agreement/crm_service_level_agreement.py` — `validate_condition` (:65-72)
 - `crm/fcrm/doctype/crm_service_level_agreement/utils.py` — `get_sla`, `get_context`

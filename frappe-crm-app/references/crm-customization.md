@@ -48,10 +48,15 @@ user can edit away.
 ## override_doctype_class
 
 ```python
-# hooks.py:154
+# hooks.py (CRM 2.x)
 override_doctype_class = {
     "Contact": "crm.overrides.contact.CustomContact",
-    "Email Template": "crm.overrides.email_template.CustomEmailTemplate",
+    "Email Template": "crm.overrides.email_template.CustomEmailTemplate",  # added CRM 2.x
+}
+# Mixins stack with other apps' overrides:
+extend_doctype_class = {
+    "Data Import": ["crm.overrides.data_import.DataImportListView"],   # new CRM 2.x
+    "Assignment Rule": ["crm.overrides.assignment_rule.CRMAssignmentRule"],  # new CRM 2.x
 }
 ```
 
@@ -66,35 +71,38 @@ override for that part.
 
 ## doc_events table
 
-Full backend hook map from `hooks.py:163-219` — the extension points a
-custom app building on CRM should follow the same shape for, rather than
-inventing a new mechanism:
+Full backend hook map from `hooks.py` (CRM 2.x) — extension points a
+custom app should follow:
 
 | DocType | Events | Purpose |
 |---|---|---|
 | `Contact` | `validate` | CRM-specific contact validation |
 | `Notification Log` | `before_insert` | routes into `CRM Notification` |
-| `ToDo` | `after_insert`, `on_update` | assignment/task sync |
-| `Communication` | `after_insert`, `on_update` | email timeline sync |
+| `ToDo` | `validate`, `after_insert`, `on_update` | assignment/task sync |
+| `Communication` | `after_insert`, `on_update` | email timeline sync + Automation trigger |
 | `Comment` | `after_insert`, `on_update` | activity feed sync |
-| `WhatsApp Message` | `validate`, `on_update` | WhatsApp timeline sync |
-| `CRM Deal` | `on_update` | ERPNext Customer creation bridge |
+| `WA Message` **(CRM 2.x)** | `validate`, `on_submit`, `on_update` | WhatsApp timeline sync + agent notify + Automation |
+| `CRM Deal` | `on_update` | ERPNext Customer creation + Automation `on_deal_update` |
+| `CRM Lead` | `on_update` | Automation `on_lead_update` |
 | `Sales Order` | `before_validate` | ERPNext Customer bridge (reverse) |
+| `Quotation` **(CRM 2.x new)** | `after_insert`, `on_update`, `on_trash` | notify deal of quotation changes |
 | `Item`, `User Permission`, `DocShare` | full CRUD set | ERPNext product/permission mirroring |
-| `User` | `before_validate`, `validate_reset_password` | live-demo account guards |
+| `User` **(CRM 2.x)** | `before_validate`, `validate`, `on_update`, `validate_reset_password` | availability + live-demo guards |
 
-`ignore_links_on_delete = ["Failed Lead Sync Log"]` (`hooks.py:270`) lets a
+**(CRM 1.x <=16.35):** `doc_events["WhatsApp Message"]` — dead in CRM 2.x; rename to `"WA Message"`.
+
+`ignore_links_on_delete = ["Failed Lead Sync Log"]` (`hooks.py`) lets a
 Lead/Contact/Organization be deleted even while a failed sync log still
-references it — a log row is diagnostic, not a real link that should block
-deletion.
+references it. Still present in CRM 2.x (lead_syncing module unchanged).
 
 ## Sources
 
-Verified against the installed Frappe CRM app:
+Verified against CRM 1.58.5 (16.35 bench) and CRM 2.0.0-dev (16.51 bench):
 
 - `crm/fcrm/doctype/crm_fields_layout/crm_fields_layout.json` — `type` options
 - `crm/fcrm/doctype/crm_fields_layout/crm_fields_layout.py` — `get_fields_layout`
 - `crm/fcrm/doctype/crm_form_script/crm_form_script.py` — `CRMFormScript.validate`
 - `crm/fcrm/doctype/crm_view_settings/crm_view_settings.json` — field list
 - `crm/overrides/contact.py` — `CustomContact(Contact)`
-- `crm/hooks.py` — `override_doctype_class` (:154), `doc_events` (:163-219), `ignore_links_on_delete` (:270)
+- `crm/hooks.py` (CRM 2.x) — `override_doctype_class` (:232-235), `extend_doctype_class` (:238-241), `doc_events` (:247-328), `ignore_links_on_delete` (:386)
+- `crm/hooks.py` (CRM 1.x) — `doc_events["WhatsApp Message"]` confirmed dead in 2.x

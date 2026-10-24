@@ -16,12 +16,12 @@ own Data Import tool instead of a hand-rolled importer script.
   Frappe field labels or fieldnames
 - One-off migrations that do not justify a custom Patch or API endpoint
 
-**ERPNext 16.51 — extended Customer/Supplier template:** ERPNext registers
+**ERPNext 16.50 — extended Customer/Supplier template:** ERPNext registers
 `data_import_providers = {"Customer": "..PartyImportProvider", "Supplier": "..PartyImportProvider"}`.
 When importing Customer or Supplier records, use the **extended template** (downloadable from
 the Data Import Desk UI) — it includes extra child-table sections for `contacts` and `addresses`
 so contacts and addresses can be created in the same import file. A bare Customer/Supplier
-template omits these sections. `(<=16.35):` no extended provider; contacts required a separate import.
+template omits these sections. `(ERPNext <=16.6):` no extended provider; contacts required a separate import.
 
 ## Inputs required
 

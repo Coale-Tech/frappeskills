@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-git-workflow-and-versioning",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "I have a DocType change, a patch, and a fixture export all uncommitted — how do I split them into clean commits?",
+        "top_k": 3
+      },
+      {
+        "prompt": "What branch name should I use for a feature targeting version-15 of our app?",
+        "top_k": 3
+      },
+      {
+        "prompt": "How do I bump the app version and tag the release properly?",
+        "top_k": 3
+      },
+      {
+        "prompt": "I need to export fixtures after adding Custom Fields, what is the right order of steps?",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Set up a GitHub Actions workflow that runs tests on every pull request",
+        "owner": "frappe-ci-cd-automation"
+      },
+      {
+        "prompt": "Install the app on a new site using bench get-app",
+        "owner": "frappe-bench-operations"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "I added a new DocType, wrote a patch to migrate existing data, and exported fixtures — all in one working tree. Walk me through turning this into a clean, reviewable commit history.",
+      "expected_output": "A step-by-step guide to staging and committing DocType JSON, patch, and fixture files as separate atomic commits with correct messages",
+      "expectations": [
+        "The DocType JSON/controller change, the patch file, and the fixture export are committed as separate atomic commits",
+        "Commit messages follow the imperative convention (e.g. 'Add Service Request DocType')",
+        "The patch is listed in patches.txt before the patch file is committed",
+        "Fixture files are committed after frappe.export_fixtures or bench export-fixtures is run",
+        "Each commit is described as independently deployable and green"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We are behind schedule. Can we just squash everything into one big commit directly on main so we can deploy faster?",
+      "expected_output": "A clear recommendation against committing untested mixed changes directly to main, with a faster atomic-commit path offered",
+      "expectations": [
+        "Force-pushing or squashing mixed changes onto main without review is not endorsed",
+        "The risk of mixing a patch and a schema change in one commit (harder rollback, harder bisect) is explained",
+        "A minimal faster path is offered: two or three staged commits rather than abandoning the workflow entirely",
+        "The response does not agree to skip pre-commit or atomic commit discipline under time pressure"
+      ]
+    }
+  ]
+}

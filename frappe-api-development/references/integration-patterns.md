@@ -149,18 +149,28 @@ def sync_customer(customer):
   `frappe.log_error()` otherwise — then re-raises.
 - `create_request_log(data, integration_type=None, service_name=None, name=None, error=None, request_headers=None, output=None, **kwargs)`
   inserts an **Integration Request** document (`ignore_permissions=True`,
-  immediate `frappe.db.commit()`) and returns it. `integration_type` is
-  deprecated in favor of passing `is_remote_request=1` or
-  `request_description=...` as a kwarg. Call `log.handle_success(response)`
-  or `log.handle_failure(response)` afterward — both use `db_set` to update
-  `status` (`Completed`/`Failed`) and `output`/`error` without a full
-  document save.
-- **Integration Request** fields worth filtering/reporting on:
-  `status` (`Queued`/`Authorized`/`Completed`/`Cancelled`/`Failed`),
+  immediate `frappe.db.commit()`) and returns it. Call `log.handle_success(response)`
+  or `log.handle_failure(response)` afterward.
+- **Integration Request** fields: `status` (`Queued`/`Authorized`/`Completed`/`Cancelled`/`Failed`),
   `reference_doctype`/`reference_docname`, `data`, `output`, `error`,
-  `request_headers`, `response_headers`, `url`, `is_remote_request`,
-  `integration_request_service`. `IntegrationRequest.clear_old_logs(days=30)`
-  purges rows older than `days`.
+  `request_headers`, `response_headers`, `url`, `is_remote_request`.
+  `IntegrationRequest.clear_old_logs(days=30)` purges old rows.
+
+### SSRF protection (16.51)
+
+**Inside a Server Script** (safe-exec namespace), all five HTTP helpers (`make_get_request` and
+the four mutating verbs) now route through `frappe.utils.safe_exec.make_safe_request`, which
+mounts `SSRFGuardedAdapter`. The adapter validates scheme/hostname before the request **and**
+checks the resolved socket IP after DNS resolution (blocks DNS-rebinding). Loopback, private,
+link-local, and reserved ranges are rejected; proxied requests are blocked.
+`BlockedRequest` (a `frappe.ValidationError`) is raised — catch it explicitly if needed.
+Default timeout: `(10, 300)` s (connect/read).
+
+**Outside the safe-exec context** (`frappe.integrations.utils.make_post_request` etc.) these
+helpers still use the unguarded `requests.Session`. For outbound calls to user-supplied URLs,
+validate first with `frappe.utils.data.validate_egress_url(url)` (raises `ValueError` for
+private/loopback/link-local IPs including `169.254.169.254`) or use
+`frappe.utils.safe_exec.get_safe_request_session()` directly.
 
 Reach for `BaseConnector`-style session classes (above) only when you need
 persistent auth/session state across many calls; for a single request,

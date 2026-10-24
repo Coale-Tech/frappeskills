@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Frappe v15/v16 Compatibility Validation Script
+Frappe v15/v16/16.51 Compatibility Validation Script
 
-This script validates that generated code is compatible with both Frappe v15 and v16.
-Run this script after generating code to check for compatibility issues.
+Flags v15/v16 hazards and APIs removed or deprecated in 16.51.1 / ERPNext 16.50.0.
+Run after generating code to check for compatibility issues.
 """
 
 import re
@@ -42,6 +42,44 @@ FIXTURE_PATTERNS = [
     (r'frappe\.db\.exists\([\'"]Custom Field[\'"]', 'Checking for Custom Field existence (good)'),
     (r'frappe\.new_doc\([\'"]Custom Field[\'"]', 'Creating Custom Field via code'),
     (r'get_custom_fields\(\)', 'Fixture pattern detected'),
+]
+
+# Hazards introduced between frappe 16.35.0 and 16.51.1 / erpnext 16.6.1 → 16.50.0.
+# Each entry: (pattern, frozenset of file suffixes or None for all, level, message)
+# Source-verified: 16.51.1 bench (16.51.1/16.50.0/16.50.0) vs coale_v16 (16.35.0/16.6.1/16.4.1).
+V16_51_HAZARD_PATTERNS: List[Tuple] = [
+    # mask_field_value no longer re-exported from db_query in 16.51
+    (r'from frappe\.model\.db_query import mask_field_value',
+     frozenset({'.py'}), 'error',
+     'mask_field_value removed from frappe.model.db_query in 16.51+; import from frappe.model.utils.mask'),
+    # frappe.utils.weasyprint still exists as a shim but prefer print_format_generator
+    (r'from frappe\.utils\.weasyprint import',
+     frozenset({'.py'}), 'warn',
+     'frappe.utils.weasyprint is a forwarding shim in 16.51+; prefer frappe.utils.print_format_generator'),
+    # ERPNext 16.50: BOM scrap_items table renamed to secondary_items
+    (r'\bBOMScrapItem\b',
+     frozenset({'.py'}), 'warn',
+     'ERPNext 16.50: BOMScrapItem renamed BOMSecondaryItem; field scrap_items → secondary_items'),
+    # HRMS 16.50: Upload Attendance DocType deleted (patch delete_upload_attendance_doctype)
+    (r'"Upload Attendance"',
+     frozenset({'.py'}), 'warn',
+     'HRMS 16.50: Upload Attendance DocType deleted; use Employee Attendance Tool'),
+    # CRM 2.x: WhatsApp Message renamed to WA Message (new whatsapp app)
+    (r'"WhatsApp Message"',
+     frozenset({'.py'}), 'warn',
+     'CRM 2.x: WhatsApp Message doctype renamed WA Message; frappe_whatsapp → whatsapp app'),
+    # JS/Vue: frappe.breadcrumbs.clear/toggle deprecated in 16.51
+    (r'frappe\.breadcrumbs\.(clear|toggle)\(',
+     frozenset({'.js', '.vue', '.ts'}), 'warn',
+     'frappe.breadcrumbs.clear/toggle deprecated in 16.51; use page.set_breadcrumbs([]) or page.show_breadcrumbs = false'),
+    # JS/Vue: frappe.boot.user.all_reports deprecated in 16.51
+    (r'frappe\.boot\.user\.all_reports\b',
+     frozenset({'.js', '.vue', '.ts'}), 'warn',
+     'frappe.boot.user.all_reports deprecated in 16.51; use frappe.boot.allowed_reports'),
+    # Any file: workspace_sidebar/ fixture directory removed in 16.51
+    (r'workspace_sidebar/',
+     None, 'warn',
+     'workspace_sidebar/ fixture dir removed in 16.51; run bench --site <site> convert-sidebar-fixtures'),
 ]
 
 class CompatibilityValidator:
@@ -104,6 +142,16 @@ class CompatibilityValidator:
                         0,
                         message
                     ))
+            # Check for 16.51 hazard patterns (errors/warnings by file type)
+            for pattern, suffixes, level, message in V16_51_HAZARD_PATTERNS:
+                if suffixes is None or file_path.suffix in suffixes:
+                    for match in re.finditer(pattern, content):
+                        line_num = content[:match.start()].count('\n') + 1
+                        entry = (str(file_path), line_num, f'16.51: {message}')
+                        if level == 'error':
+                            self.errors.append(entry)
+                        else:
+                            self.warnings.append(entry)
 
         except Exception as e:
             self.errors.append((str(file_path), 0, f"Error reading file: {e}"))
@@ -121,7 +169,7 @@ class CompatibilityValidator:
         """Generate a compatibility report."""
         report_lines = [
             "=" * 60,
-            "Frappe v15/v16 Compatibility Report",
+            "Frappe v15/v16/16.51 Compatibility Report",
             "=" * 60,
             ""
         ]

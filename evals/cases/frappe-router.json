@@ -1,0 +1,59 @@
+{
+  "skill_name": "frappe-router",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "We have a new Frappe requirement — which skill and lifecycle phase should we start with?",
+        "top_k": 3
+      },
+      {
+        "prompt": "What is the right workflow when a Frappe feature spans multiple skills and phases?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Which approach covers setting up a new Frappe app from scratch through testing and deployment?",
+        "top_k": 3
+      },
+      {
+        "prompt": "I have a Frappe task but I'm not sure which lifecycle phase it belongs to — can you route me?",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Check which version of Frappe this bench is running and what apps are installed",
+        "owner": "frappe-project-triage"
+      },
+      {
+        "prompt": "Add a new field to the Sales Order DocType and write the validate logic",
+        "owner": "frappe-doctype-development"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "A team member says: 'We need to let external contractors submit timesheets without Desk access'. Which part of the Frappe skill set handles this and in what order should we proceed?",
+      "expected_output": "A routing decision identifying the relevant lifecycle skills in order, with brief rationale for each",
+      "expectations": [
+        "Identifies frappe-web-forms as the skill for public/no-Desk data collection",
+        "Mentions checking frappe-project-triage before making changes to an existing codebase",
+        "Routes through a logical BUILD-phase skill (e.g. frappe-doctype-development for the Timesheet model) if the DocType does not yet exist",
+        "Does not start implementing; only routes and explains the sequence"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "I want to expose real-time stock levels to a third-party dashboard. I'm not sure whether to build an API, use a webhook, or build a Vue frontend. Help me pick the right path.",
+      "expected_output": "A routing decision with the primary skill and explanation of when to escalate to a secondary skill",
+      "expectations": [
+        "Identifies frappe-api-development as the primary skill for exposing business logic over HTTP",
+        "Distinguishes between push (webhook) and pull (whitelisted endpoint) scenarios and names the appropriate reference",
+        "Mentions frappe-frontend-development only if a Vue SPA is chosen as the delivery surface",
+        "Does not combine all three paths; makes a recommendation based on the stated need"
+      ]
+    }
+  ]
+}

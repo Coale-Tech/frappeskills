@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-doctype-development",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Create a new DocType called 'Service Request' with fields for priority, assigned technician, and a child table of parts used",
+        "top_k": 3
+      },
+      {
+        "prompt": "Add a validate method that prevents submitting a document if the due date is in the past",
+        "top_k": 3
+      },
+      {
+        "prompt": "Set up naming series and auto-naming for a custom document type",
+        "top_k": 3
+      },
+      {
+        "prompt": "Configure role-based permissions so that only Managers can amend submitted records",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Write a whitelisted Python function that returns open tasks as JSON for the mobile app",
+        "owner": "frappe-api-development"
+      },
+      {
+        "prompt": "Add a button to the Sales Order form that opens a dialog to select a courier",
+        "owner": "frappe-desk-customization"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "I need a submittable DocType called 'Equipment Inspection' with a child table 'Inspection Item' (item_code, condition, notes). Add a validate hook that errors if any item has an empty condition.",
+      "expected_output": "DocType JSON structure, child table definition, and Python controller with the validate method",
+      "expectations": [
+        "Defines Equipment Inspection as is_submittable = 1 in the DocType JSON or via UI instructions",
+        "Creates a separate child table DocType named 'Inspection Item' linked from the parent",
+        "Implements `validate(self)` in the controller that iterates `self.items` and raises `frappe.ValidationError` for empty condition",
+        "Uses `frappe.throw` or `frappe.ValidationError`, not a bare Python exception",
+        "Does not call `frappe.db.sql` in the controller example"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We want role permissions on a custom DocType: 'Support Engineer' role can Read and Write but not Delete or Submit, while 'Support Manager' can do everything including Amend. How do I configure this?",
+      "expected_output": "Step-by-step permission matrix setup via DocType Permissions table or fixtures",
+      "expectations": [
+        "Lists the exact permission rows needed for each role with the correct perm level",
+        "Distinguishes between document-level permissions (permlevel 0) and field-level permissions (permlevel > 0)",
+        "Notes that Submit and Amend require is_submittable = 1 on the DocType",
+        "Mentions exporting as a fixture (Custom DocPerm or the DocType itself) for reproducibility"
+      ]
+    }
+  ]
+}

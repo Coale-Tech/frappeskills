@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-project-triage",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Before I touch this bench I want to know what version it is and which apps are installed",
+        "top_k": 3
+      },
+      {
+        "prompt": "We're picking up someone else's Frappe app — how do I find out what's in it before changing anything?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Need to check whether this site is v15 or v16 and if erpnext is installed before recommending an API",
+        "top_k": 3
+      },
+      {
+        "prompt": "What tooling and conventions does this existing Frappe codebase use?",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Create a new DocType called Service Request with fields for priority and assignee",
+        "owner": "frappe-doctype-development"
+      },
+      {
+        "prompt": "Restore this bench from last night's backup and fix the stuck migration",
+        "owner": "frappe-bench-operations"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "I'm about to add a Python controller to an app I haven't touched before. The bench is at /home/deploy/frappe-bench and the site is called erp.example.com. Walk me through what to check first.",
+      "expected_output": "Ordered triage steps covering version, installed apps, conventions, and any v15/v16 compatibility notes",
+      "expectations": [
+        "Instructs running bench version or reading frappe/__init__.py to confirm the framework version",
+        "Instructs listing installed apps (bench --site <site> list-apps or apps.txt) before inspecting code",
+        "Checks for a pre-commit or pyproject.toml to identify linting conventions",
+        "Notes which features differ between v15 and v16 that could affect the planned controller change",
+        "Does not jump to writing code before triage is complete"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The client says they are on 'the latest Frappe'. I need to know whether frappe-ui 1.0 components are available before building a frontend. How do I confirm this without guessing?",
+      "expected_output": "Commands and file paths that reveal the exact frappe-ui version and whether the 1.0 API is available",
+      "expectations": [
+        "Reads package.json or yarn.lock in the app's frontend directory to find the frappe-ui version",
+        "Distinguishes frappe-ui 0.1.x (legacy createResource) from 1.0 (useCall/useList) component API",
+        "Does not assume a version from the Frappe framework version alone",
+        "Recommends reading frappe-ui changelog or import shape of a known 1.0-only component as confirmation"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-documentation-and-adrs",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Write an ADR for our decision to use frappe.enqueue instead of a direct API call for invoice generation",
+        "top_k": 3
+      },
+      {
+        "prompt": "Update the app README to explain how to install and configure the custom app on a new bench",
+        "top_k": 3
+      },
+      {
+        "prompt": "Add DocType description and help text fields to the Service Request form",
+        "top_k": 3
+      },
+      {
+        "prompt": "Record why we chose to override DocType class instead of using a doc_events hook",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Design the API contract for the new webhook receiver endpoint",
+        "owner": "frappe-api-development"
+      },
+      {
+        "prompt": "Write unit tests to cover the new payment controller",
+        "owner": "frappe-testing"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "We decided to store per-tenant configuration in a Custom DocType instead of site_config.json. Write an ADR capturing that decision.",
+      "expected_output": "An ADR with context, decision, alternatives considered, consequences, and a status",
+      "expectations": [
+        "The ADR states context (why the decision was needed), the decision itself, and its consequences distinctly",
+        "Rejected alternatives are recorded — at minimum site_config.json and System Settings as options",
+        "Trade-offs (ease of editing vs. security of config separation) are noted, not just the winning choice",
+        "The ADR carries a status (Proposed, Accepted, or Superseded) and a date",
+        "The ADR is written in a format compatible with an `docs/decisions/` directory"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We already shipped the feature two weeks ago — does the ADR still matter now that the decision is made and done?",
+      "expected_output": "A clear explanation of why documenting the decision post-shipping is still valuable, with the ADR written regardless",
+      "expectations": [
+        "The sunk-cost argument ('decision is already made') does not prevent writing the ADR",
+        "The response explains the ongoing value: future maintainers, reverting the decision, onboarding new developers",
+        "The ADR is written or its structure is provided rather than deferred",
+        "The status is set to Accepted with the ship date, not left as Proposed"
+      ]
+    }
+  ]
+}

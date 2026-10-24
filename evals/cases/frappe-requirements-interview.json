@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-requirements-interview",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "We want to build something for tracking field service visits — can you interview me and figure out what DocTypes we actually need?",
+        "top_k": 3
+      },
+      {
+        "prompt": "I have an idea for a customer warranty claims portal but I'm not sure what DocTypes or roles we need — can you grill me on it?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Build me a rental equipment management module",
+        "top_k": 3
+      },
+      {
+        "prompt": "Stress-test this idea: replace our paper job cards with a Frappe app that assigns work to technicians",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Write the spec for a Service Request DocType — it has subject, customer, assigned_to, and status fields, with a Manager approval workflow",
+        "owner": "frappe-spec-driven-development"
+      },
+      {
+        "prompt": "Break this completed spec into ordered implementation tasks I can hand to agents",
+        "owner": "frappe-planning-and-task-breakdown"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "I want to build something in Frappe for tracking subcontractor work orders. I'm not sure what shape it should take — whether it's a new DocType, a child table, or something that extends an existing ERPNext document. Can you interview me?",
+      "expected_output": "A one-question-at-a-time interview that surfaces DocTypes, roles, workflow states, and scope, ending in a structured requirements brief",
+      "expectations": [
+        "The agent asks no more than one question at a time",
+        "Questions cover at minimum: who uses this, what DocTypes or existing records it connects to, what actions users take, and what success looks like",
+        "The agent checks installed apps and version before proposing a shape (child table vs standalone DocType vs ERPNext extension)",
+        "The session ends with a requirements brief that names DocTypes, roles, workflow states, and any out-of-scope items",
+        "No spec or DocType code is written during the interview"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Refine this idea: 'a portal where our customers can see their delivery status and raise a complaint if something is wrong'. I'm not sure if it's a web form, a portal page, or something else.",
+      "expected_output": "A divergent/convergent refinement that explores options and narrows to a recommended shape, asking about roles and workflow before proposing anything",
+      "expectations": [
+        "The agent explores multiple plausible shapes (web form vs portal page vs custom SPA) before settling on one",
+        "At least one clarifying question targets who the portal users are and whether they need a Frappe login",
+        "The agent checks whether frappe-web-forms or frappe-frontend-development is the right next step before ending",
+        "The output is a refined idea summary, not a coded implementation"
+      ]
+    }
+  ]
+}

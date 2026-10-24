@@ -1,6 +1,6 @@
 ---
 name: frappe-reports
-description: Create Frappe reports using Report Builder, Query Reports (SQL), and Script Reports (Python plus JS), and visualize data with charts, dashboards, and Insights. Use when building data analysis views or dashboards.
+description: "Create Frappe reports using Report Builder, Query Reports (SQL), and Script Reports (Python plus JS), and visualize data with charts, dashboards, and Insights. Use when building data analysis views or dashboards."
 ---
 
 # Frappe Reports & Visualization
@@ -115,6 +115,9 @@ the report as part of the app module, and migrate. Slow reports: enable
 - Printable output instead of a screen report → [`frappe-printing-templates`](../frappe-printing-templates/SKILL.md)
 - Domain semantics of the numbers → [`frappe-erpnext-hrms`](../frappe-erpnext-hrms/SKILL.md)
 
+- Slow reports and query tuning → [`frappe-performance-optimization`](../frappe-performance-optimization/SKILL.md)
+- Unexpected empty result or wrong totals → [`frappe-debugging-and-error-recovery`](../frappe-debugging-and-error-recovery/SKILL.md)
+
 ## References
 
 - [references/reports.md](references/reports.md) - Report Builder, Query and Script Reports
@@ -127,6 +130,27 @@ the report as part of the app module, and migrate. Slow reports: enable
 - **Set `fieldtype` on every column**: it drives formatting and links
 - **Respect permissions**: reports expose data — grant roles deliberately
 - **Aggregate via `frappe.qb`, not Python loops**: per-row queries do not scale
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "The report is slow only on big sites" | A report slow at scale is already deployed to production; add `EXPLAIN` and indexes before release. |
+| "`frappe.db.sql` is more readable than `frappe.qb`" | Raw SQL bypasses dialect safety and is one edit away from an injection point; use `frappe.qb`. |
+| "The totals look right, I don't need to reconcile them" | Joins before aggregation silently duplicate rows and inflate totals; verify against source documents. |
+| "I'll set report permissions later, everyone can run it for now" | An empty Roles table grants report access to every logged-in user; set roles before the first deploy. |
+| "I'll sum in Python after the query, it's cleaner code" | Per-row Python aggregation means N round-trips at scale; push aggregation into `frappe.qb` in SQL. |
+| "It's a Query Report — the SQL is parameterized so injection is not a risk" | Query Report SQL is editable on the server; use Script Reports with `frappe.qb` for code-controlled queries. |
+
+## Red Flags
+
+- `frappe.db.sql` used in a Script Report instead of `frappe.qb`
+- Python `sum()` or loop over query result rows computing aggregates
+- Report Roles table left empty at the time of first deploy
+- Column definitions missing `fieldtype` (numbers render as raw strings without formatting)
+- `GROUP BY` on a joined query without verifying rows are not duplicated by the join
+- Report not tested against a date range that returns a large result set
 
 ## Common Mistakes
 

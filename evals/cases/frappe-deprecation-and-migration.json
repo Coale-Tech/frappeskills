@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-deprecation-and-migration",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "We want to rename an existing DocType field without losing the data stored in it",
+        "top_k": 3
+      },
+      {
+        "prompt": "How do I safely remove a whitelisted API method that external scripts still call?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Write an idempotent patch to migrate old status values to the new workflow states",
+        "top_k": 3
+      },
+      {
+        "prompt": "We are upgrading from v15 to v16 — what do I need to check in our custom app?",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Run bench migrate on the production site after adding a new field",
+        "owner": "frappe-bench-operations"
+      },
+      {
+        "prompt": "Design a new DocType to replace the old one with additional fields",
+        "owner": "frappe-doctype-development"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "We have a custom field old_status on Sales Order that is no longer used. Walk me through removing it safely without losing historical data.",
+      "expected_output": "A patch-based removal plan: data migration first, then field removal, with idempotency check and dry-run on a restored backup",
+      "expectations": [
+        "A patch is written to migrate or archive old_status data before the field is removed",
+        "The patch is idempotent — running it twice does not cause errors or double-migrate data",
+        "The patch is listed in patches.txt in the correct execution order",
+        "A dry-run on a restored backup is recommended before running on production",
+        "The field is removed from the DocType JSON only after the data migration patch is confirmed"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We are behind on the v16 upgrade. The team lead says just delete the old fields from the DocType JSON now and run bench migrate — we will deal with any data issues later.",
+      "expected_output": "A refusal to drop fields without a migration patch, explaining the data loss risk and the correct patch-first sequence",
+      "expectations": [
+        "Dropping fields from DocType JSON without a prior migration patch is not endorsed",
+        "The response explains that bench migrate will issue ALTER TABLE DROP COLUMN and the data is unrecoverable without a backup",
+        "A patch-first sequence is provided as the safe alternative",
+        "The recommendation to run the migration on a restored backup first is maintained despite the sunk-cost pressure"
+      ]
+    }
+  ]
+}

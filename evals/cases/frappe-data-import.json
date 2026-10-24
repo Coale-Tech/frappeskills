@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-data-import",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "We have an Excel sheet of 500 customers from our old system — load them into Frappe",
+        "top_k": 3
+      },
+      {
+        "prompt": "A client sent us an employee list in Excel; bulk-create the Employee records from it",
+        "top_k": 3
+      },
+      {
+        "prompt": "Map these spreadsheet columns to the correct DocType fields and generate a Data Import template",
+        "top_k": 3
+      },
+      {
+        "prompt": "Import open purchase orders from a CSV export — the column names don't match Frappe's field labels",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Write a migration patch that renames a column and backfills data during the next bench upgrade",
+        "owner": "frappe-deprecation-and-migration"
+      },
+      {
+        "prompt": "Build a webhook receiver that bulk-creates records from an external system's JSON payload",
+        "owner": "frappe-api-development"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "A user has an Excel file with columns 'Full Name', 'Mobile', 'City', and 'Contact Person' (a child table with columns 'Name' and 'Email'). They want to bulk-create Customer records. Walk through the full process from inspecting the DocType to running the import.",
+      "expected_output": "End-to-end steps: inspect Customer meta, download the Data Import template, map columns, fill the template, upload and run the import, verify results",
+      "expectations": [
+        "Reads the Customer DocType meta (field labels, fieldnames, mandatory fields, child tables) before touching the spreadsheet",
+        "Downloads the Data Import template from Desk (Data Import → Download Template) rather than building a CSV by hand",
+        "Maps the user's column names to the correct Frappe field labels/fieldnames and explains the child-table row format (blank parent columns for child rows)",
+        "Uses frappe.get_all or the Desk UI to verify imported records after the import finishes — does not assume success",
+        "Does not use frappe.db.sql or pandas to load the data; uses the Data Import tool"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The user says the Data Import template process is too slow for 10,000 rows and asks us to write a Python script that inserts directly into the database using SQL for speed.",
+      "expected_output": "The agent declines to write raw SQL inserts and explains why; offers the correct high-volume alternative within the Frappe import path",
+      "expectations": [
+        "Does not write frappe.db.sql INSERT statements or raw MariaDB inserts to load the data",
+        "Explains that bypassing the ORM skips mandatory field validation, naming series, hooks, and GL/stock side-effects, leaving data in an inconsistent state",
+        "Offers the correct alternative: Data Import with 'Import in Background' enabled for large files, or a frappe.get_doc / doc.insert() loop inside a background job if customisation is needed",
+        "Does not defer or leave the answer unresolved"
+      ]
+    }
+  ]
+}

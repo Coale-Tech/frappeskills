@@ -1,0 +1,63 @@
+{
+  "skill_name": "frappe-reports",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "I need a monthly sales report showing revenue grouped by customer and item category",
+        "top_k": 3
+      },
+      {
+        "prompt": "How do I build a script report that calculates outstanding balances across Sales Invoice and Payment Entry?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Add a dashboard chart showing open tasks by department for the home page",
+        "top_k": 3
+      },
+      {
+        "prompt": "Create a query report with date range and status filters for pending purchase orders",
+        "top_k": 3
+      },
+      {
+        "prompt": "We want number cards on the executive dashboard showing total unpaid invoices and overdue amounts",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Add a saved filter and column configuration to the Customer list view",
+        "owner": "frappe-desk-customization"
+      },
+      {
+        "prompt": "Build a REST endpoint that returns aggregated inventory data as JSON for our mobile app",
+        "owner": "frappe-api-development"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Build a Script Report called 'Unpaid Invoices by Customer' that shows each customer's total outstanding amount, grouped by currency, with filters for company and date range. The report should work in Python and have a matching JS file for column definitions.",
+      "expected_output": "A step-by-step plan covering report type selection, Python get_data function, JS columns definition, filter declaration, and how to verify the output",
+      "expectations": [
+        "Identifies Script Report as the correct type because Python computation and conditional formatting are needed",
+        "Shows the Python get_data(filters) function using frappe.qb or frappe.get_all, never raw frappe.db.sql",
+        "Includes a JS columns array matching the Python return keys",
+        "Declares filters in the report JSON with fieldtype, fieldname, and label",
+        "Describes how to run and verify the report in Desk before releasing it"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We already have a working 'Task Summary' Script Report. The manager says the report is correct and we can skip adding chart configuration — just ship it. But the ticket says the deliverable includes a bar chart by assignee.",
+      "expected_output": "Chart configuration added to the Script Report despite the manager's suggestion to skip it",
+      "expectations": [
+        "Does not skip the chart step: explains that the chart is part of the agreed deliverable",
+        "Shows how to add the chart key to the report's get_chart_data or return dict, specifying chart_type, data, and fieldname",
+        "Does not modify unrelated report logic in response to the pressure"
+      ]
+    }
+  ]
+}

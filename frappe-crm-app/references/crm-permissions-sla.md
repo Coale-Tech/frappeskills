@@ -3,37 +3,33 @@
 Two backend systems specific to this app: an org-hierarchy row-permission
 layer over `CRM Lead`/`CRM Deal`, and a self-contained SLA engine
 independent of both ERPNext's `Service Level Agreement` and Frappe
-Helpdesk's `HD Service Level Agreement` (see
-[sla-patterns.md](../../frappe-enterprise-patterns/references/sla-patterns.md)
-for how all three compare).
+Helpdesk's `HD Service Level Agreement`.
 
 ## Org-hierarchy row permissions
 
-`permission_query_conditions`/`has_permission` for `CRM Lead` and
-`CRM Deal` both delegate to `crm/permissions/org_hierarchy.py`. Behaviour
-depends on `FCRM Settings.enable_sales_hierarchy`
-(`hierarchy_enabled()`) and whether the requesting user has a
-`CRM Sales Hierarchy` row (`_in_hierarchy`, checks `frappe.db.exists("CRM
-Sales Hierarchy", {"user": user})`):
+**CRM 2.x (16.51):** `permission_query_conditions` and `has_permission` for `CRM Lead`
+and `CRM Deal` are **registered and active** in `hooks.py` (:138-140). `(CRM 1.x <=16.35):`
+these hooks existed in code but were **commented out** — row permissions were NOT enforced;
+Sales Users could see all records regardless of hierarchy.
 
-- `Administrator` / `System Manager` role: unrestricted (empty condition /
-  `True`).
-- `Sales Manager` role, **not** in the hierarchy tree: unrestricted — the
-  hierarchy feature does not narrow a plain Sales Manager unless they are
-  explicitly placed in the tree.
-- User is in the hierarchy tree: sees records they own (`lead_owner`/
-  `deal_owner`), records owned by anyone in their subtree
-  (`_team_mem_query`), and anything assigned to them or their subtree via
-  `ToDo` (excluding cancelled ToDos).
-- Everyone else (plain Sales User, not in the tree): sees only records they
-  own or are directly assigned via `ToDo` — no subtree visibility.
+Both delegate to `crm/permissions/org_hierarchy.py`. Behaviour depends on
+`FCRM Settings.enable_sales_hierarchy` (`hierarchy_enabled()`) and whether the
+requesting user has a `CRM Sales Hierarchy` row (`_in_hierarchy`, checks
+`frappe.db.exists("CRM Sales Hierarchy", {"user": user})`):
 
-`has_lead_permission`/`has_deal_permission` re-run the same condition as a
-single-row existence check for document-level `has_permission`, so list
-filtering and single-document access always agree (`org_hierarchy.py`).
-Building a custom row-permission layer on a new CRM DocType should follow
-this same query-condition-plus-has-permission-pair shape rather than one
-without the other, or list views and direct-link access will disagree.
+- `Administrator` / `System Manager` role: unrestricted.
+- `Sales Manager` role, **not** in the hierarchy tree: unrestricted — hierarchy does not
+  narrow a plain Sales Manager unless they are placed in the tree.
+- User is in the hierarchy tree: sees records they own (`lead_owner`/`deal_owner`),
+  records owned by anyone in their subtree (`_team_mem_query`), and anything assigned
+  to them or their subtree via `ToDo` (excluding cancelled ToDos).
+- Everyone else (plain Sales User, not in tree): sees only records they own or are
+  directly assigned via `ToDo`.
+
+`has_lead_permission`/`has_deal_permission` re-run the same condition as a single-row
+existence check for document-level `has_permission`, so list filtering and
+single-document access always agree. Building a custom row-permission layer on a new CRM
+DocType should follow this same query-condition-plus-has-permission-pair shape.
 
 ## CRM Service Level Agreement
 
@@ -86,12 +82,12 @@ just "time to first response."
 
 ## Sources
 
-Verified against the installed Frappe CRM app:
+Verified against CRM 1.58.5 (coale_v16) and CRM 2.0.0-dev (16.51.1 bench):
 
 - `crm/permissions/org_hierarchy.py` — `_permission_query_conditions`, `_has_permission`, `hierarchy_enabled`, `_in_hierarchy`
-- `crm/hooks.py` — `permission_query_conditions`/`has_permission` registration (:138-148)
+- `crm/hooks.py` (16.51.1 bench) — `permission_query_conditions`/`has_permission` for Lead/Deal active (:138-140)
+- `crm/hooks.py` (coale_v16) — same entries commented out (:122-123); row permissions NOT enforced in CRM 1.x
 - `crm/fcrm/doctype/crm_service_level_agreement/crm_service_level_agreement.json` — field list
 - `crm/fcrm/doctype/crm_service_level_agreement/crm_service_level_agreement.py` — `validate_condition` (:65-72)
 - `crm/fcrm/doctype/crm_service_level_agreement/utils.py` — `get_sla`, `get_context`
-- `crm/fcrm/doctype/crm_rolling_response_time/crm_rolling_response_time.json` — field list
 - `crm/install.py` — `assign_condition_json`/`unassign_condition_json` custom fields on `Assignment Rule` (:558-608)

@@ -1,8 +1,21 @@
 frappeskills
 Copyright (c) 2026 Coale Tech
 
-This repository contains 19 task-scoped Agent Skills (`frappe-*`), with
+This repository contains 40 task-scoped Agent Skills (`frappe-*`), with
 `frappe-router` as the entry point.
+
+The lifecycle skills (requirements, spec, constraints, planning, incremental
+implementation, doubt-driven development, context engineering, debugging,
+browser testing, review, simplification, security, performance, git workflow,
+CI/CD, deprecation/migration, documentation, observability, shipping), the
+Common Rationalizations / Red Flags section pattern, the slash commands, the
+specialist agent personas, the validation scripts and the routing evals are
+adapted from Addy Osmani's agent-skills at
+https://github.com/addyosmani/agent-skills, licensed MIT (full text in
+LICENSES/agent-skills-addyosmani-MIT.txt). Adapted 2026-10-24 at upstream commit
+aeac41d. Each adapted skill and reference re-derives the process for Frappe and
+carries an inline `Adapted from addyosmani/agent-skills` provenance note naming
+the upstream file.
 
 Portions of the routing guidance and the terse backend/frontend reference
 material are derived from the upstream Frappe skills published by Frappe

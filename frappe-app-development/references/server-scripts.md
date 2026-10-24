@@ -103,6 +103,11 @@ Verified subset available inside a script's `frappe` object
 - Messaging/HTTP: `msgprint`, `throw`, `sendmail`, `log_error`, `get_print`,
   `attach_print`, `make_get_request`/`make_post_request`/`make_put_request`/
   `make_patch_request`/`make_delete_request`
+  (16.51: all five route through `make_safe_request` with `SSRFGuardedAdapter` — validates
+  scheme/hostname before the request AND at socket level to block DNS-rebinding.
+  Loopback, private, link-local ranges raise `BlockedRequest` (a `frappe.ValidationError`),
+  not `frappe.throw`. Default timeout: `(10, 300)` s. Outside the safe-exec context, use
+  `frappe.utils.safe_exec.get_safe_request_session()` directly.)
 - Jobs: `enqueue` (wrapped as `safe_enqueue` — accepts the same `queue`/`timeout`/
   `job_name` kwargs as `frappe.enqueue`), `is_job_queued(job_name, queue="default")`
 - Rendering/formatting: `render_template`, `format`/`format_value`, `get_hooks`,

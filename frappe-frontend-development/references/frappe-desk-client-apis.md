@@ -7,9 +7,9 @@ and list view customization. See
 [frappe-ui-components.md](frappe-ui-components.md) for the file index and how
 this differs from the frappe-ui (Vue) SPA layer.
 
-Verified against source (frappe `16.35.0`): `frappe/public/js/frappe/request.js`,
-`db.js`, `ui/dialog.js`, `ui/messages.js`, `form/form.js`, `form/script_manager.js`,
-`ui/form/controls/`.
+Verified against frappe 16.35.0 (<=16.35) and 16.51.1 (16.51) source at `apps/frappe/frappe/public/js/frappe/`:
+`request.js`, `db.js`, `ui/dialog.js`, `ui/messages.js`, `form/form.js`, `form/script_manager.js`,
+`desk.js`, `ui/components/toast.js`.
 
 ---
 
@@ -92,13 +92,51 @@ const dialog = new frappe.ui.Dialog({
       args: values,
       callback: () => {
         dialog.hide()
-        frappe.show_alert({ message: __('Task created'), indicator: 'green' })
+        // (<=16.35) frappe.show_alert({ message, indicator: 'green' }) — still works as an alias
+        // (16.51+) preferred: frappe.ui.toast({ message, type: "success", duration: 3000 })
+        frappe.ui.toast({ message: __('Task created'), type: 'success', duration: 3000 })
       }
-    })
   }
 })
 dialog.show()
 ```
+
+### frappe.ui.toast (16.51)
+
+```javascript
+// New canonical API (16.51) — replaces frappe.show_alert for new code
+frappe.ui.toast({ message: __('Saved'), type: 'success', duration: 3000 })
+frappe.ui.toast({ message: __('Warning'), type: 'warning', description: __('Check the value') })
+// Async helper
+frappe.ui.toast.promise(myPromise, { loading: __('Saving...'), success: __('Done'), error: __('Failed') })
+
+// Legacy alias still works (maps indicator colours → type)
+frappe.show_alert({ message: __('Done'), indicator: 'green' })
+```
+
+Toast container changed `#alert-container` → `.es-toast-container`; CSS class changed
+`.desk-alert.green` → `.es-toast[data-type="success"]` (16.51). Avoid targeting the toast DOM.
+
+### frappe.warn (16.51)
+
+```javascript
+// New 6th parameter: secondary_label (Cancel button text)
+frappe.warn(__('Confirm'), __('Are you sure?'), proceedFn, __('Yes'), false, __('No, go back'))
+// Confirm button now styled with data-theme="red" (not .btn-danger)
+// — CSS selectors on .btn-danger inside a confirm dialog will not match in 16.51
+```
+
+### dialog.get_primary_btn() selector (16.51)
+
+`get_primary_btn()` returns `this.standard_actions.find(".btn-modal-primary")` (was `.btn-primary`). Use the API method, not a manual jQuery selector:
+```javascript
+const btn = dialog.get_primary_btn()  // stable; do NOT use .find('.btn-primary')
+```
+
+### frappe.boot.allowed_reports (16.51)
+
+`frappe.boot.user.all_reports` is deprecated and emits a console warning in 16.51. Use `frappe.boot.allowed_reports` directly.
+
 
 ## Form client scripts
 
@@ -167,9 +205,13 @@ console.log(control.value)
 
 ## Sources
 
-- `frappe/public/js/frappe/request.js` — `frappe.call`, `frappe.xcall`
-- `frappe/public/js/frappe/db.js` — `frappe.db.*`
-- `frappe/public/js/frappe/ui/dialog.js` — `frappe.ui.Dialog`
-- `frappe/public/js/frappe/form/form.js` — `frm` API
-- `frappe/public/js/frappe/form/script_manager.js` — `frappe.ui.form.on` dispatch
-- `frappe/public/js/frappe/ui/form/controls/` — `Control` subclasses per fieldtype
+Verified against frappe 16.35.0 (<=16.35) and 16.51.1 (16.51):
+- `apps/frappe/frappe/public/js/frappe/request.js` — `frappe.call`, `frappe.xcall`
+- `apps/frappe/frappe/public/js/frappe/db.js` — `frappe.db.*`
+- `apps/frappe/frappe/public/js/frappe/ui/dialog.js` (16.51) — `get_primary_btn()` → `.btn-modal-primary`
+- `apps/frappe/frappe/public/js/frappe/ui/messages.js` (16.51) — `frappe.warn` 6-param; `frappe.show_alert` → `frappe.ui.toast` alias
+- `apps/frappe/frappe/public/js/frappe/ui/components/toast.js` (16.51) — `frappe.ui.toast`, `frappe.ui.toast.promise`
+- `apps/frappe/frappe/public/js/frappe/desk.js` (16.51) — `alias_removed_boot_keys()` deprecating `frappe.boot.user.all_reports`
+- `apps/frappe/frappe/public/js/frappe/form/form.js` — `frm` API
+- `apps/frappe/frappe/public/js/frappe/form/script_manager.js` — `frappe.ui.form.on` dispatch
+- `apps/frappe/frappe/public/js/frappe/ui/form/controls/` — `Control` subclasses per fieldtype

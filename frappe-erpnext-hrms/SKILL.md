@@ -1,6 +1,6 @@
 ---
 name: frappe-erpnext-hrms
-description: Work with ERPNext and HRMS domain workflows including sales, purchase, stock, accounting, manufacturing, payroll, leave, and attendance. Use when extending or integrating with ERPNext/HRMS business documents.
+description: "Work with ERPNext and HRMS domain workflows including sales orders, purchase orders, stock, accounting, manufacturing, payroll (generate payslips for employees by department via background job), leave balance, attendance, and ERPNext CRM Lead/Opportunity scoring. Use when extending ERPNext/HRMS business documents or customising ERPNext sales or HR module fields."
 ---
 
 # ERPNext & HRMS Domain Workflows
@@ -93,6 +93,7 @@ than mocking them — validation depends on them.
 - Reporting on domain data → [`frappe-reports`](../frappe-reports/SKILL.md)
 - Print output for domain documents → [`frappe-printing-templates`](../frappe-printing-templates/SKILL.md)
 - Undocumented core behaviour → [`frappe-deep-research`](../frappe-deep-research/SKILL.md)
+- Tracing unexpected domain document behaviour → [`frappe-debugging-and-error-recovery`](../frappe-debugging-and-error-recovery/SKILL.md)
 
 ## References
 
@@ -115,6 +116,28 @@ than mocking them — validation depends on them.
 - **Never hardcode company, warehouse, or account**: read from settings
 - **Reverse side effects on cancel**: a cancelled document must leave no residue
 - **Use the framework's rounding and currency helpers** for money
+
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I'll just edit this one core ERPNext file for this change" | Core file edits are overwritten on the next `bench update`; the fix disappears silently. |
+| "Inserting GL Entries directly is faster than going through the document" | Manual GL insertion bypasses reconciliation, rounding helpers and Payment Ledger consistency; the ledger corrupts. |
+| "There is only one company, so hardcoding it is fine" | The second company is added six months later; hardcoded names break every report and stock move. |
+| "The hook handles cancel automatically" | `on_cancel` must be implemented explicitly; omitting it leaves side effects (linked docs, GL entries) as orphan data. |
+| "Payroll amounts are off — must be a formula error" | Payroll computation depends on salary structure assignment, attendance records and leave deductions; check those first. |
+| "I'll import `erpnext` at the top of every file" | A Frappe-only site raises `ModuleNotFoundError` on first import; guard with `if 'erpnext' in frappe.get_installed_apps()`. |
+
+## Red Flags
+
+- Direct edits to any file under `apps/erpnext/` or `apps/hrms/`
+- `frappe.db.sql("INSERT INTO \`tabGL Entry\`...")` or any manual GL/SLE row insertion
+- Hardcoded company name, warehouse name, or account name in Python or JavaScript
+- `on_cancel` not implemented when `on_submit` creates linked documents or sends notifications
+- `import erpnext` at module level without an installed-app guard
+- Same event handler registered in both `doc_events` in `hooks.py` and in a controller method
 
 ## Common Mistakes
 

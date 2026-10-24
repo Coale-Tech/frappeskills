@@ -1,6 +1,6 @@
 # Workspace Patterns Guide (v16)
 
-This guide covers the **three-layer navigation system** in Frappe v16: Desktop Icons, Workspace Sidebar, and Workspace (dashboard).
+This guide covers the **two-layer navigation system** in Frappe v16: Sidebar and Workspace (dashboard). Desktop Icons are additive app-level tiles; they are auto-generated from `add_to_apps_screen`.
 
 ## Architecture Overview
 
@@ -10,7 +10,7 @@ Desktop Icon (App)          ← App tile on /desk home
 ├── Desktop Icon (Link)     ← Child: opens SPA frontend (External)
 └── Desktop Icon (Link)     ← Child: links to another sidebar
 
-Workspace Sidebar           ← Left sidebar navigation (collapsible sections)
+Sidebar (16.51) / Workspace Sidebar (<=16.35) ← Left sidebar navigation
 ├── Link items              ← DocType, Report, URL links
 └── Section Breaks          ← Collapsible group headers
 
@@ -29,9 +29,10 @@ my_app/
 │   ├── my_app.json                    ← Parent App icon
 │   ├── my_module.json                 ← Child Link to sidebar
 │   └── open_my_app.json               ← Child External link to SPA
-├── workspace_sidebar/
-│   └── my_module.json                 ← Sidebar navigation
-├── my_module/                         ← Module directory
+├── my_module/
+│   ├── sidebar/
+│   │   └── my_module/
+│   │       └── my_module.json         ← Sidebar (16.51) navigation
 │   └── workspace/
 │       └── my_module/
 │           └── my_module.json         ← Workspace dashboard
@@ -129,14 +130,18 @@ Links to a Vue.js frontend SPA (like a custom app).
 
 **Note**: External links use `link` field (not `link_to`).
 
-## 2. Workspace Sidebar
+## 2. Sidebar (navigation)
 
-Left sidebar with collapsible sections. Filed in `workspace_sidebar/` directory.
+> **Version note**: 16.51 introduces a new `Sidebar` doctype and path. The old `Workspace Sidebar`
+> doctype and `workspace_sidebar/` path still load but are deprecated — they fall back to an
+> auto-generated sidebar. Migrate with: `bench --site <site> convert-sidebar-fixtures --app <app>`
+
+### 2a. New format (16.51): `<module>/sidebar/<scrubbed>/<scrubbed>.json`, doctype `Sidebar`
 
 ```json
 {
  "app": "my_app",
- "doctype": "Workspace Sidebar",
+ "doctype": "Sidebar",
  "header_icon": "building",
  "module": "My Module",
  "name": "My Module",
@@ -152,51 +157,45 @@ Left sidebar with collapsible sections. Filed in `workspace_sidebar/` directory.
   {
    "child": 0, "collapsible": 1, "icon": "dollar-sign",
    "indent": 1, "keep_closed": 1,
-   "label": "Section Name", "link_type": "DocType",
+   "label": "Invoicing", "link_type": "DocType",
    "show_arrow": 0, "type": "Section Break"
   },
   {
    "child": 1, "collapsible": 1, "indent": 0, "keep_closed": 0,
    "label": "My DocType", "link_to": "My DocType", "link_type": "DocType",
    "show_arrow": 0, "type": "Link"
-  },
-  {
-   "child": 1, "collapsible": 1, "indent": 0, "keep_closed": 0,
-   "label": "My Report", "link_to": "My Report", "link_type": "Report",
-   "show_arrow": 0, "type": "Link"
   }
  ]
 }
 ```
 
-### Sidebar Item Fields
+`Sidebar` parent fields: `module` (Link), `title` (autoname = `name`), `header_icon`, `app` (Autocomplete), `items` (child: `Sidebar Item`), `standard`, `merged_from` (Long Text). The file lives at `<app>/<module>/sidebar/<frappe.scrub(title)>/<frappe.scrub(title)>.json` — the ordinary doc-files walk imports it automatically; no special folder or command is needed after migration.
+
+### 2b. Old format (<=16.35, deprecated 16.51): `workspace_sidebar/<module>.json`, doctype `Workspace Sidebar`
+
+The old `Workspace Sidebar` doctype and `workspace_sidebar/` directory continue to work in 16.51 but fall back to a generated sidebar when the app has not converted. Run the migration command to produce proper `Sidebar` fixtures from the old ones; the old folder is left in place and can be deleted afterward.
+
+### Sidebar Item fields (both `Workspace Sidebar Item` and `Sidebar Item`)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `type` | Select: `Link` (default) / `Section Break` / `Spacer` / `Sidebar Item Group` | Item kind |
+| `type` | Select: `Link` / `Section Break` / `Spacer` | Item kind |
 | `child` | Check | 1 = nested under the preceding Section Break |
-| `indent` | Check | Section-Break-only (`depends_on: type == "Section Break"`) |
-| `collapsible` | Check, default 1 | Section-Break-only |
+| `indent` | Check | Section-Break-only |
+| `collapsible` | Check | Section-Break-only |
 | `keep_closed` | Check | Section-Break-only; 1 = collapsed by default |
 | `label` | Data | Display text |
-| `link_type` | Select, default `DocType`: `DocType` / `Page` / `Report` / `Workspace` / `Dashboard` / `URL` | Target kind; shown for `type == "Link"` rows |
-| `link_to` | Dynamic Link (options: `link_type`) | Target name; hidden when `link_type == "URL"` |
-| `icon` | Icon (options: `Emojis`) | Shown for `type == "Link"` or `"Section Break"` rows |
-| `url` | Data | Target when `link_type == "URL"` |
-| `navigate_to_tab` | Autocomplete (a tab name, not boolean) | Shown when `link_type == "DocType"` and `link_to` is set — jumps to that Workspace tab |
-| `show_arrow` | Check | Shown when `indent == 1` |
-| `filters` / `route_options` | Code, options `JSON` | Preset list filters / route options applied on click |
+| `link_type` | Select: `DocType` / `Page` / `Report` / `Workspace` / `Dashboard` / `URL` | Target kind |
+| `link_to` | Dynamic Link (options: `link_type`) | Target name |
+| `icon` | Icon | Item icon |
+| `url` | Data | When `link_type == "URL"` |
+| `navigate_to_tab` | Autocomplete | Jump to a Workspace tab on click |
+| `show_arrow` | Check | Show expand arrow |
+| `filters` / `route_options` | Code JSON | Preset list filters / route options on click |
+| `open_in_new_tab` | Check | (16.51, `Sidebar Item` only) |
 
-There is no `collapsible_column` or `display_depends_on` data field — those
-names do not appear in the DocType's `fields` array (`collapsible_column`
-is a layout Column Break, not a value-holding field).
+> Verified: `apps/frappe/frappe/desk/doctype/sidebar/sidebar.json`, `apps/frappe/frappe/desk/doctype/sidebar_item/sidebar_item.json` (16.51). Old: `apps/frappe/frappe/desk/doctype/workspace_sidebar/workspace_sidebar.json`. Boot changed: `bootinfo.module_sidebars` replaces `bootinfo.workspace_sidebar_item` in 16.51 (`frappe/boot.py`). Companion doctypes added in 16.51: `Custom Sidebar` (per-user sidebar override), `Dock`/`Dock Item` (app dock tray).
 
-> Verified against `apps/frappe/frappe/desk/doctype/workspace_sidebar_item/workspace_sidebar_item.json`
-> (child of `Workspace Sidebar`, both **new in v16**, created 2025-08-12). The parent `Workspace Sidebar`
-> fields are: `title` (autoname `field:title` → the `name`), `header_icon`, `for_user` (Link→User),
-> `module`, `standard`, `app`, `items` (child table). See `apps/frappe/frappe/desk/doctype/workspace_sidebar/workspace_sidebar.json`.
-> `frappe/boot.py` wires both models into the login payload: `bootinfo.desktop_icons` (`get_desktop_icons`)
-> and `bootinfo.workspace_sidebar_item` (`get_sidebar_items`).
 
 ## 3. Workspace (Dashboard)
 
@@ -418,27 +417,28 @@ website_route_rules = [
 
 ## Checklist for New App Navigation
 
-- [ ] Add `add_to_apps_screen` to `hooks.py` (the App icon is auto-generated and exported to `desktop_icon/` on `bench migrate` with `developer_mode` on — no need to hand-author it)
-- [ ] Create `desktop_icon/` child Workspace Sidebar link JSON
-- [ ] Create `desktop_icon/` child External link to SPA (if applicable)
-- [ ] Create `workspace_sidebar/` with sections and links
+- [ ] Add `add_to_apps_screen` to `hooks.py` (App icon auto-generated on `bench migrate` with `developer_mode`)
+- [ ] **(16.51)** Create sidebar at `<module>/sidebar/<name>/<name>.json` with `"doctype": "Sidebar"`
+- [ ] **(<=16.35)** Create sidebar at `workspace_sidebar/<module>.json` with `"doctype": "Workspace Sidebar"`
+- [ ] **(16.51 migration)** Run `bench --site <site> convert-sidebar-fixtures --app <app>` to migrate old fixtures
 - [ ] Create `module/workspace/<name>/<name>.json` dashboard
 - [ ] Create `public/images/` app logo SVG
-- [ ] Create `www/` entry point (`.html` + `.py`) for SPA
+- [ ] Create `www/` entry point (`.html` + `.py`) for SPA (if applicable)
 - [ ] Add `website_route_rules` to `hooks.py` for the SPA route (if applicable)
-- [ ] Use `frappe-ui/vite` plugin in `vite.config.mjs`
-- [ ] Run `npm run build` then `bench --site <site> migrate` then `bench build`
+- [ ] Run `bench --site <site> migrate` then `bench build`
+
 
 ## Sources
 
-Verified against Frappe v16.35.0 at `apps/frappe`:
+Verified against Frappe v16.35.0 (<=16.35 entries) and v16.51.1 (16.51 entries) at `apps/frappe`:
 - `apps/frappe/frappe/desk/doctype/workspace/workspace.json` — Workspace DocType fields & child tables
-- `apps/frappe/frappe/desk/doctype/workspace_link/workspace_link.json`
-- `apps/frappe/frappe/desk/doctype/workspace_shortcut/workspace_shortcut.json`
-- `apps/frappe/frappe/desk/doctype/workspace_sidebar/workspace_sidebar.json` (v16-only, created 2025-08-12)
+- `apps/frappe/frappe/desk/doctype/workspace_sidebar/workspace_sidebar.json` (<=16.35, still present in 16.51)
 - `apps/frappe/frappe/desk/doctype/workspace_sidebar_item/workspace_sidebar_item.json`
-- `apps/frappe/frappe/desk/doctype/desktop_icon/desktop_icon.json`
-- `apps/frappe/frappe/public/js/frappe/views/workspace/blocks/index.js` — the 10 content block types
+- `apps/frappe/frappe/desk/doctype/sidebar/sidebar.json` (16.51) — `Sidebar` doctype: `module`, `title`, `header_icon`, `app`, `items`, `standard`, `merged_from`
+- `apps/frappe/frappe/desk/doctype/sidebar_item/sidebar_item.json` (16.51) — `Sidebar Item` child table fields
+- `apps/frappe/frappe/desk/doctype/sidebar/convert_fixtures.py` (16.51) — `OLD_FIXTURE_FOLDER = "workspace_sidebar"`, `export_path()` writes `<module>/sidebar/<scrubbed>/<scrubbed>.json`
+- `apps/frappe/frappe/desk/doctype/desktop_icon/desktop_icon.json` — `link_type` still `"Workspace Sidebar" | "External"` in 16.51
+- `apps/frappe/frappe/public/js/frappe/views/workspace/blocks/index.js` — 10 content block types
+- `apps/frappe/frappe/boot.py:249-250` (16.51) — `bootinfo.module_sidebars = get_module_sidebars()`
 - `apps/frappe/frappe/website/workspace/website/website.json` — real content/links/number_cards example
-- `apps/frappe/frappe/core/workspace/welcome_workspace/welcome_workspace.json` — header/paragraph example
 - `apps/frappe/frappe/hooks.py` — `add_to_apps_screen`

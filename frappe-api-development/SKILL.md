@@ -1,6 +1,6 @@
 ---
 name: frappe-api-development
-description: Build REST and RPC APIs in Frappe including whitelisted methods, the resource API, authentication, webhooks, OAuth, rate limiting, and efficient database queries. Use when creating endpoints, integrating external systems, or exposing business logic.
+description: "Build REST and RPC Python endpoints in Frappe — @frappe.whitelist methods callable by mobile apps or web clients, the resource API, authentication, webhooks, OAuth, rate limiting, and fetching records. Use when creating endpoints for external callers, integrating third-party systems, or exposing business logic via API."
 ---
 
 # Frappe API Development
@@ -51,6 +51,13 @@ def approve_order(order: str, note: str | None = None):
     return {"name": doc.name, "status": doc.status}
 ```
 
+Type annotations on `@frappe.whitelist()` parameters are validated/coerced via Pydantic when the
+request arrives (`frappe.utils.typing_validations.validate_argument_types`). Apps that declare
+`require_type_annotated_api_methods = True` in `hooks.py` (CRM 2.x, HRMS 16.50+, frappe itself)
+commit all their whitelisted methods to carry annotations. Unannotated parameters are passed through
+as strings (no coercion); annotated parameters are coerced and raise `FrappeTypeError` on mismatch.
+
+
 Return plain dicts — a `Response` object breaks `createResource` on the frontend.
 Full contract: [references/api.md](references/api.md), template in
 `assets/api.py.template`.
@@ -89,6 +96,11 @@ Always use `frappe.get_all`/`frappe.get_list` or `frappe.qb` — never
 exception is an operator `frappe.qb` genuinely can't expose (e.g. `REGEXP`);
 see [references/database.md](references/database.md#never-use-frappedbsql-by-default).
 
+(16.51) Filters on `_assign` and `_liked_by` with `=` / `!=` are automatically
+rewritten to `like` / `not like` because both fields store JSON arrays. A filter
+`filters={"_assign": "user@example.com"}` becomes `LIKE %user@example.com%`.
+
+
 ### 5) Wire external access
 
 - REST resource API, v1 vs v2: [references/rest-api.md](references/rest-api.md)
@@ -122,6 +134,9 @@ Third-party sync shapes: [references/integration-patterns.md](references/integra
 - **Frontend gets `undefined`**: method returned a `Response` object instead of a dict
 - **Slow endpoint**: N+1 `frappe.get_doc` in a loop — batch with `frappe.get_all`
 - **Timeouts under load**: move the work to `frappe.enqueue` — [`frappe-app-development`](../frappe-app-development/SKILL.md)
+- **`SessionExpired` error (16.51)**: `is_whitelisted()` now raises `frappe.SessionExpired` instead of a generic PermissionError when the guest session has expired; the client should redirect to login
+- **`FrappeTypeError` on a `@frappe.whitelist()` call**: parameter type annotation mismatch; the argument value does not coerce to the declared type
+
 
 ## Escalation
 
@@ -129,6 +144,8 @@ Third-party sync shapes: [references/integration-patterns.md](references/integra
 - Heavy or long-running work → [`frappe-app-development`](../frappe-app-development/SKILL.md) → `queue-patterns.md`
 - Consuming the API from Vue → [`frappe-frontend-development`](../frappe-frontend-development/SKILL.md)
 - Unclear framework behaviour → [`frappe-deep-research`](../frappe-deep-research/SKILL.md)
+- Per-endpoint security hardening → [`frappe-security-hardening`](../frappe-security-hardening/SKILL.md)
+- Query performance and N+1 analysis → [`frappe-performance-optimization`](../frappe-performance-optimization/SKILL.md)
 
 ## References
 
@@ -145,6 +162,7 @@ Third-party sync shapes: [references/integration-patterns.md](references/integra
 - [references/integration-patterns.md](references/integration-patterns.md) - Third-party sync and connectors
 - [references/integration-quickstart.md](references/integration-quickstart.md) - DocType → API → frontend
 - `assets/api.py.template`
+- [references/api-contract-design.md](references/api-contract-design.md) - Contract-first design: Hyrum's Law, error shapes, versioning, idempotency, pagination, deprecation
 
 ## Guardrails
 
@@ -155,6 +173,28 @@ Third-party sync shapes: [references/integration-patterns.md](references/integra
 - **`allow_guest=True` is a public endpoint**: justify, rate-limit, and validate hard
 - **Translate user-facing errors**: `frappe.throw(_("…"))`
 - **Never log secrets**: API keys and tokens stay out of error messages
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "`allow_guest=True` is fine, the data is not sensitive" | Any data reachable by the public internet is sensitive; justify it, rate-limit it, and validate all inputs. |
+| "The permission check happens in the controller, the API inherits it" | `@frappe.whitelist()` enforces no DocType permissions; the method must call `frappe.has_permission` itself. |
+| "I'll validate inputs more carefully next iteration" | An unvalidated argument is a crafted-filter injection; validate types at the boundary on day one. |
+| "`frappe.db.sql` is fine here, it's only a read" | Raw SQL bypasses `frappe.qb`'s dialect safety; one edit later it becomes an injection point. |
+| "It's an internal API, rate limiting is overkill" | An unthrottled internal caller under load starves gunicorn workers for every other request. |
+| "Returning a `Response` object gives me more control" | `useCall`/`createResource` expect a plain dict; a `Response` object produces `undefined` on the client. |
+
+## Red Flags
+
+- `@frappe.whitelist()` method with no `frappe.has_permission` call inside it
+- `allow_guest=True` without a comment explaining the public need
+- `frappe.db.sql(...)` for a query that `frappe.qb` can express
+- Argument passed directly into `filters=` without an `isinstance` check
+- No rate limit on an endpoint reachable without authentication
+- Method returns `frappe.local.response` or a `Response` object instead of a dict
+- Filter `{"_assign": "..."}` with `=` operator expecting an exact match (returns wrong results — auto-rewritten to `LIKE` in 16.51)
 
 ## Common Mistakes
 
@@ -169,3 +209,5 @@ Third-party sync shapes: [references/integration-patterns.md](references/integra
 | `frappe.get_doc` inside a loop | N+1 queries | Batch via `frappe.get_all` |
 | Long work in the request | Gateway timeout | `frappe.enqueue` |
 | Client Credentials / password grant against Frappe OAuth | Only `authorization_code` + `refresh_token` supported | Auth Code (+PKCE) or API key/secret |
+| `from frappe.model.db_query import mask_field_value` (16.51) | `ImportError` — function moved | Import from `frappe.model.utils.mask` |
+| `from frappe.desk.form.assign_to import add` (16.51) | `ImportError` — function is now private | Use `from frappe.desk.form.assign_to import _add` |

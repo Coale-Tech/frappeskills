@@ -1,0 +1,14 @@
+{
+  "name": "frappeskills",
+  "interface": { "displayName": "Frappe Skills" },
+  "plugins": [
+    {
+      "name": "frappeskills",
+      "version": "0.2.0",
+      "description": "Full-lifecycle Agent Skills for Frappe Framework / ERPNext development.",
+      "source": { "source": "local", "path": "./" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

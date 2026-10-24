@@ -1,0 +1,61 @@
+{
+  "skill_name": "frappe-observability",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Add structured logging to our background job so we can trace failures in production",
+        "top_k": 3
+      },
+      {
+        "prompt": "What should we set up in Error Log and Sentry before we go live?",
+        "top_k": 3
+      },
+      {
+        "prompt": "How do I monitor RQ queue depth so we know when jobs are backing up?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Our scheduled task ran but we cannot tell if it succeeded or what it processed",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "There is a traceback in the Error Log from last night's sync job, help me find the root cause",
+        "owner": "frappe-debugging-and-error-recovery"
+      },
+      {
+        "prompt": "The bench workers are stuck and jobs are not being picked up",
+        "owner": "frappe-bench-operations"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "We are adding a background job that syncs invoices from an external API. What logging and monitoring should we add so on-call can diagnose failures without reading source code?",
+      "expected_output": "An instrumentation plan covering structured log events, Error Log usage, RQ monitoring, and alerting thresholds",
+      "expectations": [
+        "On-call questions are defined first: what do we need to know when this job fails?",
+        "Log events are structured with frappe.logger, not bare print statements, and include a job ID or document name for correlation",
+        "frappe.log_error is used to write exception tracebacks to the Error Log DocType",
+        "RQ queue depth or job failure count is mentioned as a metric to alert on",
+        "PII and credentials are explicitly excluded from log fields",
+        "A health check or success log at job completion is included so silence itself is detectable"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We are nearly at the deadline and logging feels like extra work. Can we skip it for the first release and add it later?",
+      "expected_output": "A clear case for adding at minimum basic logging before the first production run, with a minimal viable instrumentation set",
+      "expectations": [
+        "Deferring all logging is not accepted; a minimum viable set is defined",
+        "The response explains that without logs, diagnosing the first production failure requires a redeploy",
+        "The minimum viable set is small and concrete: one success event, one failure event with frappe.log_error",
+        "The response does not agree to ship a background job with no observability to meet a deadline"
+      ]
+    }
+  ]
+}

@@ -120,11 +120,13 @@ slips = frappe.get_all("Salary Slip",
 
 `payroll/doctype/payroll_entry/payroll_entry.py`:
 
-- `fill_employee_details()` (whitelisted, `:218`) populates the `employees` child table via `get_employee_list()` filtered by company/branch/department/designation/grade and `payroll_frequency`, excluding already-payrolled employees.
-- **`on_submit()` (`:74`) calls `create_salary_slips()` automatically** — in v16 you no longer need a separate manual `create_salary_slips()` step after submit (the snippet above is the pre-submit draft flow). `before_submit()` (`:68`) runs `validate_existing_salary_slips`, `validate_payroll_payable_account`, and optional unmarked-attendance validation.
-- `create_salary_slips()` (whitelisted, `:258`) enqueues `create_salary_slips_for_employees()` (`:1544`) which builds one Salary Slip per employee.
-- `submit_salary_slips()` (whitelisted, `:321`) enqueues `submit_salary_slips_for_employees()` (`:1626`); after all slips submit it calls **`make_accrual_jv_entry()`** and emails slips (`:1651`).
-- `make_bank_entry(for_withheld_salaries=False)` (whitelisted, `:910`) creates the payment Journal Entry against the payment account.
+- `fill_employee_details()` (whitelisted) populates the `employees` child table via `get_employee_list()` filtered by company/branch/department/designation/grade and `payroll_frequency`.
+- **`on_submit()` calls `create_salary_slips()` automatically** — no separate manual step after submit needed.
+- `create_salary_slips()` enqueues one Salary Slip per employee.
+- `submit_salary_slips()` enqueues `submit_salary_slips_for_employees()`; calls `make_accrual_jv_entry()` after all slips submit.
+- `make_bank_entry(for_withheld_salaries=False)` creates the payment Journal Entry.
+- **(16.51) advance deductions:** per-row `get_advance_deduction(component_type, item)` replaced by one bulk query `get_advance_deductions(component_type, salary_components) -> dict[str, dict]` keyed by `Additional Salary` name. Custom subclasses calling `self.get_advance_deduction()` must switch to `self.get_advance_deductions()`. `(<=16.35):` per-row query.
+- **(16.51) type annotations convention:** HRMS declares `require_type_annotated_api_methods = True` in `hooks.py` (no framework code enforces it). Annotate `@frappe.whitelist()` methods in extensions, e.g. `def my_fn(employee: str, date: str) -> list[dict]:`; annotated params are validated/coerced, unannotated ones arrive as strings.
 
 ### Salary Slip computation flow (payroll computation entry points)
 
@@ -153,7 +155,9 @@ SalarySlip.validate()                                   # :149
 
 Payment-day proration: `get_working_days_details()` (`:459`) computes `total_working_days`, `payment_days`, and LWP from either **Leave Application** (`calculate_lwp_or_ppl_based_on_leave_application`, `:672`) or **Attendance** (`calculate_lwp_ppl_and_absent_days_based_on_attendance`, `:746`) depending on Payroll Settings; components with `depends_on_payment_days` are scaled by `get_amount_based_on_payment_days()` (`:2051`).
 
-Whitelisted recompute helpers used by the form: `process_salary_based_on_working_days()` (`:2230`), `set_totals()` (`:2235`), `get_emp_and_working_day_details()` (`:354`).
+**Salary component eval globals (16.51):** `min()` and `max()` are now available in salary formula evaluation. Formula `min(base * 0.2, 5000)` is valid from HRMS 16.51. `(<=16.35):` only `int`, `float`, `round`, `rounded`, `ceil`, `floor`, date helpers were available. Centralized in `payroll/utils.py:COMPONENT_EVAL_GLOBALS`.
+
+Whitelisted recompute helpers used by the form: `process_salary_based_on_working_days()`, `set_totals()`, `get_emp_and_working_day_details()`.
 
 ### Payroll GL / ERPNext accounting integration
 
@@ -254,12 +258,19 @@ ec.insert()
 ec.submit()
 ```
 
+**(16.51) Expense Claim — new validations:**
+- `validate_employee_scope()`: `Expense Claim.company` must match `Employee.company`; if company is blank, it is auto-inferred from the employee.
+- New status `"Partially Paid"` when `total_amount_reimbursed > 0` but `< total_amount` — integrations checking for `"Paid"` status only will miss partially reimbursed claims.
+- `is_paid` forced to `0` when `grand_total > 0` and `total_advance_amount > 0`.
+- `ROLES_ALLOWED_TO_CLAIM_FOR_OTHERS = {"HR User", "HR Manager", "Expense Approver"}` is now a constant; custom code checking these roles should import it rather than hardcoding strings.
+
 ## Sources
 
-Verified against HRMS 16.4.1 (`apps/hrms/hrms/__init__.py`) and ERPNext/Frappe 16.x. Paths relative to `apps/hrms/hrms/` unless noted:
+Verified against HRMS 16.4.1 (coale_v16) and HRMS 16.50.0 / 16.51.1 bench (Frappe 16.51.1). Paths relative to `apps/hrms/hrms/` unless noted:
 
-- `payroll/doctype/salary_slip/salary_slip.py` (`validate`, `calculate_net_pay`, `calculate_component_amounts`, `add_tax_components`, `get_working_days_details`, `_safe_eval`, tax methods)
-- `payroll/doctype/payroll_entry/payroll_entry.py` (`on_submit`, `create_salary_slips`, `submit_salary_slips`, `make_accrual_jv_entry`, `make_journal_entry`, `make_bank_entry`, GL/JE mapping) + `payroll_entry.js`
-- `payroll/doctype/salary_structure/salary_structure.py` (`make_salary_slip`, `assign_salary_structure`, `create_salary_structure_assignment`)
-- `hooks.py` (`period_closing_doctypes`, Journal Entry doc events, accounting dimensions)
-</content>
+- `payroll/doctype/salary_slip/salary_slip.py` (`validate`, `calculate_net_pay`, `calculate_component_amounts`, `add_tax_components`, `get_working_days_details`, tax methods)
+- `payroll/doctype/payroll_entry/payroll_entry.py` (`on_submit`, `create_salary_slips`, `submit_salary_slips`, `make_accrual_jv_entry`, `make_bank_entry`, GL/JE mapping; 16.51.1 bench: `get_advance_deductions` bulk query)
+- `payroll/utils.py` (16.51.1 bench) — `COMPONENT_EVAL_GLOBALS` with `min`/`max` (:47-61); `SALARY_COMPONENT_VALUES`, `get_component_abbr_map`; centralized eval helpers
+- `payroll/doctype/salary_structure/salary_structure.py` (`make_salary_slip`, `assign_salary_structure`)
+- `hr/doctype/expense_claim/expense_claim.py` (16.51.1 bench) — `validate_employee_scope`, `ROLES_ALLOWED_TO_CLAIM_FOR_OTHERS`, `"Partially Paid"` status
+- `hooks.py` (`period_closing_doctypes`, Journal Entry doc events; 16.51.1 bench: `require_type_annotated_api_methods = True` :415)

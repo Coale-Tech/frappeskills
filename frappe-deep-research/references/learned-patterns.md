@@ -380,3 +380,7 @@ Permissions, and Caching/Asset patterns.
 - **Pattern**: `doctype_js` (and `app_include_js` cousins) are read server-side relative to the app PACKAGE root (`get_app_path("app")` = `get_pymodule_path("app")` = `apps/<app>/<app>/`) and INLINED into the form bundle via `get_js()` — they are NOT fetched as browser `/assets/` URLs. So the file only needs to exist at `<package_root>/<hook_path>`, even if that dir isn't the build-served `public/`. To verify a `doctype_js` hook actually loads, resolve `<package_root>/<value>` on disk; a path that doesn't exist there means the client script silently never loads (no console error).
 - **Evidence**: confirmed all three my_app `doctype_js` hooks resolve under `apps/my_app/my_app/` on frappe 16.27.1; `frappe/public/js/frappe/form/form.js` loads via the server-inlined `__messages`/`get_js` path, not an asset request.
 
+
+## Sources
+
+- Each entry's **Evidence** line cites the installed source file(s) or live check that confirmed it.

@@ -30,20 +30,29 @@ for root in "${ROOTS[@]}"; do
   [ -L "$root/frappe-app-dev" ] && rm -f "$root/frappe-app-dev" && echo "removed stale link $root/frappe-app-dev"
 done
 
-# omp: /frappe slash command and the frappe-dev agent (all skills preloaded).
-if [ -d "$HOME/.omp/agent" ]; then
-  for kind in commands agents; do
-    mkdir -p "$HOME/.omp/agent/$kind"
-    for src in "$REPO/omp/$kind"/*.md; do
-      target="$HOME/.omp/agent/$kind/$(basename "$src")"
-      if [ -e "$target" ] && [ ! -L "$target" ]; then
-        echo "refusing to replace real file: $target" >&2
-        exit 1
-      fi
-      ln -sfn "$src" "$target"
-      echo "linked $target"
-    done
+link_files() { # link_files <dest dir> <src.md>...
+  local dest="$1"; shift
+  mkdir -p "$dest"
+  for src in "$@"; do
+    target="$dest/$(basename "$src")"
+    if [ -e "$target" ] && [ ! -L "$target" ]; then
+      echo "refusing to replace real file: $target" >&2
+      exit 1
+    fi
+    ln -sfn "$src" "$target"
+    echo "linked $target"
   done
+}
+
+# omp: lifecycle slash commands, /frappe, and the frappe-* agents.
+if [ -d "$HOME/.omp/agent" ]; then
+  link_files "$HOME/.omp/agent/commands" "$REPO"/commands/*.md "$REPO"/omp/commands/*.md
+  link_files "$HOME/.omp/agent/agents" "$REPO"/omp/agents/*.md
+fi
+
+# Claude Code: lifecycle slash commands (host-neutral, root commands/).
+if [ -d "$HOME/.claude" ]; then
+  link_files "$HOME/.claude/commands" "$REPO"/commands/*.md
 fi
 
 [ "$roots" -gt 0 ] || { echo "no skill root found (~/.claude/skills)" >&2; exit 1; }

@@ -1,6 +1,6 @@
 ---
 name: frappe-doctype-development
-description: Create and modify Frappe DocTypes including schema design, field types, controllers, child tables, naming, permissions, and workflows. Use when building data models, adding fields, or implementing document lifecycle logic.
+description: "Create and modify Frappe DocTypes including schema design, field types, controllers, child tables, naming, role-based permissions (permlevel, amend, submit access), and workflows. Use when building data models, adding fields, configuring DocPerm rows for roles, or implementing document lifecycle logic."
 ---
 
 # Frappe DocType Development
@@ -98,6 +98,10 @@ class SampleDoc(Document):
 
 Valid hooks and their order: [references/controllers.md](references/controllers.md).
 `after_save` is **not** a hook. (v16) `discard()` on a draft fires `before_discard`/`on_discard`.
+(16.51) After every `doc.run_method()` call, `frappe.automation_engine.dispatch.run_automations`
+fires for matching `Automation Flow` rules. Recursion is capped at `Automation Settings.max_depth`
+(default 3). Suppressed during `frappe.flags.in_install`, `in_patch`, `in_migrate`.
+
 
 ### 5) Set up naming
 
@@ -159,6 +163,8 @@ bench --site <site> migrate && bench --site <site> clear-cache
 - App-wide plumbing (hooks, fixtures, jobs) → [`frappe-app-development`](../frappe-app-development/SKILL.md)
 - Exposing the DocType over HTTP → [`frappe-api-development`](../frappe-api-development/SKILL.md)
 - ERPNext/HRMS domain semantics → [`frappe-erpnext-hrms`](../frappe-erpnext-hrms/SKILL.md)
+- Permission model review → [`frappe-security-hardening`](../frappe-security-hardening/SKILL.md)
+- Code quality before merge → [`frappe-code-review`](../frappe-code-review/SKILL.md)
 
 ## References
 
@@ -185,6 +191,27 @@ bench --site <site> migrate && bench --site <site> clear-cache
 - **Validate fieldname conventions**: snake_case, ≤140 chars, no reserved SQL keywords
 - **Translate user-facing strings**: `frappe.throw(_("…"))`, never a bare string
 
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I'll add the field directly in the DB, the JSON can follow" | MariaDB changes without a JSON update desync schema and source; Frappe overwrites on the next `migrate`. |
+| "I don't need to migrate again, the last run covered these fields" | Every schema change needs a fresh `migrate`; a stale table silently loses data or raises errors. |
+| "This DocType is internal, I'll configure permissions later" | An unpermissioned DocType is readable by any logged-in user by default. |
+| "Float is fine for money, it's just display" | Floating-point arithmetic produces rounding errors in currency totals; use `Currency`. |
+| "Setting `developer_mode` is inconvenient right now" | With `developer_mode = 0`, UI changes never export to JSON and vanish on the next install. |
+| "I'll use `after_save` as the hook name" | `after_save` is not a Frappe controller hook; use `on_update` or `after_insert`. |
+
+## Red Flags
+
+- Schema changes made without `bench --site <site> migrate` afterward
+- `developer_mode` is `0` when editing DocType fields via the UI
+- A controller method named `after_save` (not a real lifecycle hook)
+- Money or price fields typed as `Float` or `Data` instead of `Currency`
+- Role Permissions table left empty after DocType creation
+- `frappe.db.sql` used to query the new DocType instead of `frappe.qb`
+
 ## Common Mistakes
 
 | Mistake | Why It Fails | Fix |
@@ -198,3 +225,5 @@ bench --site <site> migrate && bench --site <site> clear-cache
 | `self.get_parent()` in a child controller | Method does not exist | `self.parent_doc` |
 | Circular Link dependencies | DocType creation fails | Dynamic Link or restructure |
 | `frappe.throw("text")` | No i18n | `frappe.throw(_("text"))` |
+| `from frappe.model.db_query import mask_field_value` (16.51) | `ImportError` | Import from `frappe.model.utils.mask` instead |
+| `from frappe.desk.form.assign_to import add` (16.51) | `ImportError` — `add` is now private `_add` | Use `from frappe.desk.form.assign_to import _add` |

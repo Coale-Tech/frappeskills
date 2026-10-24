@@ -1,6 +1,6 @@
 ---
 name: frappe-app-development
-description: Scaffold and architect custom Frappe apps including app structure, hooks.py, fixtures, background jobs, caching, realtime, and translations. Use when creating new apps, wiring cross-cutting behaviour, or hardening an app for production.
+description: "Scaffold and architect custom Frappe apps including app structure, hooks.py, fixtures (export Custom Fields for fresh install), frappe.enqueue for background jobs, caching, realtime, and translations. Use when creating new apps, wiring cross-cutting behaviour, or hardening an app for production."
 ---
 
 # Frappe App Development
@@ -54,9 +54,12 @@ scheduler_events = {
     "cron": {"*/15 * * * *": ["my_app.tasks.poll_inbox"]},
 }
 ```
-
 Every key and its resolution order: [references/hooks.md](references/hooks.md).
+`after_install` accepts a string or a list (scalars are listified by `append_hook`). Declare `required_apps = ["dep_app"]`
+before any setup module that does a module-level `from dep_app.module import fn`; without it,
+`install-app` fails with `ModuleNotFoundError` when the dependency is absent.
 Start from `assets/hooks.py.template`.
+
 
 ### 2) Ship customizations as fixtures
 
@@ -72,8 +75,10 @@ bench --site <site> export-fixtures
 ```
 
 Custom fields are **never** hand-edited in the database.
-See [references/fixtures.md](references/fixtures.md) and
-`assets/custom_fields.py.template`.
+(16.51) `Sidebar` and `Dock` are now fixture-exportable and can be shipped with the app;
+run `bench --site <site> convert-sidebar-fixtures --app <app>` to convert old Workspace Sidebar fixtures.
+See [references/fixtures.md](references/fixtures.md) and `assets/custom_fields.py.template`.
+
 
 ### 3) Move slow work off the request
 
@@ -154,6 +159,10 @@ bench --site <site> migrate && bench --site <site> clear-cache
 - Large multi-entity architecture → [`frappe-enterprise-patterns`](../frappe-enterprise-patterns/SKILL.md)
 - Standards sweep before release → [`frappe-app-audit`](../frappe-app-audit/SKILL.md)
 
+- Security review of hooks and fixtures → [`frappe-security-hardening`](../frappe-security-hardening/SKILL.md)
+- App performance (N+1 in jobs, slow scheduler tasks) → [`frappe-performance-optimization`](../frappe-performance-optimization/SKILL.md)
+- Code quality before merge → [`frappe-code-review`](../frappe-code-review/SKILL.md)
+
 ## References
 
 - [references/new-app.md](references/new-app.md) - App scaffolding end to end
@@ -176,7 +185,30 @@ bench --site <site> migrate && bench --site <site> clear-cache
 - **No module-level queries**: `frappe.get_all(...)` at import time breaks multitenancy
 - **No manual `frappe.db.commit()` mid-request**: it exposes partial state
 - **`frappe.cache.flushdb()`, never `flushall()`**: `flushall` wipes every Redis database
+- **In `after_install`/patches: restore `frappe.session.user` in `try/finally`** if you call `frappe.set_user("Administrator")` — leaving the session as Administrator leaks into subsequent hooks
 - **Run `bench start` under a process supervisor**, and check whether one is already running
+
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I'll add the custom field in the UI and export fixtures later" | Fields not in fixtures are lost on a fresh site install; export before sharing or deploying. |
+| "The doc_events path looks right, I won't verify it fires" | A single typo silently drops the event; add a log line and trigger the action to confirm. |
+| "I'll call `frappe.db.commit()` here to be safe" | A mid-request commit exposes partial state if the request fails after the commit. |
+| "I'll flush the full Redis cache to clear stale data" | `frappe.cache.flushall()` wipes every Redis database on the server; use `flushdb()` instead. |
+| "The scheduler will pick it up eventually" | A disabled scheduler or missing worker silently drops the job; run `bench doctor` to confirm. |
+| "I'll hardcode the company name, there's only one on this site" | The same app installs on multi-company sites; read the value from settings or the document. |
+
+## Red Flags
+
+- `frappe.get_all(...)` or `frappe.get_doc(...)` called at module import level
+- `frappe.db.commit()` called explicitly inside a request handler
+- Custom fields exist in the UI but not in any `fixtures/` file
+- `frappe.cache.flushall()` present in application code
+- Heavy computation or external HTTP calls inside `validate` or `before_save`
+- `frappe.enqueue(...)` without a `job_id` where the same trigger could fire twice
 
 ## Common Mistakes
 
@@ -190,3 +222,5 @@ bench --site <site> migrate && bench --site <site> clear-cache
 | Enqueue without `job_id` | Duplicate side effects | Idempotency key |
 | Hardcoding company/warehouse | Breaks multi-tenant installs | Read from settings |
 | Untranslated strings | No i18n | Wrap in `_()` |
+| Setup module imports a dependency app at module level without `required_apps` | `install-app` crashes with `ModuleNotFoundError` when the dep is absent | Declare `required_apps`, or import inside the function |
+| `frappe.set_user("Administrator")` without try/finally in setup | Subsequent hooks run as Administrator | Wrap with `old = frappe.session.user; try: ...; finally: frappe.set_user(old)` |

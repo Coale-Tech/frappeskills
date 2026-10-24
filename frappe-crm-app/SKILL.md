@@ -1,6 +1,6 @@
 ---
 name: frappe-crm-app
-description: Extend or integrate with Frappe CRM, the standalone Lead/Deal pipeline product with its own Vue3 SPA — not the ERPNext `crm` module. Use when customizing CRM Lead/Deal fields, permissions, SLAs, telephony/WhatsApp/lead-sync integrations, or the CRM frontend.
+description: "Extend or integrate with FCRM (Frappe CRM), the standalone Deal-pipeline app with its own Vue3 SPA — not an ERPNext built-in module. CRM 1.x (<=16.35) is standalone; CRM 2.x (16.51+) requires the `whatsapp` app. Use when configuring FCRM Lead/Deal stages, SLA rules, hierarchy permissions, telephony or WhatsApp integrations, or the FCRM Vue frontend."
 ---
 
 # Frappe CRM App
@@ -66,7 +66,8 @@ Field-mapping rules for Lead→Deal conversion (including how custom fields
 survive) are in
 [references/crm-data-model.md](references/crm-data-model.md) — a
 mismatched label/fieldtype on a custom field silently drops the value on
-conversion.
+conversion. `lead.convert_to_deal(deal={...})` is an instance method
+(see crm-data-model.md for C9 usage pattern).
 
 ### 4) Respect the permission and SLA layers
 
@@ -77,9 +78,11 @@ Frappe role permissions alone. SLA selection evaluates `condition`
 
 ### 5) Route integrations through the existing provider shape
 
-Telephony, WhatsApp, lead syncing and domain enrichment each follow a
-consistent module/webhook/shared-DocType shape — extend it the same way
-rather than inventing a parallel mechanism:
+Telephony follows the existing `crm/integrations/<provider>/` shape.
+**CRM 2.x (16.51):** WhatsApp uses the new `whatsapp` app (`WA Message`, `WA Account`,
+`WA Template` doctypes). The old `frappe_whatsapp` community app and `WhatsApp Message`
+doctype are replaced. Automation Engine hooks (`automation_relationships`,
+`automation_actions`, `automation_events`) enable trigger-based Lead/Deal flows:
 [references/crm-integrations.md](references/crm-integrations.md).
 
 ### 6) Frontend work goes through the generic `api/doc.py` surface
@@ -114,6 +117,8 @@ wrapping `frappe-ui`'s `createResource`. Details:
 - ERPNext-side domain semantics behind the bridge → [`frappe-erpnext-hrms`](../frappe-erpnext-hrms/SKILL.md)
 - General frappe-ui/Vue SPA patterns not specific to CRM → [`frappe-ui-patterns`](../frappe-ui-patterns/SKILL.md)
 - Generic SLA/condition-builder patterns across apps → [`frappe-enterprise-patterns`](../frappe-enterprise-patterns/SKILL.md)
+- Webhook and guest-endpoint security → [`frappe-security-hardening`](../frappe-security-hardening/SKILL.md)
+- Testing the Vue SPA in a real browser → [`frappe-browser-testing`](../frappe-browser-testing/SKILL.md)
 - Undocumented core behaviour → [`frappe-deep-research`](../frappe-deep-research/SKILL.md)
 
 ## References
@@ -130,8 +135,32 @@ wrapping `frappe-ui`'s `createResource`. Details:
 - **Never edit a Vue component to customize fields shown**: use `CRM Fields Layout`/`CRM View Settings`
 - **Never assume `condition_json` is evaluated**: only `condition` (Python string) runs server-side
 - **Never fork a core DocType CRM reuses**: use `override_doctype_class`
-- **Never add a new call-log/message DocType per integration**: reuse `CRM Call Log`/`WhatsApp Message`
+- **CRM 2.x (16.51+): never add a new call-log/message DocType**: reuse `CRM Call Log`; use `WA Message` (not `WhatsApp Message`) for WhatsApp
+- **CRM 2.x: annotate every `@frappe.whitelist()` extension**: CRM declares `require_type_annotated_api_methods = True` in `hooks.py` (a convention; no framework code enforces it). Annotated params are validated/coerced; unannotated ones arrive as strings
 - **Never build a per-DocType list endpoint for the CRM UI**: extend `api/doc.py`'s generic surface
+
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I'll edit the Vue component to add this field to the side panel" | `CRM Fields Layout` exists to avoid this; a component edit diverges from core and breaks on upgrade. |
+| "`condition_json` is where the SLA condition lives" | `condition_json` is UI-only and is never evaluated; only `condition` (the Python expression string) runs server-side. |
+| "Sales Manager role will restrict the user's Lead visibility" | The `Sales Manager` role bypasses the hierarchy filter; restriction requires the user to be in `CRM Sales Hierarchy`. |
+| "I can fork `Contact` to add CRM-specific fields without touching core" | A forked DocType diverges from core Contact and breaks on upgrade; use `override_doctype_class`. |
+| "CRM 2.x still uses `WhatsApp Message` doctype and `frappe_whatsapp`" | CRM 2.x requires the `whatsapp` app; doctypes are now `WA Message`, `WA Account`, `WA Template` — `WhatsApp Message` hooks are dead. |
+| "My whitelist extension doesn't need type annotations in CRM" | CRM 2.x declares `require_type_annotated_api_methods = True`; the framework doesn't raise on untyped methods, but only annotated params are validated. Follow the convention. |
+
+## Red Flags
+
+- Vue component file edited to change which fields appear in a Lead or Deal panel
+- `condition_json` edited without regenerating the `condition` field on the same SLA record
+- New per-integration call-log or message DocType created instead of reusing `CRM Call Log`
+- `CRM Lead` or `CRM Deal` DocType JSON forked rather than extended via `doc_events` and custom fields
+- Code hooks `doc_events["WhatsApp Message"]` on a CRM 2.x site — the doctype is `WA Message`
+- `@frappe.whitelist()` method in a CRM 2.x extension without Python type annotations (convention break, not a runtime error)
+- Cross-site ERPNext DB write from a CRM hook without checking `is_erpnext_in_different_site`
 
 ## Common Mistakes
 

@@ -1,0 +1,59 @@
+{
+  "skill_name": "frappe-web-forms",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Let customers submit support tickets from our website without needing a Desk login",
+        "top_k": 3
+      },
+      {
+        "prompt": "Build a contact form that creates a Lead record when a visitor fills it in on the portal",
+        "top_k": 3
+      },
+      {
+        "prompt": "We need a public supplier registration form that populates a custom 'Supplier Application' DocType",
+        "top_k": 3
+      },
+      {
+        "prompt": "Add a logged-in portal page where customers can submit a new service request",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Rearrange the fields on the Sales Order form in Desk with custom tabs and sections",
+        "owner": "frappe-desk-customization"
+      },
+      {
+        "prompt": "Build a multi-step Vue form with progress indicator for the customer portal SPA",
+        "owner": "frappe-frontend-development"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Create a public Web Form that collects name, email, phone, and a description from anonymous visitors and saves each submission as a 'Service Request' DocType record. Email the owner when a new record arrives.",
+      "expected_output": "Instructions covering DocType readiness check, Web Form creation with guest access enabled, field list, mandatory flags, success message, and a server-side hook for the notification email",
+      "expectations": [
+        "Confirms the 'Service Request' DocType exists (or instructs to create it) before creating the Web Form",
+        "Sets the Web Form's login_required to false (or unchecks 'Login Required') to allow guest submissions",
+        "Lists the four fields with correct fieldtypes and marks at least name and email as mandatory",
+        "Shows how to add a success message or redirect URL on the Web Form",
+        "Implements the post-submission email via a doc_events hook on 'Service Request' after_insert using frappe.sendmail, not inline Web Form code"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The Web Form for job applications needs to show the 'Expected Salary' field only when the applicant selects 'Full-time' as the employment type. How do I add that conditional logic without writing a custom frontend?",
+      "expected_output": "Instructions for using Web Form's built-in conditional display rules or a client script attached to the Web Form",
+      "expectations": [
+        "Uses Web Form's native conditional display (Condition column in the field list) or a Web Form client script, not a custom Vue/JS override",
+        "Specifies the exact condition expression referencing the employment_type field value",
+        "Does not suggest rewriting the form as a Vue SPA to achieve this"
+      ]
+    }
+  ]
+}

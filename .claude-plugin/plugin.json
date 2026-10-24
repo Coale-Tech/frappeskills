@@ -1,0 +1,10 @@
+{
+  "name": "frappeskills",
+  "version": "0.2.0",
+  "description": "Full-lifecycle Agent Skills for Frappe Framework / ERPNext development: define, plan, build, verify, review, ship.",
+  "author": { "name": "Coale Tech" },
+  "homepage": "https://github.com/Coale-Tech/frappeskills",
+  "repository": "https://github.com/Coale-Tech/frappeskills",
+  "commands": ["./commands"],
+  "skills": "./"
+}

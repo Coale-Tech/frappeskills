@@ -1,6 +1,6 @@
 ---
 name: frappe-deep-research
-description: Investigate how Frappe actually behaves by tracing installed framework source, and record confirmed discoveries as reusable patterns. Use for "how does Frappe do X", "trace this", "is it possible", or when documentation and behaviour disagree.
+description: "Investigate how Frappe actually behaves by tracing installed framework source, and record confirmed discoveries as reusable patterns. Use for \"how does Frappe do X\", \"trace this\", \"is it possible\", or when documentation and behaviour disagree."
 ---
 
 # Frappe Deep Research
@@ -109,12 +109,15 @@ low-confidence entries older than 90 days with zero uses.
 - Finding belongs in a topic reference → the owning skill via [`frappe-router`](../frappe-router/SKILL.md)
 - Systemic problems in an app → [`frappe-app-audit`](../frappe-app-audit/SKILL.md)
 - Version-delta questions → [`frappe-project-triage`](../frappe-project-triage/SKILL.md)
+- Reproducing and isolating an error found during research → [`frappe-debugging-and-error-recovery`](../frappe-debugging-and-error-recovery/SKILL.md)
 
 ## References
 
 - [references/deep-research.md](references/deep-research.md) - Research pipeline and source precedence
 - [references/learned-patterns.md](references/learned-patterns.md) - Discovered patterns log: Debugging, API & ORM, Frontend, Version Compatibility
 - [references/learned-patterns-ops.md](references/learned-patterns-ops.md) - Discovered patterns log: Build & Deployment, Permissions, Caching & Asset
+
+- [references/source-citation-protocol.md](references/source-citation-protocol.md) - Source precedence, file:line citation format, version detection, [INFERENCE] tagging
 
 ## Guardrails
 
@@ -125,6 +128,27 @@ low-confidence entries older than 90 days with zero uses.
 - **Fix the reference that was wrong** instead of leaving both versions alive
 - **Record sparingly**: one strong reusable lesson beats several vague ones
 - **Genericize before recording**: no client/bench/app names, hostnames, or machine topology in `learned-patterns*.md` entries — write "a custom app" or "a site", not the real name
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I'm confident about this Frappe API from training data" | Training data contains patterns from older versions; the installed source is the only ground truth. |
+| "Reading the docs is enough; I don't need to open the source" | Docs lag behind releases; the installed source shows what actually runs on the site. |
+| "I found the function name, so I understand how it works" | Early returns, guard clauses and monkey-patches change everything; read the whole function. |
+| "Skipping the console confirmation saves time" | A source reading that was never executed is a hypothesis, not a fact; a wrong answer costs more than the console step. |
+| "I'll record everything interesting in learned-patterns" | Noise buries signal; record only lessons another agent would hit the same wall without. |
+| "The reference file says X, so that must be correct" | Reference files are maintained by humans and can be stale; the installed source always outranks them. |
+
+## Red Flags
+
+- A claim about Frappe behaviour with no `file:line` citation in installed source
+- Citing documentation or a blog post when it conflicts with the installed source
+- Answering a framework question without opening any file under `apps/frappe`, `apps/erpnext`, or `apps/hrms`
+- Recording client names, bench paths, or hostnames in `learned-patterns*.md`
+- A wrong reference file left in place rather than corrected after discovering the discrepancy
+- A behaviour described as confirmed when no `bench --site <site> console` run actually executed it
 
 ## Common Mistakes
 

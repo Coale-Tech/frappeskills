@@ -1,6 +1,6 @@
 ---
 name: frappe-data-import
-description: Convert a raw or messy Excel/CSV sheet into a Frappe Data Import template and load it with the core Data Import tool. Use when a user hands you a spreadsheet to bulk-create or bulk-update records.
+description: "Convert a raw or messy Excel/CSV sheet into a Frappe Data Import template and load it with the core Data Import tool. Use when a user hands you a spreadsheet to bulk-create or bulk-update records."
 ---
 
 # Frappe Data Import
@@ -15,6 +15,13 @@ own Data Import tool instead of a hand-rolled importer script.
 - Bulk-creating or bulk-updating records where the source columns do not match
   Frappe field labels or fieldnames
 - One-off migrations that do not justify a custom Patch or API endpoint
+
+**ERPNext 16.51 — extended Customer/Supplier template:** ERPNext registers
+`data_import_providers = {"Customer": "..PartyImportProvider", "Supplier": "..PartyImportProvider"}`.
+When importing Customer or Supplier records, use the **extended template** (downloadable from
+the Data Import Desk UI) — it includes extra child-table sections for `contacts` and `addresses`
+so contacts and addresses can be created in the same import file. A bare Customer/Supplier
+template omits these sections. `(<=16.35):` no extended provider; contacts required a separate import.
 
 ## Inputs required
 
@@ -159,6 +166,7 @@ of inserting.
   CSV
 - DocType itself needs new fields to hold the incoming data →
   [`frappe-doctype-development`](../frappe-doctype-development/SKILL.md)
+- Diagnosing import failures and malformed row errors → [`frappe-debugging-and-error-recovery`](../frappe-debugging-and-error-recovery/SKILL.md)
 
 ## References
 
@@ -178,6 +186,27 @@ of inserting.
 - **`Select` matching is case-sensitive**; `Link` matching is case-insensitive
   only on MariaDB
 - **Always pass `--site`** to `bench data-import`
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I'll just load it into production to see if it works" | `import_data()` performs real inserts; a partially-run import has no rollback and may create hundreds of bad records. |
+| "The column names are close enough; the importer will figure it out" | Unrecognised headers are silently skipped; misnamed columns produce an empty import with no error. |
+| "pandas is easier for the column mapping and cleaning" | `pandas` is not a Frappe dependency; importing it inside a bench venv fails immediately. |
+| "I'll fix bad numeric values after the import" | `flt` silently converts bad numbers to `0.0`; the corruption lands in the database before you can correct it. |
+| "The date format is obvious from context" | The importer guesses one format per column from a sample; mixed formats in one column are parsed inconsistently. |
+| "Calling `import_data()` in the console just previews it" | `import_data()` performs the real insert when called; use `get_payloads_for_import()` + `get_warnings()` for a dry run. |
+
+## Red Flags
+
+- `importer.import_data()` called in a console session for validation
+- No dry run (`get_payloads_for_import()` + `get_warnings()`) before the real import
+- Currency symbols (`$`, `KES`, `,`) left in numeric columns
+- Mixed date formats in one column (e.g. `01/02/2024` and `2024-01-02`)
+- Parent-column values repeated on every child-table row instead of left blank
+- `import pandas` anywhere inside a bench console or migration script
 
 ## Common Mistakes
 

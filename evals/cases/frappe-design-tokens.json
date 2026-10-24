@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-design-tokens",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Replace the hardcoded #4C5A67 color in our component with the correct Frappe design system token",
+        "top_k": 3
+      },
+      {
+        "prompt": "Make our portal page dark-mode safe by switching to CSS custom properties from the Frappe token set",
+        "top_k": 3
+      },
+      {
+        "prompt": "Audit this component for hardcoded font sizes and spacing values that should use design tokens",
+        "top_k": 3
+      },
+      {
+        "prompt": "Which spacing token should I use for the gap between a form label and its input in a Frappe UI?",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Decide whether to show the asset details in a sidebar panel or a full-screen modal",
+        "owner": "frappe-ui-patterns"
+      },
+      {
+        "prompt": "Generate a PDF printout of the Purchase Order with the company letterhead",
+        "owner": "frappe-printing-templates"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "I have a status badge component that sets background-color to '#d1fae5' for 'Active' and '#fee2e2' for 'Inactive'. Make it dark-mode safe using Frappe's design token system.",
+      "expected_output": "Replacement CSS using Frappe/Espresso CSS custom properties for semantic surface and text colors",
+      "expectations": [
+        "Replaces hardcoded hex values with Frappe CSS custom property tokens (e.g. `var(--surface-green)` / `var(--surface-red)` or equivalent Espresso tokens)",
+        "Ensures the chosen tokens are defined in both light and dark theme so dark mode is handled automatically",
+        "Does not introduce a new CSS class that re-declares the colors; uses the token variables directly",
+        "Names the correct token file or source (e.g. frappe-ui's tokens.css or Espresso variables) where these are defined"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Review the following component snippet for design-system compliance and list every hardcoded value that must be replaced with a token:\n\n```css\n.card { padding: 16px; border-radius: 8px; font-size: 14px; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }\n```",
+      "expected_output": "A list of each hardcoded value with the corresponding Frappe/Espresso token name",
+      "expectations": [
+        "Identifies `16px` padding as replaceable with a spacing token (e.g. `var(--spacing-4)` or `var(--padding-md)`)",
+        "Identifies `8px` border-radius as replaceable with a radius token",
+        "Identifies `14px` font-size as replaceable with a typography token",
+        "Identifies `#333` color as replaceable with a text-color token (e.g. `var(--text-color)` or `var(--gray-800)`)",
+        "Identifies the box-shadow as replaceable with a shadow token from the Espresso set"
+      ]
+    }
+  ]
+}

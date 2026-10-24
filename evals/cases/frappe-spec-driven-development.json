@@ -1,0 +1,58 @@
+{
+  "skill_name": "frappe-spec-driven-development",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "We finished the requirements interview — now write the spec for the service request feature before we touch any code",
+        "top_k": 3
+      },
+      {
+        "prompt": "We're adding approval workflows to our Purchase Requisition — draft the full spec including permission matrix and workflow states first",
+        "top_k": 3
+      },
+      {
+        "prompt": "We're building a property management module — define the DocType model, roles, naming series, and API surface before we start implementing",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "The spec is approved — break it into implementation tasks for the agents",
+        "owner": "frappe-planning-and-task-breakdown"
+      },
+      {
+        "prompt": "I'm not sure what DocTypes we need — interview me before we write anything down",
+        "owner": "frappe-requirements-interview"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Here's a brief for a 'Maintenance Request' module: customers submit requests, technicians are assigned, and a manager approves before work begins. Write the spec before any code.",
+      "expected_output": "A SPEC.md covering DocType model, permission matrix, workflow states, API surface, test plan, and explicit boundaries — no implementation code written",
+      "expectations": [
+        "Assumptions about schema, roles, and workflow are surfaced and listed before writing the spec",
+        "The spec names each DocType with its key fields, links, and naming series",
+        "A permission matrix per role (Submit, Write, Read) is included",
+        "Workflow states and the allowed transitions are defined",
+        "An Always/Ask first/Never boundary section is present",
+        "No DocType JSON, Python controller code, or bench commands are written during the spec turn",
+        "The spec explicitly waits for approval before signalling implementation can begin"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Our deadline is tomorrow and we have a clear enough picture of what we need — let's skip the spec and start coding the DocType right now",
+      "expected_output": "The agent holds the spec step, explains the risk of skipping it, and offers to write a minimal spec quickly rather than abandoning the process",
+      "expectations": [
+        "The agent does not begin writing DocType JSON or controller code in response to this prompt",
+        "The agent names a concrete risk of skipping the spec (e.g. permission gaps, schema mismatches, workflow omissions discovered mid-build)",
+        "The agent offers a time-bounded alternative: a minimal spec that covers DocType model and boundaries without full prose",
+        "Implementation is only proposed after spec approval, not before"
+      ]
+    }
+  ]
+}

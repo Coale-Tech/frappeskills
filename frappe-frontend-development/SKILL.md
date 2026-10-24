@@ -1,6 +1,6 @@
 ---
 name: frappe-frontend-development
-description: Build Vue 3 frontends with frappe-ui (0.1.x and 1.0) including setup, components, useCall/useList data fetching, routing, stores, and portal pages. Use when implementing a custom SPA or portal interface on top of Frappe.
+description: "Build Vue 3 frontends with frappe-ui (0.1.x and 1.0) including setup, components, useCall/useList data fetching, routing, stores, and portal pages. Use when implementing a custom SPA or portal interface on top of Frappe."
 ---
 
 # Frappe Frontend Development
@@ -20,9 +20,7 @@ portal page when an SPA is overkill.
 - Whether Desk already suffices (if yes, stop — use [`frappe-desk-customization`](../frappe-desk-customization/SKILL.md))
 - Route prefix and auth model (logged-in users, guests, or both)
 - The whitelisted endpoints the UI will call
-- Pinned frappe-ui version in `frontend/package.json`: 0.1.x apps and 1.0 beta
-  differ (Dialog props, toast units, DateRangePicker emits); `(v1)` tags in the
-  references mark 1.0-only APIs
+- Pinned frappe-ui version in `frontend/package.json`: `(v1)` tags in references mark 1.0-only APIs
 - Frappe version: the `use*` composables call `/api/v2` (Frappe v15+)
 
 ## Procedure
@@ -39,15 +37,12 @@ portal page when an SPA is overkill.
 
 ### 1) Scaffold the SPA
 
-There is no `frappe/frappe-ui/templates/spa` to degit. Scaffold Vite + Vue, then
-pin **Vite 5 + Tailwind v3** (frappe-ui's plugin and preset reject newer), add
-`frappeui()` to `vite.config.js`, the `frappe-ui/tailwind` preset,
-`@import 'frappe-ui/style.css'`, `app.use(router)` + `app.use(FrappeUI)`, and
-wrap `App.vue` in `<FrappeUIProvider>`. Then wire `website_route_rules` and the
-`www/<app>.py` boot context in the app — every step in
-[references/frappe-ui-setup.md](references/frappe-ui-setup.md).
-To mount a Vue component inside a Desk Page instead, use
-`assets/page.js.template` (page.js loader + `.bundle.js`).
+There is no `frappe/frappe-ui/templates/spa` to degit. Scaffold Vite + Vue, then wire:
+- **Vite 5 + Tailwind v3** for standalone apps (Vite 8 is used by CRM with `resolve.dedupe` for linked packages)
+- `frappeui()` in `vite.config.js`; `frappe-ui` in `optimizeDeps.exclude`
+- `...frappeUIContent` from `frappe-ui/tailwind` spread into Tailwind `content` (1.0); hand-write glob for 0.1.x
+- `app.use(FrappeUI)` + `app.use(spritePlugin)` (from `frappe-ui/experimental`) + `<FrappeUIProvider>` wrapper
+- `website_route_rules` + `www/<app>.py` boot context. Full detail: [references/frappe-ui-setup.md](references/frappe-ui-setup.md).
 
 ### 2) Fetch data with the data layer
 
@@ -136,6 +131,8 @@ bench --site <site> clear-cache
 - Proven app shells and UX patterns → [`frappe-ui-patterns`](../frappe-ui-patterns/SKILL.md)
 - Large multi-entity product → [`frappe-enterprise-patterns`](../frappe-enterprise-patterns/SKILL.md)
 - Desk would be cheaper → [`frappe-desk-customization`](../frappe-desk-customization/SKILL.md)
+- Verify UI in a real browser (login, console, screenshots) → [`frappe-browser-testing`](../frappe-browser-testing/SKILL.md)
+- Bundle size and render performance → [`frappe-performance-optimization`](../frappe-performance-optimization/SKILL.md)
 
 ## References
 
@@ -161,24 +158,42 @@ bench --site <site> clear-cache
 
 - **Don't build an SPA when Desk suffices**: Desk is free maintenance
 - **`useCall`/`useList`/`useDoc`, never raw `fetch`**: you lose auth, errors and caching
-- **Match the pinned frappe-ui version**: no `(v1)` API in a 0.1.x app
-- **No deprecated exports in new code**: `Autocomplete`, `FeatherIcon`, `TextEditor`, `ConfirmDialog`, `Input`, `ListItem`, `Card`
-- **Overlays bind `v-model:open`; icons are `lucide-<name>` strings**
-- **Composition API with `<script setup>`**; every call handles loading, error and empty
-- **Design tokens only**; rebuild (`yarn build`, then `clear-cache`) after changes
+- **Match the pinned frappe-ui version**: no `(v1)` API in a 0.1.x app; check `package.json` first
+- **No deprecated exports**: `FeatherIcon`/`Input` removed 1.0; use `Icon`/`TextInput`
+- **Composition API + `<script setup>`**; every call handles loading, error and empty
+- **Design tokens only**; rebuild after changes
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "raw `fetch` is simpler" | Bypasses session auth, CSRF, and error unpacking; the switch never happens. |
+| "Tailwind v4 should work" | Plugin and preset fail silently on v4; pin Tailwind 3.4. |
+| "I'll handle error/empty states later" | Unhandled `.error` renders a blank screen. |
+| "Deprecated components still work" | `FeatherIcon`, `Input` removed in 1.0; no console warning, just a runtime error. |
+| "A custom SPA is cleaner than extending Desk" | An SPA adds build step, routing, auth wiring, and ongoing maintenance; Desk covers CRUD for free. |
+| "I'll hardcode the color, the token name is too verbose" | Hardcoded colors break dark mode; a semantic token is one Tailwind class. |
+
+## Red Flags
+
+- Raw `fetch` or `axios` calls inside a Vue component
+- `FeatherIcon` or `Input` imported from `frappe-ui` (removed in 1.0)
+- `frappe-ui` not in `optimizeDeps.exclude` when on frappe-ui 1.0
+- Hardcoded hex colors or `px` spacing values in `.vue` files
+- `vite` or `tailwindcss` version unpinned (standalone: Vite 5 / Tailwind 3)
+- `app.use(FrappeUI)` without `<FrappeUIProvider>` — `toast()` / `dialog.*` render nothing
 
 ## Common Mistakes
 
 | Mistake | Why It Fails | Fix |
 |---------|--------------|-----|
 | Raw `fetch` calls | No auth, no error handling | `useCall` |
-| `npx degit frappe/frappe-ui/templates/spa` | Path does not exist | Follow `frappe-ui-setup.md` |
-| Vite 6+/Tailwind v4 | Plugin and preset silently fail | Pin Vite 5, Tailwind 3.4 |
-| `dialog.alert(...)` | Not in the `dialog` namespace | `dialog.confirm` or `toast` |
-| `FormControl type="autocomplete"` | Deprecated, warns | `Combobox` |
-| Styling `FormControl type="date"/"time"` as a native input `(v1)` | 1.0 renders `DatePicker`/`TimePicker`; 0.1.x a native `<input>` | Use their props (`frappe-ui-form-controls.md`) |
-| No empty state | Blank screen on zero rows | Render an explicit empty state |
-| Hardcoded colors | Breaks theming | Semantic tokens (`ink-*`, `surface-*`, `outline-*`) |
-| Endpoint returning `Response` | Resource data is `undefined` | Return a dict |
-| Permission checks only in the UI | API remains open | Gate on the server |
+| Vite 6+/Tailwind v4 (standalone) | Plugin and preset silently fail | Pin Vite 5, Tailwind 3.4 |
+| `<FeatherIcon>` or `<Input>` (1.0) | Removed from root exports | `<Icon name="lucide-*">` / `<TextInput>` |
+| `ListView`/`CommandPalette` from `frappe-ui` (1.0) | Moved to `frappe-ui/experimental` | Import from `frappe-ui/experimental` |
+| No `<FrappeUIProvider>` in App.vue | `toast()`/`dialog.*` render nothing | Wrap root with `<FrappeUIProvider>` |
+| `spritePlugin` missing (1.0) | `<Icon>` renders blank | `import { spritePlugin } from 'frappe-ui/experimental'; app.use(spritePlugin)` |
+| No `...frappeUIContent` in Tailwind content | Components unstyled | Import `content` from `frappe-ui/tailwind` |
+| No `resolve.dedupe` with linked packages | Reka-ui/tiptap singleton breaks | Add `vue`, `frappe-ui`, `reka-ui`, editor packages |
 | Building an SPA for simple CRUD | Maintenance for nothing | Use Desk |

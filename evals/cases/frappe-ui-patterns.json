@@ -1,0 +1,59 @@
+{
+  "skill_name": "frappe-ui-patterns",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Should I use a sidebar-list layout or a kanban board for the main screen of a job scheduling app?",
+        "top_k": 3
+      },
+      {
+        "prompt": "How should I structure the navigation of a multi-entity app with a left nav, a list, and a detail panel?",
+        "top_k": 3
+      },
+      {
+        "prompt": "What is the right pattern for a destructive action confirmation in a Frappe UI?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Review my screen design for consistency with how Frappe's own products handle list-to-detail flows",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Replace the hardcoded hex colors in my Vue component with design-system tokens",
+        "owner": "frappe-design-tokens"
+      },
+      {
+        "prompt": "Implement the list view component and wire up the useList composable to fetch records",
+        "owner": "frappe-frontend-development"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "I'm building a maintenance scheduling app. Users need to see a list of all assets, pick one, view its upcoming maintenance tasks, and create new tasks. What screen structure should I use?",
+      "expected_output": "A screen architecture recommendation using Frappe ecosystem conventions (sidebar-list-detail or equivalent)",
+      "expectations": [
+        "Recommends a list/detail split (sidebar asset list + main detail panel) as used in Frappe CRM and Helpdesk",
+        "Distinguishes when a full-page navigation (route change) is appropriate vs an inline detail pane",
+        "Identifies the 'create new task' action as a slide-in or dialog pattern consistent with Frappe conventions, not a full new page",
+        "Does not implement Vue code; delivers a structural pattern recommendation only"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Our app has a 'Delete Project' action that removes all associated records. What confirmation pattern should we use so users don't accidentally trigger it?",
+      "expected_output": "A recommendation for a destructive-action confirmation pattern consistent with frappe-ui conventions",
+      "expectations": [
+        "Recommends a confirmation dialog (not a toast or inline warning) for irreversible destructive actions",
+        "Suggests requiring the user to type the project name or click a distinctly styled danger button as a secondary confirmation",
+        "References the pattern used in Frappe's own UI (e.g. delete confirmation in Desk) as precedent",
+        "Does not implement the dialog component; stays at the pattern/design level"
+      ]
+    }
+  ]
+}

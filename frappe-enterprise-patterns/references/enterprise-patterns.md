@@ -124,6 +124,13 @@ tracking.
 who has seen a document (`_seen` field, shown as avatar stack) or count views,
 without extra fields.
 
+**4. `audit_trail_doctypes` hook (16.51):** declare a list of DocType names in your app's
+`hooks.py`; Frappe's audit trail mechanism tracks changes to those DocTypes automatically.
+HRMS 16.51 uses this for `["Expense Claim", "Payroll Entry", "Salary Slip", "Leave
+Encashment", "Gratuity"]`. Prefer this hook over setting `track_changes = 1` per DocType
+when multiple DocTypes share the same audit requirement — one hook entry vs. N DocType
+JSON edits. `(<=16.35):` HRMS used `track_changes` on individual DocTypes.
+
 **When you need a custom trail** (multi-field composite events, business
 narrative), write to **Activity Log** (`frappe/core/doctype/activity_log`).
 Its real fields are `subject`, `content`, `reference_doctype`,

@@ -222,6 +222,8 @@ Leave balances are **not** a stored field — they are derived by summing **Leav
 
 **Leave Application key validations (`validate()` at `leave_application.py:76`):** `validate_active_employee`, `validate_balance_leaves` (raises `InsufficientLeaveBalanceError` unless the Leave Type has `allow_negative`), `validate_leave_overlap` (`OverlapError`), `validate_max_days` (`max_continuous_days_allowed`), `validate_block_days`, `validate_optional_leave`, `validate_applicable_after`. On submit, an **Approved** application also calls `update_attendance()` -> `create_or_update_attendance()` marking each day `On Leave` / `Half Day` (`:283,316`). Only status `Approved`/`Rejected` may be submitted (`:102`).
 
+**`validate_applicable_after` — calendar vs working days (16.51):** The eligibility check message changed from `"applicable after N working days"` to `"applicable after N calendar days"` and the count now uses **calendar days** from joining date, not working days. Custom validations assuming working-day counting should be updated. `(<=16.35):` working days.
+
 ### Earned leave & scheduled leave processing
 
 `hr/utils.py` drives leave accrual and expiry, wired via `scheduler_events` in `hooks.py`:
@@ -457,12 +459,14 @@ def get_leave_summary(employee, year):
 
 Key `hooks.py` declarations that shape how HRMS integrates with Frappe/ERPNext:
 
-- `required_apps = ["frappe/erpnext"]`; `app_home = "/desk/people"`; SPA bundle via `app_include_js/css = "hrms.bundle.*"`.
+- `required_apps = ["frappe/erpnext"]`; `app_home = "/desk/hr-setup"` **(16.51, was `/desk/people` in <=16.35)**; SPA bundle via `app_include_js/css = "hrms.bundle.*"`.
 - `override_doctype_class`: `Employee`→`EmployeeMaster`, `Timesheet`→`EmployeeTimesheet`, `Payment Entry`→`EmployeePaymentEntry`, `Project`→`EmployeeProject`.
-- `doc_events` bridge ERPNext docs into HR logic — e.g. `Journal Entry.on_submit/on_cancel` update Expense Claim, Full & Final Statement, and Salary Withholding payment status; `Payment Entry` events reconcile Expense Claims; `Loan.validate` → `validate_loan_repay_from_salary`; `Company.on_update` → `make_company_fixtures` / `set_default_hr_accounts`.
-- `scheduler_events`: `hourly_long` runs auto-attendance + check-in sync + shift-schedule creation; `daily_long` runs earned-leave allocation, leave encashment, and expired-allocation processing; `daily` sends interview/birthday/anniversary reminders and closes expired job openings.
-- `regional_overrides["India"]` swaps in `hrms.regional.india.utils` for HRA exemption and marginal-relief tax (the base functions in `hr/utils.py:715-732` are deliberate no-op stubs decorated with `@erpnext.allow_regional`).
+- `doc_events` bridge ERPNext docs into HR logic — e.g. `Journal Entry.on_submit/on_cancel` update Expense Claim, Full & Final Statement, and Salary Withholding payment status; `Payment Entry` events reconcile Expense Claims; `Loan.validate` → `validate_loan_repay_from_salary`; `Company.on_update` → `make_company_fixtures` / `set_default_hr_accounts` / **(16.51)** `set_expense_claim_type_accounts`.
+- `scheduler_events`: `hourly_long` runs auto-attendance + check-in sync + shift-schedule creation; `daily_long` runs earned-leave allocation, leave encashment, and expired-allocation processing; `daily` sends interview/birthday/anniversary reminders and closes expired job openings; **(16.51) daily** includes `mark_expired_shift_assignments_as_inactive` — auto-sets Shift Assignments whose `end_date < yesterday` to `Inactive`, no manual deactivation needed.
+- `regional_overrides["India"]` swaps in `hrms.regional.india.utils` for HRA exemption and marginal-relief tax.
 - Accounting integration flags: `period_closing_doctypes = ["Payroll Entry"]`, `invoice_doctypes = ["Expense Claim"]`, `bank_reconciliation_doctypes = ["Expense Claim"]`, `advance_payment_payable_doctypes = ["Leave Encashment", "Gratuity", "Employee Advance"]`, plus `accounting_dimension_doctypes` for payroll.
+- **`audit_trail_doctypes` (16.51):** `["Expense Claim", "Payroll Entry", "Salary Slip", "Leave Encashment", "Gratuity"]` — Frappe's audit trail tracks changes to these DocTypes. Do **not** set `track_changes` manually on them; use this hook in custom apps that need the same behaviour.
+- **Upload Attendance DocType deleted (16.51):** patch `delete_upload_attendance_doctype.py` removed `Upload Attendance`. Integrations referencing it by name will 404. Use `Employee Attendance Tool` instead. `(<=16.35):` DocType existed.
 
 ---
 
@@ -483,16 +487,16 @@ Key `hooks.py` declarations that shape how HRMS integrates with Frappe/ERPNext:
 
 ## Sources
 
-Verified against HRMS 16.4.1 (`apps/hrms/hrms/__init__.py`) and ERPNext/Frappe 16.x. Paths relative to `apps/hrms/hrms/` unless noted:
+Verified against HRMS 16.4.1 / coale_v16 and HRMS 16.50.0 / 16.51.1 bench (Frappe 16.51.1). Paths relative to `apps/hrms/hrms/` unless noted:
 
-- `__init__.py` (version), `hooks.py` (app wiring, doc_events, scheduler_events, override_doctype_class, regional_overrides, accounting flags)
-- `overrides/employee_master.py` (`EmployeeMaster(Employee)`, autoname via HR Settings, employee doc-event handlers)
-- `apps/erpnext/erpnext/setup/doctype/employee/employee.py` + `employee.json` (Employee DocType, status options, `autoname: naming_series:`)
-- `hr/doctype/leave_application/leave_application.py` (`validate`, `on_submit`, `create_leave_ledger_entry`, `update_attendance`, `get_leave_balance_on`, `get_leave_details`, `get_leave_allocation_records`)
-- `hr/doctype/leave_ledger_entry/leave_ledger_entry.py` (`create_leave_ledger_entry`, `process_expired_allocation`, `expire_allocation`)
-- `hr/utils.py` (`allocate_earned_leaves`, `generate_leave_encashment`, `get_monthly_earned_leave`, `validate_active_employee`, `get_matching_queries`, regional HRA/tax stubs)
-- `hr/doctype/attendance/attendance.py` (`validate`, `mark_attendance`, `mark_bulk_attendance`, duplicate/overlap checks)
-- `hr/doctype/shift_type/shift_type.py` (`process_auto_attendance`, `process_auto_attendance_for_all_shifts`, `update_last_sync_of_checkin`, `get_attendance`)
-- `hr/doctype/shift_assignment/shift_assignment.json` (`shift_type` field), `hr/doctype/employee_checkin/employee_checkin.py` (`mark_attendance_and_link_log`, `calculate_working_hours`)
-- `controllers/employee_boarding_controller.py` (`EmployeeBoardingController`, `update_employee_boarding_status`, `update_task`)
-- Query builder: `apps/frappe/frappe/query_builder/functions.py:4` (re-exports `pypika.functions.Count`), `env/lib/python3.14/site-packages/pypika/terms.py:192` (`Field.between`)
+- `__init__.py` (version), `hooks.py` (app wiring, doc_events, scheduler_events, override_doctype_class, accounting flags; 16.51.1 bench: `audit_trail_doctypes` :302, `require_type_annotated_api_methods` :415, `app_home = "/desk/hr-setup"`)
+- `overrides/employee_master.py` (`EmployeeMaster(Employee)`, autoname via HR Settings)
+- `apps/erpnext/erpnext/setup/doctype/employee/employee.py` + `employee.json` (Employee DocType)
+- `hr/doctype/leave_application/leave_application.py` (`validate`, `on_submit`, `create_leave_ledger_entry`, `update_attendance`, `get_leave_balance_on`, `get_leave_details`; 16.51.1 bench :165 "calendar days" vs coale_v16 :169 "working days")
+- `hr/doctype/leave_ledger_entry/leave_ledger_entry.py` (`create_leave_ledger_entry`, `process_expired_allocation`)
+- `hr/utils.py` (`allocate_earned_leaves`, `generate_leave_encashment`, `validate_active_employee`)
+- `hr/doctype/attendance/attendance.py` (`validate`, `mark_attendance`, duplicate/overlap checks)
+- `hr/doctype/shift_type/shift_type.py` (`process_auto_attendance`, `process_auto_attendance_for_all_shifts`)
+- `hr/doctype/shift_assignment/shift_assignment.py` (16.51.1 bench) — `mark_expired_shift_assignments_as_inactive`
+- `controllers/employee_boarding_controller.py` (`EmployeeBoardingController`, `update_employee_boarding_status`)
+- Patch: `hrms/patches/v16_0/delete_upload_attendance_doctype.py` (16.51.1 bench) — `frappe.delete_doc("DocType", "Upload Attendance", ...)`

@@ -1,8 +1,34 @@
 # Frappe CRM Integrations
 
-Telephony, WhatsApp, lead syncing, website enrichment, and the ERPNext
-bridge — all under `crm/integrations/`, `crm/lead_syncing/`,
-`crm/domain_enrichment/`, and `crm/fcrm/doctype/erpnext_crm_settings/`.
+Telephony, WhatsApp, lead syncing, website enrichment, ERPNext bridge,
+and calling CRM Python APIs from setup/patch code.
+All modules under `crm/integrations/`, `crm/lead_syncing/`,
+`crm/domain_enrichment/`, `crm/api/`, and `crm/fcrm/doctype/erpnext_crm_settings/`.
+
+## Calling CRM internal APIs from `after_install` / patch code
+
+`crm/api/form.py` exports `@frappe.whitelist()` functions (`save_form`,
+`grant_guest_link_access`) that can be **imported and called directly from Python**
+(no HTTP, no CSRF). Because they call `_check_manager()` internally (requires
+`System Manager` or `Sales Manager` role), the calling context must impersonate
+Administrator:
+
+```python
+from crm.api.form import grant_guest_link_access, save_form
+
+old_user = frappe.session.user
+frappe.set_user("Administrator")
+try:
+    grant_guest_link_access("CRM Industry")  # enables Guest link-field reads
+    save_form(None, {"route": "enquiry", "doc_type": "CRM Lead", ...})
+finally:
+    frappe.set_user(old_user)  # always restore; omitting leaves the context elevated
+```
+
+`grant_guest_link_access(doctype)` calls `_link_target_doctypes()` which scans
+`frappe.get_meta("CRM Lead").fields` — includes Custom Fields **after**
+`frappe.clear_cache(doctype="CRM Lead")` is called. If the custom field was added
+in the same setup function, clear the cache before calling `grant_guest_link_access`.
 
 ## ERPNext bridge — same-site and cross-site
 
@@ -59,35 +85,55 @@ that shape (its own `integrations/<provider>/` module, webhook + outbound
 call function, writing to the shared `CRM Call Log`) instead of inventing a
 parallel call-log DocType.
 
-## WhatsApp
+## WhatsApp (CRM 2.x)
 
-`crm/api/whatsapp.py` layers CRM-specific behaviour on top of the
-(separately installed) `WhatsApp Message` DocType: `validate_access(
-reference_doctype=None, reference_name=None, permtype="read")` gates every
-endpoint on read/write permission for the linked Lead/Deal/Contact, not just
-on WhatsApp Message's own permissions. `doc_events["WhatsApp
-Message"]["on_update"]` calls `notify_agent(doc)` — a Deal/Lead's assigned
-agent gets a CRM Notification when a WhatsApp reply arrives, mirroring how
-`Communication`/`Comment` inserts feed the same activity timeline (see
-[crm-customization.md](crm-customization.md#doc_events-table)).
-`is_whatsapp_installed()`/`is_whatsapp_enabled()` are separate checks — a
-site can have the WhatsApp app installed but the integration turned off in
-`FCRM Settings`; guard on both, not just app presence.
+**CRM 2.x (16.51)** replaces `frappe_whatsapp` with the new `whatsapp` app and renames all
+doctypes with a `WA ` prefix. `crm/api/whatsapp.py` layers CRM-specific behaviour on top
+of `WA Message` (not `WhatsApp Message`): `validate_access(reference_doctype, reference_name,
+permtype)` gates every endpoint on read/write permission for the linked Lead/Deal/Contact.
+`doc_events["WA Message"]["on_update"]` calls `notify_agent(doc)`. `is_whatsapp_installed()`/
+`is_whatsapp_enabled()` are separate checks — guard on both.
 
-## Lead syncing (Facebook Lead Ads)
+**CRM 1.x (<=16.35):** used `WhatsApp Message` doctype from `frappe_whatsapp`. Doc events
+on `"WhatsApp Message"` are dead on CRM 2.x sites.
 
-`crm/lead_syncing/doctype/` holds `Facebook Page`, `Facebook Lead Form` (+
-`Facebook Lead Form Question`), `Lead Sync Source`, and
-`Failed Lead Sync Log`. `background_sync.py` is driven entirely from
-`scheduler_events` (`hooks.py:224-241`) at six cadences —
-`sync_leads_from_sources_5_minutes`/`_10_minutes`/`_15_minutes` (cron),
-`_hourly`/`_daily`/`_monthly` (named buckets) — each calling
-`sync_leads_from_all_enabled_sources(frequency=...)`. A `Lead Sync Source`
-row's own configured frequency selects which of the six jobs actually
-processes it; a failed pull logs to `Failed Lead Sync Log`, which
-`hooks.py`'s `ignore_links_on_delete` explicitly exempts from blocking
-Lead/Contact deletion (see
-[crm-customization.md](crm-customization.md#doc_events-table)).
+## Removed integrations in CRM 2.x (16.51)
+
+The following modules, doctypes, and routes were **removed entirely** in CRM 2.x:
+- `crm.ai_agent` — doctypes `crm_agent_conversation`, `crm_agent_feedback`, etc.
+- `crm.integrations.meta` — Facebook Lead Ads backend (doctypes `crm_meta_*`)
+- `crm.integrations.email_sync` — `crm_email_account`, `crm_email_sync_settings`
+- `crm.integrations.sms` — `crm_sms_settings`
+- `crm.integrations.calendar_sync` — `crm_calendar_settings`
+- `crm.lead_syncing` (Google Ads, LinkedIn, TikTok) — all `crm_*_lead_config` doctypes
+- `crm.integrations.forecasting` and `/forecast` frontend route
+- `crm.integrations.workflows` (custom rule engine) → replaced by `crm.automation`
+- `crm_lead_score` doctype — `lead_score` is now a plain `Int` field on `CRM Lead`
+- `crm_knowledge_article`, `crm_knowledge_embedding`, `crm_workflow_rule`
+- Frontend routes `/sentiment`, `/calendar`, `/agent-analytics`
+
+Custom integrations depending on any of these must be rewritten or removed before upgrading.
+
+## Automation Engine (CRM 2.x, 16.51)
+
+CRM 2.x integrates with Frappe's Automation Engine via three `hooks.py` entries:
+- `automation_relationships` — relationship definitions for Lead/Deal/Contact
+- `automation_actions` — `AdjustLeadScore`, `SetLeadTemperature`, `ConvertLeadToDeal`,
+  `SendEmailToRecord`, `SendCRMNotification`
+- `automation_events` — `crm.lead_qualified/converted`, `crm.deal_stage_changed/won/lost`,
+  `crm.prospect_message_sent/received`, `crm.task_overdue`
+
+Automation flows can trigger on CRM Lead/Deal stage changes, incoming messages, and task
+overdue without writing custom `doc_events` handlers.
+
+## Lead syncing / Facebook Lead Ads (CRM 1.x only, <=16.35)
+
+**Removed in CRM 2.x (16.51).** The following was present in CRM 1.x only:
+`crm/lead_syncing/doctype/` held `Facebook Page`, `Facebook Lead Form`,
+`Lead Sync Source`, `Failed Lead Sync Log`. `background_sync.py` drove six cadences
+(`sync_leads_from_sources_5_minutes`/`_10_minutes`/`_15_minutes`, `_hourly`, `_daily`,
+`_monthly`). `Failed Lead Sync Log` was `ignore_links_on_delete`-exempt.
+All lead-syncing, Google Ads, LinkedIn, TikTok doctypes and scheduler entries are gone in 2.x.
 
 ## Domain enrichment
 
@@ -110,15 +156,17 @@ entry points — crawl limits (`max_pages`, `max_depth`, `use_sitemap`,
 
 ## Sources
 
-Verified against the installed Frappe CRM app:
+Verified against CRM 1.58.5 (coale_v16) and CRM 2.0.0-dev (16.51.1 bench):
 
-- `crm/fcrm/doctype/erpnext_crm_settings/erpnext_crm_settings.json` — `is_erpnext_in_different_site`, `api_key`/`api_secret`/`erpnext_site_url` fields
-- `crm/fcrm/doctype/erpnext_crm_settings/erpnext_crm_settings.py` — `get_erpnext_site_client`, `prefill_quotation_items`, `get_quotation_url`
-- `crm/hooks.py` — `CRM Deal`/`Sales Order` doc_events (:186-195), `scheduler_events` (:224-242), `ignore_links_on_delete` (:270)
+- `crm/fcrm/doctype/erpnext_crm_settings/erpnext_crm_settings.py` — `get_erpnext_site_client`, `prefill_quotation_items`
+- `crm/hooks.py` (16.51.1 bench) — `required_apps = ["whatsapp"]` (:14), `doc_events["WA Message"]` (:270), `automation_relationships` (:155), `automation_actions` (:157), `automation_events` (:187), `permission_query_conditions` for Lead/Deal (:138-140)
+- `crm/hooks.py` (coale_v16) — `doc_events["WhatsApp Message"]` (now dead in 2.x), `lead_syncing` scheduler entries
 - `crm/integrations/exotel/handler.py` — `handle_request`, `make_a_call`, `validate_request`
-- `crm/integrations/twilio/api.py` — `generate_access_token`, `voice`, `twilio_incoming_call_handler`, `validate_twilio_request`
-- `crm/api/whatsapp.py` — `validate_access`, `validate`, `on_update`, `notify_agent`, `is_whatsapp_installed`/`is_whatsapp_enabled`
-- `crm/lead_syncing/background_sync.py` — cadence functions
-- `crm/lead_syncing/doctype/` — directory listing
-- `crm/domain_enrichment/config.py` — `ENABLE_FLAG_BY_DOCTYPE`, `DEFAULT_SETTINGS`, module docstring on `get_config()` caching
+- `crm/integrations/twilio/api.py` — `generate_access_token`, `voice`, `validate_twilio_request`
+- `crm/api/whatsapp.py` (16.51.1 bench) — `validate_access`, `notify_agent`, `is_whatsapp_installed`/`is_whatsapp_enabled`; `WA Message` doc events
+- `crm/domain_enrichment/config.py` — `ENABLE_FLAG_BY_DOCTYPE`, `DEFAULT_SETTINGS`
 - `crm/domain_enrichment/pipeline.py` — `preview`, `run`
+- `crm/automation/` (16.51.1 bench) — `events.py`, `actions.py`, `relationships.py`, `scoring.py`
+- Module listings (16.51.1 bench vs coale_v16): confirmed removal of `crm.ai_agent`, `crm.integrations.meta`, `crm.integrations.email_sync`, `crm.integrations.sms`, `crm.lead_syncing`
+- `crm/api/form.py` (16.51.1 bench) — `save_form` (:433), `grant_guest_link_access` (:269), `_check_manager` (:234), `_link_target_doctypes` (:119-125)
+- `apps/frappe/frappe/database/database.py` (16.51.1 bench) — `frappe.session.user` / `frappe.set_user()` pattern; `savepoint` (:1219), `rollback(save_point=)` (:1196)

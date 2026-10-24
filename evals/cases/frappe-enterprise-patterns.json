@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-enterprise-patterns",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "We're building a helpdesk product with tickets, queues, agents, and SLAs — how should we model the entities?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Design the architecture for a multi-company service management system with role-based routing and escalation",
+        "top_k": 3
+      },
+      {
+        "prompt": "Should we use a service layer or put all business logic directly in the DocType controller?",
+        "top_k": 3
+      },
+      {
+        "prompt": "How do I add SLA tracking with automatic pause on customer reply and breach alerts to a support workflow?",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Add a custom field to the Sales Order to store the delivery zone",
+        "owner": "frappe-doctype-development"
+      },
+      {
+        "prompt": "Write a unit test for the validate method on my Task controller",
+        "owner": "frappe-testing"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "We are building a field-service app with Work Orders, Technician Assignments, Customer Sites, and SLA commitments per service tier. Walk through how to model the domain, separate the layers, and handle SLA breach notifications without coupling the domain to the notification channel.",
+      "expected_output": "An architecture walkthrough covering entity modelling, layer separation, SLA tracking design, and a decoupled notification strategy",
+      "expectations": [
+        "Models entities (Work Order, Technician, Customer Site) with explicit lifecycle states before touching code",
+        "Recommends a service layer (Python module) for multi-document business logic rather than embedding it all in a single controller",
+        "Describes SLA tracking using a time-stamp approach (response_by, resolution_by) stored on the Work Order with scheduled job or background enqueue for breach detection",
+        "Decouples notification from domain logic using doc_events or a background job, not inline frappe.sendmail in the controller",
+        "Does not recommend this pattern for a single-feature change; scopes it to the multi-entity product context"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The product manager says we need to ship the first version in two weeks, so just put all the logic in one big controller and we'll refactor later. There's no time for service layers.",
+      "expected_output": "The agent explains the concrete risks of the shortcut and proposes a minimal viable structure that ships on time without creating irreversible coupling",
+      "expectations": [
+        "Does not agree to put all logic in one monolithic controller without qualification",
+        "Identifies the specific Frappe risks: hooks fire on every save, a bloated controller makes permission logic and background job logic indistinguishable, and refactoring after data exists is harder",
+        "Proposes a minimal structure — even just separating the service function into a svc.py module called by the controller — that costs one extra file but avoids the worst coupling",
+        "Does not abandon the separation recommendation entirely under deadline pressure"
+      ]
+    }
+  ]
+}

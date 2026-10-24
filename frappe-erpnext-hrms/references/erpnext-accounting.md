@@ -139,13 +139,23 @@ process_deferred_accounting(posting_date=None)  # deferred_revenue.py:433
 
 ## Repost Accounting Ledger
 
-There is no `repost_allowed_doctypes` hook. Which voucher types may be
-reposted is configured on the **Repost Accounting Ledger Settings** singleton
-(`Repost Allowed Types` child table), read by
-`get_allowed_types_from_settings()`
-(`accounts/doctype/repost_accounting_ledger/repost_accounting_ledger.py:217`).
-`Repost Accounting Ledger` then re-derives GL/Payment Ledger entries for the
-selected vouchers without deleting and reinserting them by hand.
+**`repost_allowed_doctypes` hook (16.51):** `hooks.py` declares which voucher types may be
+reposted via GL. ERPNext seeds `["Sales Invoice", "Purchase Invoice", "Journal Entry",
+"Payment Entry", "Purchase Receipt"]`; HRMS adds `["Expense Claim"]`. On `bench --site
+<site> migrate`, a patch copies these into `Accounts Settings.repost_allowed_types`
+(child table `Repost Allowed Types`) where a site admin can add custom types. The
+old `Repost Accounting Ledger Settings` singleton was merged into `Accounts Settings`.
+`get_allowed_types_from_settings()` still reads from `Accounts Settings`. A custom app
+should declare its own `repost_allowed_doctypes` list; do **not** write `Repost Allowed
+Types` rows directly.
+
+**(<=16.35):** There was no `repost_allowed_doctypes` hook; allowed types were configured
+only in the `Repost Accounting Ledger Settings` singleton.
+
+**50-voucher cap (16.51):** `Repost Accounting Ledger` validates at most 50 vouchers per
+run (`MAX_VOUCHERS_PER_REPOST = 50`). A new `"Partially Reposted"` status appears when the
+first batch completes but a second run is still needed. New progress fields: `total_vouchers`,
+`vouchers_posted`. Fields `affected_transactions` and `distinct_item_and_warehouse` removed.
 
 ## v16 withholding-tax rework
 
@@ -171,13 +181,15 @@ existing `Payment Entry Reference`.
 
 ## Sources
 
-Verified against ERPNext v16.6.1 and the v15.119.0 baseline
-(`apps/erpnext/erpnext/__init__.py`):
+Verified against ERPNext v16.6.1 (coale_v16) and ERPNext 16.50.0 (16.51.1 bench 16.51):
 
-- `apps/erpnext/erpnext/accounts/utils.py` — `get_balance_on` (:201), `reconcile_against_document` (:507), `get_stock_and_account_balance` (:1801)
+- `apps/erpnext/erpnext/accounts/utils.py` — `get_balance_on` (:201), `reconcile_against_document` (:507)
 - `apps/erpnext/erpnext/accounts/doctype/payment_entry/payment_entry.py` — `get_payment_entry` (:2849)
 - `apps/erpnext/erpnext/setup/utils.py` — `get_exchange_rate` (:95)
 - `apps/erpnext/erpnext/accounts/deferred_revenue.py` — `process_deferred_accounting` (:433)
-- `apps/erpnext/erpnext/accounts/doctype/repost_accounting_ledger/repost_accounting_ledger.py` — `get_allowed_types_from_settings` (:217)
-- `apps/erpnext/erpnext/hooks.py` — `accounting_dimension_doctypes` (:522), `period_closing_doctypes` (:315), `invoice_doctypes` (:513), `advance_payment_payable_doctypes` (:511)
-- DocType listings: `apps/erpnext/erpnext/accounts/doctype/` (v16: `budget_distribution`, `financial_report_template`, `financial_report_row`, `account_category`, `tax_withholding_entry`, `tax_withholding_group`, `item_wise_tax_detail`, `sales_invoice_reference`; v15-only: `tax_withheld_vouchers`, `advance_tax`, `advance_taxes_and_charges`)
+- `apps/erpnext/erpnext/accounts/doctype/repost_accounting_ledger/repost_accounting_ledger.py` — `get_allowed_types_from_settings`; `MAX_VOUCHERS_PER_REPOST=50`, `"Partially Reposted"` status (16.51 16.51.1 bench)
+- `apps/erpnext/erpnext/hooks.py` — `accounting_dimension_doctypes` (:522), `period_closing_doctypes` (:315), `repost_allowed_doctypes` (:728, 16.51.1 bench 16.51 only), `subscription_doctypes` (:627, 16.51.1 bench)
+- `apps/erpnext/erpnext/accounts/doctype/purchase_invoice/purchase_invoice.py` — `block_invoice`/`unblock_invoice` as instance methods in 16.51.1 bench 16.51; module-level wrappers in coale_v16 (:1987, :1980) removed in 16.51
+- `apps/erpnext/erpnext/accounts/doctype/period_closing_voucher/period_closing_voucher.py` — `validate_stock_accounts_balance`, `validate_stock_closing_entry` in `before_submit` (16.51 16.51.1 bench :149-150)
+- `apps/erpnext/erpnext/patches/v16_0/merge_repost_settings_to_accounts_settings.py` — migration patch (16.51)
+- DocType listings: `apps/erpnext/erpnext/accounts/doctype/` (16.51 new: `bank_transaction_rule`; v16 new: `budget_distribution`, `financial_report_template`, `financial_report_row`, `account_category`, `tax_withholding_entry`, `tax_withholding_group`, `item_wise_tax_detail`, `sales_invoice_reference`; v15-only: `tax_withheld_vouchers`, `advance_tax`, `advance_taxes_and_charges`)

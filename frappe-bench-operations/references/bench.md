@@ -129,8 +129,12 @@ bench --site <site> run-tests --app <app-name>
 bench --site <site> run-tests --doctype "DocType Name"
 bench --site <site> run-tests --module my_app.tests.test_api
 bench --site <site> run-parallel-tests --app <app-name>
-bench --site <site> run-ui-tests <app-name> --headless
+bench --site <site> run-ui-tests <app-name> --headless   # auto-detects: Playwright if playwright.config.* exists, else Cypress (deprecated)
 
+# Playwright (16.51+): extra flags
+bench --site <site> run-ui-tests <app-name> --headless --parallel-site extra.localhost --shard 1/3
+# Cypress (legacy ≤16.35 or apps still on cypress.config.*): old flags still work on Cypress path
+bench --site <site> run-ui-tests <app-name> --headless --parallel --with-coverage --ci-build-id <id>
 # Build frontend assets (bench-level, no --site)
 bench build --app <app-name>
 bench build --production
@@ -189,6 +193,9 @@ bench --site <site> reinstall --admin-password admin
 bench --site <site> trim-database --dry-run
 ```
 
+# Tune file upload chunk size (default 25 MiB) — useful on high-latency connections (16.51+)
+bench --site <site> set-config file_chunk_size 52428800  # 50 MiB
+
 ## Configuration
 
 ```bash
@@ -243,24 +250,37 @@ theoretical one. Then, per site:
 
 1. **setUp** — clear cache, lower the DB lock timeout, best-effort kill idle
    DB connections, set `frappe.flags.in_migrate`.
-2. **pre_schema_updates** — run every app's `before_migrate` hooks; warn if more
-   than one app overrides the same DocType's controller (`override_doctype_class`).
-3. **run_schema_updates** — `[pre_model_sync]` patches → `frappe.model.sync.sync_all()`
-   (DocType JSON → DB tables/columns) → `[post_model_sync]` patches.
-4. **post_schema_updates** (atomic) — sync scheduled jobs, recreate missing sequences,
-   sync fixtures (unless `--skip-fixtures`), sync standard navbar items, dashboards,
-   customizations (Custom Fields, Property Setters, Custom Permissions), languages,
-   flush deferred inserts, remove orphan DocTypes/entities, sync the Portal Settings
-   menu, update the `Installed Applications` singleton's version history, then run
-   `after_migrate` hooks.
-5. **tearDown** (always, even on failure) — clear translation, website and
-   notification caches; write `sites/<site>/touched_tables.json`; queue the website
-   search-index rebuild on the `long` queue (unless `--skip-search-index`).
+2. **pre_schema_updates** — runs `frappe.installer.sync_module_defs()` (16.51+, inserts missing
+   `Module Def` rows for every installed app's declared modules; apps no longer need a one-off
+   `add_module_defs` patch), then every app's `before_migrate` hooks; warns on `override_doctype_class` conflicts.
+3. **run_schema_updates** — `[pre_model_sync]` patches → `frappe.model.sync.sync_all()` (DocType JSON → DB) → `[post_model_sync]` patches.
+4. **post_schema_updates** (atomic) — sync scheduled jobs, recreate sequences, sync fixtures, navbar, dashboards,
+   customizations, languages, flush deferred inserts, remove orphans, sync Portal menu, update `Installed Applications`,
+   run `after_migrate` hooks.
+5. **tearDown** (always) — clear caches; write `touched_tables.json`; queue search-index rebuild on `long` queue.
 
 Run it after hand-editing DocType JSON, pulling app updates with schema changes, or
 adding a `patches.txt` entry. A patch listed under the wrong section runs against
 the wrong schema: put it in `[pre_model_sync]` only if it must run before new
 columns exist.
+
+
+---
+
+## Sidebar fixture migration (16.51+)
+
+Old `<app>/workspace_sidebar/*.json` fixtures are no longer imported in 16.51.
+Sidebars belong to modules now: `<app>/<module>/sidebar/sidebar.json`. Use the
+conversion command to migrate:
+
+```bash
+bench --site <site> convert-sidebar-fixtures            # all installed apps
+bench --site <site> convert-sidebar-fixtures --app <app>
+bench --site <site> convert-sidebar-fixtures --app <app> --dry-run
+```
+
+Reports state per module: `converted` (green), `already converted` (cyan).
+`workspace_sidebar/` fixtures still load in ≤16.35 and are deprecated in 16.51.
 
 ---
 
@@ -427,7 +447,7 @@ git commit -m "Update fixtures"
 
 ## Sources
 
-Frappe CLI commands verified against Frappe v16.35.0 (`bench` proxies these; the
+Frappe CLI commands verified against Frappe v16.35.0 and v16.51.1 (`bench` proxies these; the
 active site comes from `--site`, `$FRAPPE_SITE`, or `common_site_config.json`'s
 `default_site` — see `frappe/utils/bench_helper.py:get_sites`):
 
@@ -437,17 +457,21 @@ active site comes from `--site`, `$FRAPPE_SITE`, or `common_site_config.json`'s
   `reload-doc`, `reload-doctype`, `set-password`, `set-admin-password`, `add-system-manager`,
   `add-user`, `disable-user`, `add-database-index`, `describe-database-table`, `trim-database`,
   `trim-tables`, `clear-log-table`, `browse`, `publish-realtime`, `sync-desktop-icons`
+  (16.51: rewritten — checks `is_desktop_icons_page()`; skips with warning if the site uses the new Apps desktop,
+  else calls `import_desktop_icon_fixtures(force=True)`),
+  `convert-sidebar-fixtures` (16.51+: converts old `workspace_sidebar/*.json` to per-module `<module>/sidebar/`;
+  `--app`, `--dry-run` flags; `commands/utils.py:420-458`)
 - `apps/frappe/frappe/commands/utils.py` — `build`, `watch`, `clear-cache`,
   `clear-website-cache`, `destroy-all-sessions`, `reset-perms`, `execute`
   (`--args`/`--kwargs`/`--profile`), `set-config` (`-g`/`-p`), `show-config`, `console`,
   `export-fixtures`, `export-json`, `export-csv`, `export-doc`, `import-doc`, `data-import`,
   `bulk-rename`, `list-sites`, `db-console`/`mariadb`/`postgres`/`sqlite`, `jupyter`,
   `transform-database`, `serve`, `request`, `make-app`, `create-patch`, `version`,
-  `rebuild-global-search`
-- `apps/frappe/frappe/commands/testing.py` — (v16) dedicated test-runner module, backed
-  by the new `frappe/testing/` package (`TestRunner`, `TestConfig`, `discover_all_tests`);
-  holds `run-tests`, `run-parallel-tests`, `run-ui-tests`. In v15 these three lived in
-  `commands/utils.py` and there was no `frappe/testing/` package.
+  `rebuild-global-search`, `convert-sidebar-fixtures` (16.51+)
+- `apps/frappe/frappe/commands/testing.py` — (v16) dedicated test-runner module; holds
+  `run-tests`, `run-parallel-tests`, `run-ui-tests` (16.51: auto-detects Playwright
+  vs Cypress via `_has_config()`; `PLAYWRIGHT_VERSION = "1.63.0"`; new `--parallel-site`
+  and `--shard` flags; old `cypressargs` renamed to `runnerargs`; 16.35: always Cypress)
 - `apps/frappe/frappe/commands/scheduler.py` — `trigger-scheduler-event`, `enable-scheduler`,
   `disable-scheduler`, `scheduler`, `set-maintenance-mode`, `doctor`, `show-pending-jobs`,
   `purge-jobs`, `schedule`, `worker`, `worker-pool`, `ready-for-migration`

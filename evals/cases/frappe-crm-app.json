@@ -1,0 +1,63 @@
+{
+  "skill_name": "frappe-crm-app",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Add a custom field to the Lead record and show it in the side panel without editing the Vue frontend",
+        "top_k": 3
+      },
+      {
+        "prompt": "Set up WhatsApp message tracking so incoming replies appear on the Deal timeline",
+        "top_k": 3
+      },
+      {
+        "prompt": "Configure SLA rules that pause the clock when a lead replies and send an alert on breach",
+        "top_k": 3
+      },
+      {
+        "prompt": "Sync leads from Facebook Lead Ads automatically into the lead pipeline",
+        "top_k": 3
+      },
+      {
+        "prompt": "The kanban board should hide deals that have been inactive for more than 30 days by default",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Customize the ERPNext Lead and Opportunity module to add a scoring field",
+        "owner": "frappe-erpnext-hrms"
+      },
+      {
+        "prompt": "Build a new Vue component for a custom portal page in a generic Frappe app",
+        "owner": "frappe-frontend-development"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Add a 'Product Interest' Multi Select field to CRM Lead and make it visible in the lead's side panel. The field should be filterable from the lead list view. Do this without modifying the crm app's Vue source files.",
+      "expected_output": "Steps to add a Custom Field to CRM Lead, configure the side panel via the CRM Settings or JSON config, and add the field as a filterable column — all without editing Vue source",
+      "expectations": [
+        "Confirms the crm app (Frappe CRM) is installed, distinct from checking for ERPNext",
+        "Adds the field as a Custom Field on 'CRM Lead' using Customize Form or a fixture, not by editing crm app source DocType JSON",
+        "Shows how to expose the field in the side panel using CRM's side panel configuration (CRM Fields Layout or equivalent settings DocType), not by editing .vue files",
+        "Does not instruct editing any file inside the crm app's src/ directory"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Configure an SLA on CRM Deal so that deals in the 'Qualified' stage must be moved forward within 3 business days. The timer should pause when the deal is waiting for a customer response and fire a notification when breached.",
+      "expected_output": "Steps to create an SLA record scoped to CRM Deal, define the pause condition, set the breach action, and verify the timer is attached",
+      "expectations": [
+        "Creates an SLA record targeting the 'CRM Deal' DocType with the correct response/resolution time fields",
+        "Identifies the pause condition mechanism available in Frappe CRM (e.g., a status-based pause or the 'Customer Reply' trigger)",
+        "Sets the breach action as a notification (email or system notification) rather than hardcoding a frappe.sendmail call",
+        "Describes how to verify the SLA is attached by opening a Deal in the Qualified stage and checking the SLA section"
+      ]
+    }
+  ]
+}

@@ -18,12 +18,17 @@ required_apps = ["frappe"]         # apps that must be installed first
 ## App install/uninstall hooks
 
 ```python
-after_install = "myapp.setup.after_install"       # runs after app is installed on a site
-before_uninstall = "myapp.setup.before_uninstall" # runs before app is removed
-after_uninstall = "myapp.setup.after_uninstall"   # runs after app is removed
+after_install = [                           # string or list; scalars are listified
+    "myapp.setup.after_install",
+]
+before_uninstall = ["myapp.setup.before_uninstall"]
+after_uninstall  = ["myapp.setup.after_uninstall"]
 ```
 
-Use `after_install` to create initial data (roles, settings, default records).
+Use `after_install` to create initial data (roles, settings, default records). Guard module-level imports
+in setup modules with `required_apps` in `hooks.py` — if a dependency app is absent, a bare
+`from dep_app.module import fn` at import time raises `ModuleNotFoundError` and aborts `install-app`.
+
 
 ## Document event hooks
 
@@ -266,7 +271,7 @@ permission hook — `frappe/templates/includes/comments/comments.py`.)
 **Boot / desk UI**
 `boot_session`, `extend_bootinfo`, `notification_config`, `sounds`,
 `standard_navbar_items`, `standard_help_items`, `calendars`, `treeviews`,
-`filters_config`, `clear_cache`, `get_changelog_feed`, `additional_timeline_content`,
+`filters_config`, `clear_cache`, `additional_timeline_content`,
 `awesomebar_search`, `setup_wizard_stages`.
 (`leaderboards` was a v15 hook (`frappe/desk/leaderboard.py`) — the leaderboard desk
 page and hook were removed entirely in v16; there is no replacement. `dashboards` as a
@@ -278,7 +283,10 @@ standalone key does not exist — only `override_doctype_dashboards` does.)
 `on_print_pdf`, `get_print_format_template`, `make_email_body_message`,
 `default_mail_footer`, `welcome_email`, `email_append_to`.
 (`jenv` is deprecated since v13 in favor of `jinja` — `frappe/patches/v13_0/jinja_hook.py`
-still warns on it but no v16 code reads it; do not use it.)
+still warns on it but no v16 code reads it; do not use it.
+(16.51) The `jinja.methods` hook only registers functions **defined** in the target module
+(`function.__module__ == module.__name__`). Re-exported imports are silently skipped — wrap
+them or define thin one-line forwarders in the methods module instead.)
 
 **Website / portal**
 `website_route_rules`, `website_redirects`, `website_context`,
@@ -294,6 +302,9 @@ still warns on it but no v16 code reads it; do not use it.)
 `export_python_type_annotations`, `ignore_translatable_strings_from`,
 `write_file_keys`, `setup_wizard_exception`,
 `setup_wizard_complete`, `setup_wizard_requires`, `setup_wizard_success`.
+`code_only_modules` (v16.51 — dict `{module_name: [doctype,...]}` declaring modules that own code
+but no navigation entry; they are excluded from the Dock sidebar.
+Frappe itself registers `Core`, `Custom`, `Desk`.)
 
 > `get_hooks(key)` always returns a **merged list/dict across all installed apps**
 > (app order = `apps.txt`), so a hook you register never replaces another app's —
@@ -333,21 +344,18 @@ def on_submit(doc, method):
 
 ## Sources
 
-Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__ = "16.35.0"`), cross-checked
-against the v15.120.0 baseline for version-gating:
+Verified against Frappe v16.35.0 (baseline) and v16.51.1 (head):
 
 - `apps/frappe/frappe/__init__.py` — `whitelist`, `get_list`/`get_all`/`get_value`, `delete_doc`, `rename_doc`, `get_hooks`, and the `frappe.model.document` re-exports (`get_doc`, `new_doc`, `get_cached_doc`, `get_cached_value`, `get_single_value`, `get_last_doc`, `get_single`, `get_lazy_doc`); `cache` / `client_cache` globals
 - `apps/frappe/frappe/model/document.py` — `get_doc` (singledispatch), `new_doc`, `get_cached_doc`, `get_single_value`, `get_last_doc`, `db_set`
 - `apps/frappe/frappe/database/database.py` — `get_value`, `set_value`, `get_single_value`, `exists`, `count`
 - `apps/frappe/frappe/query_builder/` — `frappe.qb`, `DocType`, `get_query`
 - `apps/frappe/frappe/utils/background_jobs.py` — `enqueue`/`enqueue_doc` signatures, `get_queues_timeout` (short/default=300s, long=1500s), `is_job_enqueued`, `job_name` deprecation
-- `apps/frappe/frappe/hooks.py` — framework `doc_events`, `scheduler_events`, and hook-key surface
+- `apps/frappe/frappe/hooks.py` — framework `doc_events`, `scheduler_events`, hook-key surface; 16.51 diff: `get_changelog_feed` removed, `code_only_modules` added
 - `apps/frappe/frappe/utils/boilerplate.py` — `hooks_template` (canonical `bench new-app` hooks.py)
 - `apps/frappe/frappe/core/doctype/scheduled_job_type/scheduled_job_type.json` — scheduler frequency options
 - `apps/frappe/frappe/utils/redis_wrapper.py` + `frappe/utils/caching.py` — `frappe.cache`, `client_cache`, `request_cache`/`site_cache`/`redis_cache`
-- `apps/frappe/frappe/desk/search.py::awesomebar_search`, `frappe/desk/form/load.py::get_additional_timeline_content`,
-  `frappe/utils/__init__.py::get_site_info`, `frappe/utils/jinja.py::get_jenv` — undocumented hooks confirmed live in both v15 and v16
-- `apps/frappe/frappe/templates/includes/comments/comments.py`, `frappe/modules/patch_handler.py`,
-  `frappe/commands/utils.py::run_after_build_hook` — v16-only hooks (`has_comment_permission`, `comment_rate_limit`,
-  `never_skip_patches`, `after_build`), absent from the v15 baseline
+- `apps/frappe/frappe/utils/jinja.py` — `get_jenv`, methods module re-export filter (16.51: line 243)
+- `apps/frappe/frappe/installer.py` — `after_install` list iteration (16.51: line 374)
+- `apps/frappe/frappe/desk/search.py::awesomebar_search`, `frappe/desk/form/load.py::get_additional_timeline_content`, `frappe/utils/__init__.py::get_site_info`
 - `apps/frappe/frappe/desk/leaderboard.py` (v15 only, removed in v16 — confirmed absent from v16 source tree)

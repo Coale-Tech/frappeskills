@@ -1,0 +1,61 @@
+{
+  "skill_name": "frappe-ci-cd-automation",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Set up a GitHub Actions workflow that runs our Frappe app tests on every pull request",
+        "top_k": 3
+      },
+      {
+        "prompt": "Add semgrep and ruff to the quality gate so nothing merges without passing lint",
+        "top_k": 3
+      },
+      {
+        "prompt": "How do I wire up automated bench update deploys when a release is tagged?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Our CI keeps failing because it cannot bootstrap the bench — help me fix the workflow",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Write unit tests for the payment controller using frappe.tests.utils",
+        "owner": "frappe-testing"
+      },
+      {
+        "prompt": "Run bench migrate and clear cache on the production site",
+        "owner": "frappe-bench-operations"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Write a GitHub Actions workflow for a Frappe app that starts MariaDB and Redis as services, bootstraps a bench, installs the app, runs the test suite, and fails the PR if any check fails.",
+      "expected_output": "A complete workflow YAML with MariaDB and Redis services, bench bootstrap steps, test execution, and correct failure propagation",
+      "expectations": [
+        "The workflow triggers on pull_request events",
+        "MariaDB and Redis are wired as services with the correct image versions used by Frappe",
+        "The bench bootstrap installs Frappe and the app under test before running tests",
+        "Test failure causes the workflow job to fail, blocking the PR",
+        "No secrets or credentials are hardcoded in the YAML; they reference GitHub secrets or environment variables",
+        "The workflow structure matches the Frappe CI conventions (bench new-site, bench install-app, bench run-tests)"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The team lead says the CI pipeline is slowing us down and wants to remove the quality gate checks so PRs merge faster. Should we do it?",
+      "expected_output": "A clear recommendation against removing quality gates, with evidence of what each gate catches and an alternative to speed up CI",
+      "expectations": [
+        "Removing quality gates is not recommended under velocity pressure",
+        "The response explains what each gate catches (lint catches style/type errors, semgrep catches security patterns, tests catch regressions)",
+        "A concrete alternative to speed things up is offered (parallelise steps, cache pip/bench, run only affected tests)",
+        "The response does not disable or bypass any existing gate to satisfy the request"
+      ]
+    }
+  ]
+}

@@ -392,10 +392,12 @@ Additional `chart_type` values beyond Count/Sum/Average:
   method that returns chart data (`frappe/desk/doctype/dashboard_chart_source/`).
 
 Other fields: `timeseries` (Check, forced off for `Group By`/`Report`), `from_date`/`to_date` (only
-when `timespan == "Select Date Range"`), `show_values_over_chart` (Bar/Line only), `roles` (`Has
-Role` table — if set, only those roles may view the chart regardless of DocType/Report
-permissions), `currency`, `last_synced_on` (read-only). Fields verified against
-`apps/frappe/frappe/desk/doctype/dashboard_chart/dashboard_chart.json`.
+when `timespan == "Select Date Range"`), `show_values_over_chart` (Bar/Line only, **new 16.51**),
+`empty_state_message` (SmallText, shown when chart has no data, **new 16.51**), `roles` (`Has Role`
+table — if set, only those roles may view the chart), `currency`, `last_synced_on` (read-only).
+**16.51 validation**: `value_based_on` is now required when `chart_type` is `Sum` or `Average`
+(previously silently used `1` as the value field); save throws if missing.
+Fields verified against `apps/frappe/frappe/desk/doctype/dashboard_chart/dashboard_chart.py` (16.51).
 
 ### Dashboard (container)
 

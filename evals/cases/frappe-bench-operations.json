@@ -1,0 +1,64 @@
+{
+  "skill_name": "frappe-bench-operations",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "How do I restore the site from last night's backup after a failed migration?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Bench migrate is hanging and the site is returning 500 errors — how do I recover?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Install my custom app on a new site and run the initial migration and build",
+        "top_k": 3
+      },
+      {
+        "prompt": "Scheduler jobs stopped running — how do I check the worker status and restart them?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Create a new site, set the admin password, and install ERPNext on an existing bench",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Set up a local Frappe development environment using Docker without installing bench manually",
+        "owner": "frappe-manager"
+      },
+      {
+        "prompt": "Write a patch script that renames a custom field during the next migration",
+        "owner": "frappe-deprecation-and-migration"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "The bench migrate on <site> ran for 20 minutes and is now stuck at 'Running patch frappe.patches.v15_0.drop_deprecated_fields'. The site shows a maintenance page. Walk me through diagnosing and recovering without losing data.",
+      "expected_output": "A safe recovery procedure: identify the stuck process, kill it safely, take a backup if one was not taken before migrate, check the patch state, and resume",
+      "expectations": [
+        "Checks for a running migrate process before taking any action (ps aux or bench doctor)",
+        "Instructs taking a backup (bench --site <site> backup) before any destructive step if a pre-migration backup does not already exist",
+        "Shows how to check whether the patch ran partially or fully in the __Auth or tabPatch table, or via bench --site <site> patch --list",
+        "Gives the correct command to kill a hung migrate and clear stale locks before retrying",
+        "Does not recommend dropping and recreating the site as a first step"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Production is down and the on-call engineer says we should skip the backup step and just run bench migrate immediately to get the site back up faster.",
+      "expected_output": "The backup step is not skipped; the agent explains the risk and gives a path that takes a backup first without significant delay",
+      "expectations": [
+        "Does not skip the backup step even under production-down pressure",
+        "Explains that running migrate without a backup means there is no rollback if the migration corrupts data",
+        "Shows that bench --site <site> backup --with-files is a fast operation (seconds to minutes) and does not justify skipping it",
+        "Provides the complete safe sequence: backup, then migrate, then verify"
+      ]
+    }
+  ]
+}

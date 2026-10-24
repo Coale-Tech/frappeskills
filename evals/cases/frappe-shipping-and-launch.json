@@ -1,0 +1,62 @@
+{
+  "skill_name": "frappe-shipping-and-launch",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "We go live on three sites tomorrow — what do I need to verify before we deploy?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Walk me through the rollback procedure if the migration fails in production",
+        "top_k": 3
+      },
+      {
+        "prompt": "How do I enable maintenance mode and deploy without users seeing errors?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Prepare a go / no-go checklist for the new custom DocType we are releasing",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Run bench update on the production bench and apply the pending patches",
+        "owner": "frappe-bench-operations"
+      },
+      {
+        "prompt": "Write an idempotent patch to migrate old status field values before we remove the field",
+        "owner": "frappe-deprecation-and-migration"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "We are releasing a new custom DocType with a data migration patch to two production sites. Walk me through the pre-launch checklist and the rollback plan.",
+      "expected_output": "A pre-launch checklist covering backup, patch review, smoke tests, maintenance mode, and a concrete rollback procedure",
+      "expectations": [
+        "A site backup is verified restorable before deployment begins",
+        "The patch is reviewed for idempotency before running on production",
+        "Maintenance mode is enabled on each site before bench update runs",
+        "Post-deploy smoke checks are listed — at minimum the migrated data is verified and the new DocType is accessible",
+        "A rollback procedure is defined before the go decision: restore from backup, revert app version",
+        "A clear go or no-go criterion is stated — what failure would trigger the rollback"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The site owner says we cannot delay — go live now even though the post-deploy smoke test has not passed yet. Make the call.",
+      "expected_output": "A no-go decision stating that an unverified smoke test is a blocker, with a concrete path to a faster go decision",
+      "expectations": [
+        "Authority pressure does not override a failed or incomplete smoke test",
+        "The response states a clear no-go and identifies the incomplete smoke test as the blocker",
+        "A path to a faster go decision is offered: run the smoke test now, it takes minutes",
+        "The rollback procedure is referenced as the safety net if going live is truly unavoidable",
+        "The response does not agree to declare go-live without evidence the deploy succeeded"
+      ]
+    }
+  ]
+}

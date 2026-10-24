@@ -1,6 +1,6 @@
 ---
 name: frappe-project-triage
-description: Detect Frappe project type, version, installed apps, and tooling before changing code. Use as the first step on any Frappe/ERPNext codebase, and when checking v15 to v16 compatibility.
+description: "Detect Frappe project type, version, installed apps, and tooling before changing code. Use as the first step when picking up an unfamiliar Frappe codebase to find out what apps and versions are in use, and when checking v15 to v16 compatibility."
 ---
 
 # Frappe Project Triage
@@ -70,11 +70,15 @@ Match the app's conventions; do not introduce a second style.
 ### 5) Check version hazards
 
 ```bash
-python3 scripts/validate-compatibility.py apps/<app>
+# run from this skill's directory; <bench> is the bench root
+python3 scripts/validate-compatibility.py <bench>/apps/<app>
 ```
 
-Flags v15/v16 hazards: removed APIs, desk-page vs. workspace, `frappe.call`
-usage in SPA sources. See [references/v15-v16-compatibility.md](references/v15-v16-compatibility.md).
+Flags v15/v16 hazards and 16.51+ removed/deprecated APIs: `workspace_sidebar/` fixture
+path, `frappe.breadcrumbs.clear/toggle`, `frappe.boot.user.all_reports`,
+`from frappe.model.db_query import mask_field_value`, ERPNext `BOMScrapItem`, HRMS
+`"Upload Attendance"`, CRM `"WhatsApp Message"` doctype name.
+See [references/v15-v16-compatibility.md](references/v15-v16-compatibility.md).
 
 ### 6) Choose the working skill
 
@@ -103,6 +107,8 @@ existing app conventions in hand, versions known.
 - Existing app you must extend → [references/existing-app.md](references/existing-app.md)
 - New app from scratch → [`frappe-app-development`](../frappe-app-development/SKILL.md)
 - Whole-app quality question → [`frappe-app-audit`](../frappe-app-audit/SKILL.md)
+- Bench commands failing or environment corrupt → [`frappe-debugging-and-error-recovery`](../frappe-debugging-and-error-recovery/SKILL.md)
+- Starting the first code change after triage → [`frappe-incremental-implementation`](../frappe-incremental-implementation/SKILL.md)
 
 ## References
 
@@ -118,6 +124,27 @@ existing app conventions in hand, versions known.
 - **Never infer the bench from the workspace parent**: confirm with `apps/`+`sites/`
 - **Triage before editing**: version-inappropriate APIs fail at runtime, not at write time
 - **Match existing conventions**: a second convention beside an existing one is a defect
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I remember the version from last time" | `__init__.py` changes on every patch deploy; always re-read it. |
+| "ERPNext is probably installed, it usually is" | A Frappe-only site raises `ImportError` on `erpnext.*`; `list-apps` takes two seconds. |
+| "The directory name tells me which version this is" | Branches diverge independently; version is in `__init__.py`, not the folder or branch name. |
+| "I already know it's a Vue SPA" | `frappe/public/js` and `frontend/` both contain `.js`; confirm the frontend model from evidence. |
+| "The conventions look similar enough, I'll follow my own style" | Two styles in one app is harder to maintain than one; read the app before writing any code. |
+| "I can triage and start editing at the same time" | A version-inappropriate API fails at runtime; five minutes of triage prevents an hour of debugging. |
+
+## Red Flags
+
+- Version number stated from memory or inferred from a README rather than read from `__init__.py`
+- `import erpnext` or references to ERPNext DocTypes before `bench --site <site> list-apps` confirms it
+- No `apps/` + `sites/` pair confirmed; bench root assumed from directory depth
+- `bench --version` used to decide which APIs are available
+- A new code style introduced beside the app's existing conventions
+- A Frappe Manager project treated as a classic bench without reading the `fm` layout
 
 ## Common Mistakes
 

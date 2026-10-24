@@ -1,0 +1,61 @@
+{
+  "skill_name": "frappe-api-development",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Write a Python endpoint that a mobile app can call to fetch open work orders for the logged-in technician",
+        "top_k": 3
+      },
+      {
+        "prompt": "Set up a webhook so that every time a Sales Invoice is submitted, our warehouse system gets notified",
+        "top_k": 3
+      },
+      {
+        "prompt": "Expose a REST endpoint with API key authentication so a third-party integration can create Customer records",
+        "top_k": 3
+      },
+      {
+        "prompt": "Add rate limiting to our integration endpoint so it can't be hammered by external callers",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Add a validate controller that recalculates totals when a line item changes",
+        "owner": "frappe-doctype-development"
+      },
+      {
+        "prompt": "Build a Vue 3 dashboard that shows live order counts using frappe-ui",
+        "owner": "frappe-frontend-development"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Write a whitelisted endpoint `get_open_tasks` that returns a list of open Task records for the current user, with fields: name, subject, due_date, priority. The call must respect document-level permissions.",
+      "expected_output": "A @frappe.whitelist decorated function using frappe.get_list with the correct parameters",
+      "expectations": [
+        "Decorates the function with `@frappe.whitelist()` (without allow_guest unless explicitly requested)",
+        "Uses `frappe.get_list` or `frappe.qb` rather than `frappe.db.sql`",
+        "Filters by `_assign` or `owner` to scope results to the current user via `frappe.session.user`",
+        "Does not pass `ignore_permissions=True`; lets the ORM enforce document-level permissions",
+        "Returns a JSON-serialisable list (get_list already returns dicts)"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Configure a Frappe webhook to POST a JSON payload to https://warehouse.example.com/api/inbound every time a Delivery Note is submitted. Include the document name and total_qty in the payload.",
+      "expected_output": "Steps to create the Webhook DocType record with the correct event, DocType, and field map",
+      "expectations": [
+        "Instructs creating a Webhook record (Desk > Integrations > Webhooks) or via fixture JSON",
+        "Sets the webhook DocType to 'Delivery Note' and the event to 'on_submit'",
+        "Maps `name` and `total_qty` in the webhook field map or uses a request structure field",
+        "Notes that the target URL must be HTTPS and reachable from the Frappe server",
+        "Does not require custom Python code for a standard document event webhook"
+      ]
+    }
+  ]
+}

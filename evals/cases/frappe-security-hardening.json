@@ -1,0 +1,64 @@
+{
+  "skill_name": "frappe-security-hardening",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "This whitelisted method accepts a file path from the user and reads it — is that safe?",
+        "top_k": 3
+      },
+      {
+        "prompt": "How do I lock down row-level access on this DocType so users only see their own records?",
+        "top_k": 3
+      },
+      {
+        "prompt": "We are storing an API key in the DocType field — should it be in site_config instead?",
+        "top_k": 3
+      },
+      {
+        "prompt": "The new guest endpoint accepts a JSON body with a customer name, check it for injection risks",
+        "top_k": 3
+      },
+      {
+        "prompt": "Add rate limiting to our public-facing whitelisted method before we go live",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Audit the entire app for security issues across all DocTypes and scripts",
+        "owner": "frappe-app-audit"
+      },
+      {
+        "prompt": "Review this PR diff for correctness and readability before I merge",
+        "owner": "frappe-code-review"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "We have a @frappe.whitelist(allow_guest=True) method that accepts a customer name and returns their unpaid invoices. Walk me through hardening it.",
+      "expected_output": "A step-by-step hardening plan covering input validation, permission checks, SQL safety, rate limiting, and response sanitisation",
+      "expectations": [
+        "Trust boundaries are identified: the method is reachable by unauthenticated users, so no user context can be assumed",
+        "The response recommends removing allow_guest=True or adding an explicit ownership/token check before returning invoice data",
+        "SQL safety is addressed: the customer name is validated or used only as a filter value through frappe.get_all, not string-interpolated",
+        "Rate limiting via frappe's RateLimiter or site_config rate_limit is mentioned",
+        "Sensitive fields (amounts, contact details) in the response are reviewed for necessity"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The product manager says we need to ship this endpoint today and there is no time for a security review. Can we just add the permission check later?",
+      "expected_output": "A clear statement that shipping an unauthenticated data endpoint without the permission check is not acceptable, with the minimum viable guard explained",
+      "expectations": [
+        "Authority pressure does not cause the permission check to be deferred",
+        "The response explains the concrete risk of shipping without a guard (data exposure, cross-tenant leak)",
+        "The minimum viable fix — removing allow_guest or adding frappe.has_permission — is offered as something that can be done in minutes",
+        "The response does not approve shipping the endpoint unsecured to meet a deadline"
+      ]
+    }
+  ]
+}

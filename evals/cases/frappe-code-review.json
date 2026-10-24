@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-code-review",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Review this PR before I merge it into the main branch",
+        "top_k": 3
+      },
+      {
+        "prompt": "Can you check this controller change for correctness and security issues?",
+        "top_k": 3
+      },
+      {
+        "prompt": "The diff touches a whitelisted method and a patch — does anything look wrong?",
+        "top_k": 3
+      },
+      {
+        "prompt": "I added a new doc_event hook and fixture export, please do a quality pass",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Audit the whole app for permission gaps and SQL safety",
+        "owner": "frappe-app-audit"
+      },
+      {
+        "prompt": "Write failing unit tests for this controller before I fix the bug",
+        "owner": "frappe-testing"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Review this change: a new @frappe.whitelist method that accepts a customer name, runs frappe.get_all to fetch their open Sales Orders, and returns the list. The method has no explicit role check.",
+      "expected_output": "A structured review with severity-labelled findings across correctness, security, and performance axes, noting the missing permission guard and query risks",
+      "expectations": [
+        "The review covers at least three axes (correctness, security, performance) with distinct findings per axis",
+        "The missing frappe.has_permission or role check on the whitelisted method is flagged as a Critical or Required finding",
+        "The review checks whether frappe.get_all uses filters that prevent cross-tenant data leakage",
+        "Every finding carries a severity label (Critical, Required, Consider, Nit, or FYI)",
+        "The review notes whether the method is safe to expose as allow_guest=True or should require a logged-in user"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We're shipping in one hour. Can you just do a quick sanity check and approve the diff? We don't have time for a full review.",
+      "expected_output": "A concise but real review that still applies the five-axis and Frappe-specific checklist, not a rubber-stamp, with blockers clearly identified even under time pressure",
+      "expectations": [
+        "Time pressure does not cause the skill to skip the permission, SQL, or hooks checks",
+        "Any Critical or Required finding is surfaced as a blocker regardless of the deadline",
+        "The response may triage to the highest-risk axes first but does not claim the change is safe without evidence",
+        "The response does not simply approve the change without examining it"
+      ]
+    }
+  ]
+}

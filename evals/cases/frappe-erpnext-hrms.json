@@ -1,0 +1,64 @@
+{
+  "skill_name": "frappe-erpnext-hrms",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Hook into the Sales Invoice submit event to post a custom GL entry for commission accrual",
+        "top_k": 3
+      },
+      {
+        "prompt": "Calculate employee leave balance including carry-forward days for a leave report",
+        "top_k": 3
+      },
+      {
+        "prompt": "Validate that a Purchase Order total does not exceed the supplier's approved credit limit before submission",
+        "top_k": 3
+      },
+      {
+        "prompt": "Generate payslips for all employees in a department via a background job without blocking the UI",
+        "top_k": 3
+      },
+      {
+        "prompt": "I need to read attendance records to compute a custom overtime allowance in the payroll cycle",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Customize the CRM Lead pipeline with a new stage and SLA rule",
+        "owner": "frappe-crm-app"
+      },
+      {
+        "prompt": "Design a custom print format for the Sales Invoice with the company logo and payment terms",
+        "owner": "frappe-printing-templates"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "On Sales Invoice submit, post a custom Journal Entry that debits a 'Sales Commission Expense' account and credits a 'Commission Payable' account for 5% of the net total. The entry must be linked back to the Sales Invoice and cancelled if the invoice is cancelled.",
+      "expected_output": "A controller hook (on_submit / on_cancel) that creates and cancels a Journal Entry linked to the Sales Invoice, using frappe.get_doc, not raw GL inserts",
+      "expectations": [
+        "Checks that ERPNext is installed before importing erpnext or referencing ERPNext DocTypes",
+        "Uses doc_events in hooks.py to bind on_submit and on_cancel to the custom logic, not a monkey-patch",
+        "Creates the Journal Entry with frappe.get_doc({'doctype': 'Journal Entry', ...}) and calls .submit(), never frappe.db.sql inserts into tabGL Entry",
+        "Links the Journal Entry back to the Sales Invoice using the 'reference_type' and 'reference_name' fields on the Journal Entry Account rows",
+        "Cancels the Journal Entry in on_cancel by fetching it via a Link field or frappe.get_all and calling .cancel()"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "A report needs to show each employee's leave balance as of today, broken down by leave type, including carry-forward days from the previous allocation. How do I read that data correctly without duplicating HRMS's leave logic?",
+      "expected_output": "Guidance to use the HRMS leave allocation/ledger API or frappe.get_all over 'Leave Ledger Entry' rather than reimplementing the balance formula",
+      "expectations": [
+        "Does not reimplement carry-forward arithmetic from scratch; points to the existing HRMS utility (get_leave_balance_on or Leave Ledger Entry) as the source of truth",
+        "Uses frappe.get_all or frappe.qb over 'Leave Ledger Entry' or 'Leave Allocation', never frappe.db.sql",
+        "Confirms HRMS is installed before calling any hrms module function",
+        "Identifies the correct DocTypes: Leave Ledger Entry for balance computation, Leave Allocation for carry-forward days"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "skill_name": "frappe-incremental-implementation",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Implement just the DocType definition first, run bench migrate, then we'll verify before touching the controller",
+        "top_k": 3
+      },
+      {
+        "prompt": "I want to build this feature slice by slice so the site always stays in a testable state after each step",
+        "top_k": 3
+      },
+      {
+        "prompt": "Roll the new payment integration behind a site_config flag so we can merge without enabling it for all sites yet",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Create the task breakdown and implementation order for this spec before we write any code",
+        "owner": "frappe-planning-and-task-breakdown"
+      },
+      {
+        "prompt": "There's a KeyError in the Error Log from our on_submit hook — help me find and fix the root cause",
+        "owner": "frappe-debugging-and-error-recovery"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "I need to implement the first task from my plan: add a 'Technician Assignment' child table to the Service Request DocType, then wire its controller to validate that at least one technician is assigned on submit. Walk me through doing this one layer at a time.",
+      "expected_output": "A step-by-step implementation that adds the child table, runs bench migrate, verifies schema, then adds the controller validation — each step confirmed before proceeding",
+      "expectations": [
+        "The child table DocType JSON is created and bench migrate is run before any controller code is added",
+        "After bench migrate, a verification step (bench console or bench run-tests) is performed before proceeding to the controller",
+        "The controller change is scoped to only the on_submit validation — no other logic is added in the same step",
+        "A commit is proposed after the verified slice, not after both steps combined",
+        "Clear-cache is called after any client-side or hook change"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "It's faster to write all the controller logic, the API endpoint, and the report in one go and run bench migrate once at the end — why do we need to break it up?",
+      "expected_output": "The agent explains the Frappe-specific risks of bundled implementation and holds the incremental approach, offering a concrete example of what breaks when migrate is deferred",
+      "expectations": [
+        "The agent does not agree to bundle all layers before running migrate",
+        "The agent names a Frappe-specific risk: schema errors fail silently or corrupt data if migrate is skipped mid-build",
+        "The agent explains that each layer (schema, controller, API, report) has its own verification command that confirms it works before the next layer depends on it",
+        "The agent proposes implementing the first layer now rather than just arguing in the abstract"
+      ]
+    }
+  ]
+}

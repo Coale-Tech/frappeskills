@@ -1,6 +1,6 @@
 ---
 name: frappe-ui-patterns
-description: Apply the frappe-ui design language and proven patterns from Frappe CRM, Helpdesk, and HRMS including app shells, screen archetypes, hierarchy, confirmations, and mobile layouts. Use when designing app structure and interaction flows rather than wiring data.
+description: "Apply the frappe-ui design language and proven patterns from Frappe CRM, Helpdesk, and HRMS including navigation structure, left nav sidebar, list-detail panels, screen archetypes, hierarchy, confirmations, and mobile layouts. Use when designing multi-entity app structure and navigation flows rather than wiring data."
 ---
 
 # Frappe UI Patterns
@@ -47,7 +47,12 @@ responsive component. Anatomy and geometry:
 
 Filters and search above, dense rows, an indicator column, bulk actions on
 selection, pagination or infinite scroll — not both. Rows come from
-`frappe-ui/list` (1.0) or `ListView` (0.1.x).
+`frappe-ui/list` (1.0 stable) or `ListView` (0.1.x).
+
+> **(frappe-ui 1.0)** `ListView`, `CommandPalette`, `Calendar`, and `Charts` are no longer exported
+> from the root `frappe-ui` barrel — import from `frappe-ui/experimental` (unstable, may change
+> between minor releases). `frappe-ui/list` is the stable 1.0 list primitive.
+
 ### 3) Design the detail
 
 Primary actions top-right, status prominent, related records in tabs or side
@@ -91,11 +96,15 @@ affordances before shipping.
 - Data and workflow modelling → [`frappe-enterprise-patterns`](../frappe-enterprise-patterns/SKILL.md)
 - Frappe CRM's actual DocTypes, permissions, SLAs and integrations behind the "Pipeline / deals" pattern → [`frappe-crm-app`](../frappe-crm-app/SKILL.md)
 
+- Verify interaction flows in a real browser → [`frappe-browser-testing`](../frappe-browser-testing/SKILL.md)
+
 ## References
 
 - [references/ui-patterns.md](references/ui-patterns.md) - P1–P14 summary, shell anatomy, archetypes, hierarchy, color, states, confirmations, forms
 - [references/mobile-patterns.md](references/mobile-patterns.md) - `MobileShell`, `MobileNav`, `BottomSheet`, `useIsMobile`, desktop-to-mobile translation
 - Component props live in [`frappe-frontend-development`](../frappe-frontend-development/references/frappe-ui-components.md); these files link there rather than repeat them
+
+- [references/accessibility-checklist.md](references/accessibility-checklist.md) - WCAG 2.1 AA checklist for Desk custom UI, portal pages, and frappe-ui Vue components
 
 ## Guardrails
 
@@ -105,6 +114,27 @@ affordances before shipping.
 - **Two color axes only**: `variant` + `theme`; no `intent`/`kind`/`severity` props
 - **Mobile is a layout change, not a separate app**
 - **Empty, loading and error states are part of the design**, not an afterthought
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "Our brand needs a custom shell, the Frappe one won't fit" | CRM, Helpdesk, and HRMS all use the same shell and look on-brand; customize via tokens, not shell code. |
+| "Two primary action buttons make the choices clearer" | Two equally prominent buttons cause hesitation; promote one, demote the rest to `variant="subtle"`. |
+| "I'll build the confirm dialog from scratch, it's only a few lines" | Hand-built dialogs diverge in wording, button order, and keyboard behaviour; use `dialog.confirm`/`danger`. |
+| "The empty state can ship after the feature is done" | On day one, every fresh install shows a blank screen; the empty state is part of the feature. |
+| "The table works fine on desktop, mobile users can scroll sideways" | Horizontal scroll on mobile is considered broken UX; convert rows to stacked cards below the breakpoint. |
+| "I'll pass `intent='warning'` to mark the action as risky" | `intent`, `kind`, and `severity` are not frappe-ui props; the valid axes are `variant` and `theme`. |
+
+## Red Flags
+
+- A bespoke sidebar or nav shell built instead of `DesktopShell` / `MobileShell`
+- More than one `variant="solid"` button visible on a single screen
+- Hand-built `<Dialog>` markup for confirmation instead of `dialog.confirm` or `dialog.danger`
+- List view with no empty state component
+- Dense data table rendered at widths below 375 px without a responsive card layout
+- Props like `intent=`, `kind=`, or `severity=` passed to frappe-ui Button or Badge
 
 ## Common Mistakes
 

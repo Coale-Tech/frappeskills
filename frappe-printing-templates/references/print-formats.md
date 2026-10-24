@@ -10,7 +10,7 @@ generation.
 
 | Doctype | Purpose | Key fields |
 |---|---|---|
-| `Print Format` | One print layout for a DocType (or a Report) | `doc_type`, `standard`, `custom_format`, `print_format_type` (`Jinja`/`JS`), `html`, `raw_printing`, `raw_commands`, `format_data` (JSON, builder-generated), `print_format_builder`, `print_format_builder_beta`, `pdf_generator` (`wkhtmltopdf`/`chrome`, default `wkhtmltopdf`), `margin_top/bottom/left/right`, `font`, `font_size`, `page_number`, `css`, `disabled`, `absolute_value`, `align_labels_right`, `show_section_headings`, `line_breaks`, `default_print_language` |
+| `Print Format` | One print layout for a DocType (or a Report) | `doc_type`, `standard`, `custom_format`, `print_format_type` (`Jinja`/`JS`), `html`, `raw_printing`, `raw_commands`, `format_data` (JSON, builder-generated), `print_format_builder`, `pdf_generator` (`wkhtmltopdf`/`chrome`/`Typst`/`WeasyPrint`, default `wkhtmltopdf`; WeasyPrint blocked on new formats in 16.51), `label_color`, `value_color`, `show_label_colon`, `margin_top/bottom/left/right`, `font`, `font_size`, `page_number`, `css`, `disabled`, `absolute_value`, `align_labels_right`, `show_section_headings`, `line_breaks`, `default_print_language` |
 | `Print Settings` | Site-wide single doctype for print defaults | `send_print_as_pdf`, `repeat_header_footer`, `pdf_page_size`/`pdf_page_height`/`pdf_page_width`, `with_letterhead`, `allow_print_for_draft`, `allow_print_for_cancelled`, `add_draft_heading`, `allow_page_break_inside_tables`, `enable_print_server`/`server_printer`, `enable_raw_printing`, `print_style`, `font`, `font_size`, `pdf_generator` |
 | `Letter Head` | Header/footer HTML or image for print/PDF | `letter_head_name`, `source` (`Image`/`HTML`), `image`, `content` (header HTML), `footer` (footer HTML), `header_script`, `footer_script`, `is_default`, `disabled` |
 | `Print Style` | Reusable named CSS block, selected via Print Settings | `print_style_name`, `css`, `standard`, `disabled` |
@@ -24,7 +24,7 @@ Source: `frappe/printing/doctype/{print_format,print_settings,letter_head,print_
 |---|---|---|---|
 | Standard (auto-generated) | none — Frappe derives it from the DocType layout | not a document | No |
 | Print Format Builder (classic) | "New Print Format" → check `print_format_builder` | DB, `format_data` JSON on the `Print Format` doc | Yes (drag-and-drop) |
-| Print Format Builder (beta) | check `print_format_builder_beta` | DB; renders via `frappe/utils/weasyprint.py` (WeasyPrint), not the standard Jinja engine | Yes |
+| Print Format Builder (beta) | check `print_format_builder_beta` | DB; renders via `frappe/utils/print_format_generator.py` (Chrome or WeasyPrint); WeasyPrint deprecated — cannot be selected for new formats in 16.51, use Chrome instead | Yes |
 | Custom HTML (Jinja) | check `custom_format`, set `print_format_type = Jinja`, write `html` | DB, or exported to files as a standard format | Full control |
 | Custom Raw Printing | check `custom_format` + `raw_printing`, write `raw_commands` (Jinja) | DB | For ESC/POS-style printers; rendered but sent as text, not HTML/PDF |
 
@@ -292,25 +292,37 @@ and, for `as_pdf=True`, hands the HTML to a PDF generator
 
 ### PDF generators
 
-`Print Format.pdf_generator` (and `Print Settings.pdf_generator`) selects
-between two engines:
+`Print Format.pdf_generator` (and `Print Settings.pdf_generator`) selects the engine:
 
 - **`wkhtmltopdf`** (default) — `frappe.utils.pdf.get_pdf()`, wraps `pdfkit`.
-- **`chrome`** (v16) — `frappe.utils.pdf.get_chrome_pdf()`, a headless-Chrome
-  PDF generator built into core (`frappe/utils/pdf_generator/{browser,chrome_pdf_generator,cdp_connection,page,pdf_merge}.py`).
-  In v15, `pdf_generator: "chrome"` only worked if an external app (e.g.
-  `print_designer`) registered a `pdf_generator` hook — v15 core has no
-  `frappe/utils/pdf_generator/` package. The hook mechanism
-  (`frappe.get_hooks("pdf_generator")`, called from `get_print` when
-  `pdf_generator != "wkhtmltopdf"`) still exists in v16 for apps that want to
-  plug in a third engine.
+- **`chrome`** (v16) — `frappe.utils.pdf.get_chrome_pdf()`, headless-Chrome PDF. See **Chrome PDF margin convention** below.
+- **`Typst`** (16.51) — new renderer for Typst-block print formats (`frappe/printing/` module). A format using a `Typst` block must set `pdf_generator = "Typst"`.
+- **`WeasyPrint`** (deprecated 16.51) — still renders existing formats but cannot be selected for new formats; `validate_weasyprint_choice()` throws on save. Use `chrome` instead. Import path changed: `from frappe.utils.print_format_generator import download_pdf, get_html` (was `frappe.utils.weasyprint`).
 
 ```python
 from frappe.utils.pdf import get_pdf
 
 html = frappe.get_print("Sales Order", name, print_format="My Format")
-pdf = get_pdf(html)  # wkhtmltopdf path directly
+pdf = get_pdf(html)  # wkhtmltopdf path
 ```
+
+### Chrome PDF margin convention (16.51, C6)
+
+The Chrome PDF driver (`frappe/utils/pdf.py`) reads margin values **only from the bare `.print-format` CSS rule** (longhands: `margin-top`, `margin-left`, `margin-right`). The `margin-bottom` is determined by the footer-band height. Use a compound override to zero the element's own margin in the browser preview without confusing the driver:
+
+```css
+/* Harvested by the Chrome driver — margin-top / margin-left / margin-right only */
+.print-format { margin-top: 10mm; margin-left: 10mm; margin-right: 10mm; }
+/* Zero the element's own margin in-browser without being harvested */
+html body .print-format { margin: 0 !important; }
+```
+
+The `#header-html` / `#footer-html` elements are Chrome's fixed-height per-page bands; render them as the first/last children of `<body>` with an explicit `height` CSS property. Enable them site-wide with `frappe.db.set_single_value("Print Settings", {"pdf_generator": "chrome", "repeat_header_footer": 1})`.
+
+### External fonts in Chrome PDF (D3)
+
+`@import url("https://fonts.googleapis.com/...")` in a print template triggers an outbound HTTPS request on **every PDF render**. In air-gapped or rate-limited environments the font silently falls back to the CSS `font-family` stack. Self-host fonts under `<app>/public/fonts/` and reference them with an absolute `/assets/<app>/fonts/my-font.css` path to avoid the dependency.
+
 
 ## Letter Head
 
@@ -346,20 +358,20 @@ pdf = get_pdf(html)  # wkhtmltopdf path directly
 - **PDF styling**: prefer inline styles and `<table>` layout; wkhtmltopdf and Chrome print differ from a modern browser in flex/grid support.
 - **Template syntax errors**: check `{{ }}` / `{% %}` delimiters and unclosed blocks; preview in Print View before exporting PDF.
 - **Standard format not picking up file changes**: confirm the module is not a "custom" module and the path matches `<module>/print_format/<scrubbed_name>/<scrubbed_name>.html` exactly.
+- **`json` global vs `| json` filter** (C12): `json.loads(value)` and `json.dumps(value)` use the `json` global (a `NamespaceDict` from `safe_exec.py:527`); the `| json` Jinja filter maps to `frappe.as_json` (serializer). They are separate — use `json.loads(...)` as a function call, not `value | json` when you need to parse JSON.
 
 ## Sources
 
-Verified against Frappe v16.35.0 (`apps/frappe/frappe/__init__.py` `__version__`):
+Verified against Frappe v16.35.0 (<=16.35) and v16.51.1 (16.51) at `apps/frappe`:
 
-- `apps/frappe/frappe/printing/doctype/{print_format,print_settings,letter_head,print_style,print_format_field_template}/*.json` — doctype fields, `pdf_generator` options (`wkhtmltopdf`/`chrome`, default `wkhtmltopdf`)
-- `apps/frappe/frappe/www/printview.py` — `get_print_format` (standard format file lookup and fallback order), `get_rendered_template` (context dict: `doc`, `meta`, `layout`, `no_letterhead`, `trigger_print`, `letter_head`, `footer`, `print_settings`), `get_letter_head` (resolution order)
-- `apps/frappe/frappe/utils/jinja.py` — `_get_jenv`/`get_jenv` (`FrappeSandboxedEnvironment`, `DebugUndefined`, no `autoescape`), `get_email_from_template`, `set_filters`
-- `apps/frappe/frappe/utils/safe_exec.py` — `get_safe_globals` (alias of `exec_safe_globals`, l.1016), `render_safe_globals`, `VALID_UTILS`, `UNSAFE_ATTRIBUTES`, `RENDER_EXEC_CONFIG_KEY = "disable_render_safe_exec"`
-- `apps/frappe/frappe/utils/jinja_globals.py` — `include_script`, `include_style`, `include_icons`, `web_block`/`web_blocks`, `get_dom_id`, `is_rtl`, `resolve_class`
-- `apps/frappe/frappe/hooks.py:158-164` — core `jinja` hook registration (`global_date_format`, `markdown`, `abs_url` filters)
-- `apps/frappe/frappe/email/doctype/email_template/email_template.json`, `apps/frappe/frappe/email/doctype/email_template/email_template.py:70` — `get_email_template`
-- `apps/frappe/frappe/utils/print_utils.py:15` — `get_print` signature; `:80` — `pdf_generator` hook lookup for third-party engines
-- `apps/frappe/frappe/utils/pdf.py` — `get_pdf` (wraps `pdfkit`), `get_chrome_pdf`
-- `apps/frappe/frappe/utils/pdf_generator/` — `browser.py`, `cdp_connection.py`, `chrome_pdf_generator.py`, `page.py`, `pdf_merge.py`
-- https://frappeframework.com/docs/user/en/api/jinja
+- `apps/frappe/frappe/printing/doctype/print_format/print_format.py` (16.51) — `STORED_RENDERERS = ("Typst", "WeasyPrint")`, `pdf_generator: Literal["wkhtmltopdf","chrome","Typst","WeasyPrint"]`, `validate_weasyprint_choice()`
+- `apps/frappe/frappe/utils/print_format_generator.py` (16.51) — replaces `frappe/utils/weasyprint.py` as the import path for `download_pdf`/`get_html`
+- `apps/frappe/frappe/utils/weasyprint.py` — still present in 16.51 for backward compat; deprecated
+- `apps/frappe/frappe/printing/doctype/{print_format,print_settings,letter_head,print_style}/*.json`
+- `apps/frappe/frappe/www/printview.py` — `get_print_format`, `get_rendered_template`, `get_letter_head`
+- `apps/frappe/frappe/utils/jinja.py` — `_get_jenv`, `get_email_from_template`, `set_filters`
+- `apps/frappe/frappe/utils/safe_exec.py:527` — `json=NamespaceDict(loads=json.loads, dumps=json.dumps)` in `get_safe_globals`
+- `apps/frappe/frappe/utils/pdf.py:282-328` — Chrome driver reads `margin-top`/`margin-left`/`margin-right` from `.print-format` CSS rule only
+- `apps/frappe/frappe/utils/pdf_generator/` — `browser.py`, `chrome_pdf_generator.py`
+- `apps/frappe/frappe/utils/jinja_globals.py` — `include_script`, `include_style`, `web_block`, `get_dom_id`
 - https://jinja.palletsprojects.com/en/3.1.x/templates/

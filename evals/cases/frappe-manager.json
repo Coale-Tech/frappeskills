@@ -1,0 +1,59 @@
+{
+  "skill_name": "frappe-manager",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Set up a local Frappe development site without installing bench or its system dependencies manually",
+        "top_k": 3
+      },
+      {
+        "prompt": "Create an isolated Docker site to test a new ERPNext version without touching my existing bench",
+        "top_k": 3
+      },
+      {
+        "prompt": "How do I start a fresh Frappe site using fm and add my custom app to it?",
+        "top_k": 3
+      },
+      {
+        "prompt": "I need a throwaway Frappe site to reproduce a bug without polluting my dev environment",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Run bench migrate on my existing bench after adding a new app",
+        "owner": "frappe-bench-operations"
+      },
+      {
+        "prompt": "Scaffold a new Frappe app with hooks.py and the correct module structure",
+        "owner": "frappe-app-development"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "I want to spin up a local Frappe site with ERPNext installed using Frappe Manager. Walk me through creating the site, picking the right version, and getting the Desk accessible in the browser.",
+      "expected_output": "Step-by-step fm commands to create a site with ERPNext, configure the version, and open the site",
+      "expectations": [
+        "Uses fm commands (fm create-site, fm shell, or equivalent) rather than classic bench new-site / bench get-app",
+        "Shows how to specify the Frappe/ERPNext branch or version in the fm command or config",
+        "Includes how to access the site URL after creation (default port or fm open)",
+        "Does not instruct the user to install MariaDB, Redis, or Node manually — these are managed by fm's Docker environment"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "I have an existing Frappe Manager site running. How do I add my custom app from a local Git repository and install it on the site without rebuilding the whole environment?",
+      "expected_output": "fm commands to add the app source and install it on the running site",
+      "expectations": [
+        "Uses fm app commands (fm add-app or equivalent) to register the local app path rather than hand-copying files",
+        "Shows how to install the app on the site with bench --site <site> install-app or the fm equivalent",
+        "Instructs running bench --site <site> migrate after installation to apply any new patches or schema changes",
+        "Does not suggest editing Docker Compose files directly as the first approach"
+      ]
+    }
+  ]
+}

@@ -1,9 +1,8 @@
-# Cypress UI Testing
+# Cypress UI Testing (legacy — ≤16.35 / Cypress-only apps)
 
-> Adopted from [lubusIN/frappe-skills](https://github.com/lubusIN/frappe-skills) (MIT) — `testing/references/cypress.md`.
-
-## Overview
-Frappe uses Cypress for end-to-end UI testing. Cypress tests simulate real user interactions with the Desk interface.
+> **Frappe 16.51+**: `bench run-ui-tests` defaults to **Playwright** when the app has
+> `playwright.config.*`. This file covers Cypress 13 for apps still using `cypress.config.*`.
+> See [ui-testing.md](ui-testing.md) for the current Playwright + Cypress overview.
 
 `bench run-ui-tests` installs Cypress and the plugins Frappe's own suite depends on
 (`cypress@^13`, `@4tw/cypress-drag-drop`, `cypress-real-events`, `@testing-library/cypress`,

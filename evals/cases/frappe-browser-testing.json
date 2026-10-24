@@ -1,0 +1,56 @@
+{
+  "skill_name": "frappe-browser-testing",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Verify that this custom form script actually fires client-side validation when the user clicks Save — I need proof it works in the browser",
+        "top_k": 3
+      },
+      {
+        "prompt": "The portal page looks broken for non-Desk users — screenshot it and check the console for errors",
+        "top_k": 3
+      },
+      {
+        "prompt": "Before I hand this off to QA I want screenshots showing the workflow buttons appear correctly for the Technician role",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Write a Cypress test suite to cover the full create-to-submit flow for the Sales Order DocType",
+        "owner": "frappe-testing"
+      },
+      {
+        "prompt": "The on_submit controller is throwing a KeyError in the Error Log — find the root cause server-side",
+        "owner": "frappe-debugging-and-error-recovery"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Log in as a test user with the 'Customer Service' role and verify the Service Request form shows the correct fields and that the Submit button is visible and enabled for that role.",
+      "expected_output": "A browser session that logs in as the test role, navigates to the form, captures a screenshot, and checks console errors — with evidence attached",
+      "expectations": [
+        "A dedicated test user (not Administrator) with the Customer Service role is used for the session",
+        "The agent navigates to the correct Desk route for the Service Request DocType",
+        "A screenshot of the form is captured as evidence, showing the field layout and the Submit button state",
+        "The browser console is checked for errors after the form loads",
+        "The result states clearly whether the Submit button is visible and enabled for the test role"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "I deployed a portal page update for the customer complaints portal. Capture before/after screenshots to confirm the change rendered correctly for a guest user, and check that no API calls are failing in the network tab.",
+      "expected_output": "Before and after screenshots of the portal page with guest credentials, plus a network tab check showing no failing frappe.call or REST calls",
+      "expectations": [
+        "The portal is accessed without a Desk session — either as a guest or a portal-only user, not as Administrator",
+        "Both a before and after screenshot are captured, or the agent explains why a before screenshot is unavailable",
+        "The network tab or console output is inspected for failing API calls after the page loads",
+        "Any failing network request is identified by URL and status code, not dismissed as 'looks fine'"
+      ]
+    }
+  ]
+}

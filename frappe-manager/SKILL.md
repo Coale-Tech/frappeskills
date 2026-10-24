@@ -1,6 +1,6 @@
 ---
 name: frappe-manager
-description: Run Docker-based Frappe development and testing environments with Frappe Manager (fm). Use when setting up local dev without a classic bench, running isolated sites, or managing containerized Frappe workflows.
+description: "Run Docker-based Frappe development environments with Frappe Manager (fm). Use when starting a fresh Frappe site with fm, adding a custom app to it, setting up local dev without a classic bench, or running isolated containerized sites."
 ---
 
 # Frappe Manager (Docker)
@@ -83,6 +83,7 @@ Full command surface and troubleshooting:
 - Classic bench operations → [`frappe-bench-operations`](../frappe-bench-operations/SKILL.md)
 - Environment identification → [`frappe-project-triage`](../frappe-project-triage/SKILL.md)
 - Test isolation strategy → [`frappe-testing`](../frappe-testing/SKILL.md)
+- Diagnosing container or site errors → [`frappe-debugging-and-error-recovery`](../frappe-debugging-and-error-recovery/SKILL.md)
 
 ## References
 
@@ -95,6 +96,28 @@ Full command surface and troubleshooting:
 - **Always `--site`** inside the container too
 - **Keep app code on the host, dependencies in the container**
 - **Never point `fm` at production data**
+
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I can run bench commands directly on the host" | The `fm`-managed site lives inside the container; host bench commands target a different environment and corrupt or silently fail. |
+| "Debugging this broken dev site is worth the time" | A `fm create` takes minutes; hours spent debugging a corrupted dev container is never cheaper. |
+| "Port conflicts sort themselves out" | Two processes bound to the same port do not negotiate; one silently fails with a confusing error. |
+| "The app is mounted, so my edits must reflect inside" | Only the paths `fm` was told to mount are shared; editing a file outside that mount has no effect. |
+| "I don't need `--site` inside `fm shell`" | Same as bench: omitting `--site` hits the wrong site or the default, not the intended one. |
+| "I'll point `fm` at the production database to test quickly" | A dev container running against production data can corrupt or delete live records irreversibly. |
+
+## Red Flags
+
+- `bench` commands run on the host machine where `fm` manages the site
+- `fm` site and a host bench both bound to the same port
+- More than 30 minutes spent debugging a broken dev container instead of recreating it with `fm create`
+- `--site` omitted inside `fm shell <site>`
+- App code edited inside the container rather than on the host mount (changes lost on recreate)
+- No `--frappe-branch` specified when creating a site (non-reproducible environment)
 
 ## Common Mistakes
 

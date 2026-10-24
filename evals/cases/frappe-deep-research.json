@@ -1,0 +1,59 @@
+{
+  "skill_name": "frappe-deep-research",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "How does Frappe actually enforce document naming when a naming series conflicts with a manually supplied name?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Trace what happens internally when bench migrate runs — I need to understand the execution order of patches versus schema changes",
+        "top_k": 3
+      },
+      {
+        "prompt": "The docs say before_save fires before validate but my test shows the opposite — trace the installed source and tell me which is right",
+        "top_k": 3
+      },
+      {
+        "prompt": "Is it actually possible to override how Frappe calculates child table row totals without touching core files?",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Our after_insert hook is throwing an AttributeError in the Error Log — help me find the root cause and fix it",
+        "owner": "frappe-debugging-and-error-recovery"
+      },
+      {
+        "prompt": "Add a new Status field to the Customer DocType",
+        "owner": "frappe-doctype-development"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "How does Frappe's permission system actually enforce field-level read access? I need the real code path traced from the installed source, not just what the docs say.",
+      "expected_output": "A traced code path from installed frappe source showing which function(s) enforce permlevel field visibility, with file and line citations",
+      "expectations": [
+        "The answer is traced from installed frappe source code, not from memory or documentation alone",
+        "At least one specific file path and function name from the frappe codebase is cited as evidence",
+        "The explanation distinguishes what the framework checks (permlevel, user role) from what the doc says",
+        "Any v15/v16 difference in behavior is flagged if found in source"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We're seeing inconsistent on_submit cascade behavior between v15 and v16 for child table amendments — trace the source to show what changed and where.",
+      "expected_output": "Side-by-side source citations showing the behavioral difference between v15 and v16, with the relevant function(s) and file(s) named",
+      "expectations": [
+        "Both v15 and v16 source paths are consulted before drawing a conclusion",
+        "The specific function or file where the behavior diverges is named with a file path citation",
+        "The explanation does not rely only on changelog entries or memory — installed source is checked",
+        "A discovered difference (or confirmed equivalence) is stated with evidence, not inferred"
+      ]
+    }
+  ]
+}

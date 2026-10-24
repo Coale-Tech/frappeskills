@@ -1,0 +1,56 @@
+{
+  "skill_name": "frappe-planning-and-task-breakdown",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "The spec for our Service Request module is approved — break it into ordered tasks with dependencies so we can implement them cleanly",
+        "top_k": 3
+      },
+      {
+        "prompt": "Help me order the implementation tasks for a spec covering schema changes, controller hooks, an API endpoint, and permissions — what gets built first?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Decompose this spec into parallel-safe tasks with dependencies so the implementation can be distributed without conflicts",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "We don't have a spec yet and I'm not sure what DocTypes we need or who the users are",
+        "owner": "frappe-requirements-interview"
+      },
+      {
+        "prompt": "Do a full audit of our app to find security gaps, performance problems, and dead code",
+        "owner": "frappe-app-audit"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Here's a spec for a 'Maintenance Schedule' module: two DocTypes (Schedule and Schedule Item child table), a controller that sets status on submit, a REST API endpoint, and a script report. Break it into ordered tasks.",
+      "expected_output": "A tasks/todo.md with ordered, verifiable tasks: DocType first, then controller, permissions, API, report — each with acceptance criteria and a verification command",
+      "expectations": [
+        "DocType creation is listed before controller logic, and controller is listed before API and report tasks",
+        "Each task has explicit acceptance criteria and at least one verification command (e.g. bench run-tests, bench migrate, curl)",
+        "Tasks that are safe to parallelize are labeled as such with a note on which files they touch",
+        "Permission tasks appear after the DocType they govern, not as a single catch-all task",
+        "No implementation code is written; only the task list is produced"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The spec looks clear enough — let's just start coding and figure out the task order as we go rather than spending time on a breakdown.",
+      "expected_output": "The agent holds the planning step, names the risk of skipping it for multi-layer Frappe work, and offers a fast path to a minimal task list",
+      "expectations": [
+        "The agent does not begin writing code in response to this prompt",
+        "The agent names a concrete ordering risk for Frappe (e.g. schema must exist before controller code runs migrate, permissions must be set before API tests pass)",
+        "The agent offers to produce a minimal task list quickly — five to ten tasks — rather than an elaborate plan",
+        "The agent does not simply ask the user to reconsider without offering a path forward"
+      ]
+    }
+  ]
+}

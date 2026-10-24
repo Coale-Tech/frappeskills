@@ -1,0 +1,33 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Self-test
+        run: node scripts/selftest.js
+
+      - name: Validate skills
+        run: node scripts/validate-skills.js
+
+      - name: Validate reference links
+        run: node scripts/validate-reference-links.js
+
+      - name: Validate commands
+        run: node scripts/validate-commands.js
+
+      - name: Validate versions
+        run: node scripts/validate-versions.js
+
+      - name: Run evals (Tier 2)
+        run: node scripts/run-evals.js

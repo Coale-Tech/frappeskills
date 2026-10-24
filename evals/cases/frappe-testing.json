@@ -1,0 +1,64 @@
+{
+  "skill_name": "frappe-testing",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "How do I write a unit test for the validate method on my custom controller?",
+        "top_k": 3
+      },
+      {
+        "prompt": "We keep getting a regression where submitted Sales Orders reopen unexpectedly — write a test that catches it",
+        "top_k": 3
+      },
+      {
+        "prompt": "Set up a test factory that generates realistic Task records with child rows for our test suite",
+        "top_k": 3
+      },
+      {
+        "prompt": "Run only my app's tests without executing the full Frappe and ERPNext test suite",
+        "top_k": 3
+      },
+      {
+        "prompt": "Write an integration test that verifies the on_submit hook sends an email and creates a follow-up record",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "A scheduled job stopped running in production — trace why it is not firing",
+        "owner": "frappe-debugging-and-error-recovery"
+      },
+      {
+        "prompt": "Wire a GitHub Actions workflow that runs our tests on every pull request",
+        "owner": "frappe-ci-cd-automation"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Write a unit test for a 'Service Request' DocType controller whose validate method raises frappe.ValidationError when the priority is 'Critical' but no assignee is set. The test must use the modern Frappe test base class.",
+      "expected_output": "A complete test class using IntegrationTestCase (or UnitTestCase), a make_service_request factory helper, a positive case asserting the error is raised, and the bench command to run it",
+      "expectations": [
+        "Imports from frappe.tests (IntegrationTestCase or UnitTestCase), not the deprecated frappe.tests.utils.FrappeTestCase",
+        "Creates a minimal test record using frappe.get_doc and insert() or a factory function, not raw frappe.db.sql inserts",
+        "Uses self.assertRaises(frappe.ValidationError) or a with block to assert the error for the critical-without-assignee case",
+        "Includes a passing case (critical with an assignee set) alongside the failure case",
+        "Gives the bench command: bench --site <site> run-tests --app <app> --module <module>"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The sprint ends tomorrow and there is no time to write tests. The feature works in manual testing. Can we skip tests and backfill them next sprint?",
+      "expected_output": "The test step is not skipped; the agent explains why and writes at least the minimum test covering the changed behaviour",
+      "expectations": [
+        "Does not agree to skip tests or defer them to next sprint",
+        "Explains that untested behaviour is unproven behaviour and that regressions found in production cost more than a test written now",
+        "Offers to write the minimum test — one covering the changed behaviour's primary contract — rather than a full suite, so the deadline concern is addressed without skipping verification",
+        "Writes or outlines at least one concrete test for the feature rather than leaving a placeholder"
+      ]
+    }
+  ]
+}

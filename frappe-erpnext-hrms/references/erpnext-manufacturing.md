@@ -5,8 +5,6 @@ BOM, Work Order, Job Card, Production Plan and subcontracting. Part of
 
 ---
 
-## BOM
-
 `BOM(WebsiteGenerator)` (`manufacturing/doctype/bom/bom.py:104`) costs raw
 materials per `rm_cost_as_per` (`DF.Literal["Valuation Rate", "Last Purchase
 Rate", "Price List"]`, `bom.py:155`, default `Valuation Rate`). `update_cost`
@@ -14,6 +12,15 @@ recalculates costs down the BOM tree when a component's rate changes;
 `BOM Update Tool` (queues a `BOM Update Log`, processed in batches via `BOM
 Update Batch`) propagates a BOM/cost change to every BOM and Work
 Order/Production Plan that references it, instead of editing each manually.
+
+**BOM secondary items — renamed from scrap items (16.51):**
+`BOM.scrap_items` (child: `BOM Scrap Item`) → `BOM.secondary_items` (child: `BOM Secondary Item`).
+Cost fields: `scrap_material_cost`/`base_scrap_material_cost` →
+`secondary_items_cost`/`base_secondary_items_cost`. Valuation literal `"% of FG Cost"` →
+`"% of Component Cost"`. New fields: `cost_allocation`, `cost_allocation_per`,
+`track_semi_finished_goods` (drives per-operation finished-good validation).
+Patch `co_by_product_patch` migrated existing data; custom code reading the old child
+table name or the old literal will fail silently. `(<=16.35):` child table was `BOM Scrap Item`.
 
 ## Work Order
 
@@ -102,14 +109,15 @@ one flat hourly rate on the Workstation.
 
 ## Sources
 
-Verified against ERPNext v16.6.1 and the v15.119.0 baseline:
+Verified against ERPNext v16.6.1 (coale_v16) and ERPNext 16.50.0 (16.51.1 bench 16.51):
 
-- `apps/erpnext/erpnext/manufacturing/doctype/bom/bom.py` — `BOM(WebsiteGenerator)` (:104), `rm_cost_as_per` (:155)
+- `apps/erpnext/erpnext/manufacturing/doctype/bom/bom.py` — `BOM(WebsiteGenerator)` (:104), `rm_cost_as_per` (:155); 16.51.1 bench: `secondary_items` (:161), `secondary_items_cost` (:162), `validate_secondary_items` (:304); coale_v16: `scrap_items` (:158), `validate_scrap_items` (:1216)
 - `apps/erpnext/erpnext/manufacturing/doctype/work_order/work_order.json` — `status` options (:107-113)
 - `apps/erpnext/erpnext/manufacturing/doctype/work_order/work_order.py` — `make_stock_entry` (:2353), `make_job_card` (:2456)
 - `apps/erpnext/erpnext/manufacturing/doctype/job_card/job_card.py` — `JobCard(Document)` (:60), `make_time_log` (:1548)
 - `apps/erpnext/erpnext/manufacturing/doctype/production_plan/production_plan.py` — `get_items` (:316), `make_work_order` (:769), `get_items_for_material_requests` (:1640)
-- `apps/erpnext/erpnext/manufacturing/doctype/manufacturing_settings/manufacturing_settings.json` — `backflush_raw_materials_based_on` (:96), `overproduction_percentage_for_*` (:85-90)
+- `apps/erpnext/erpnext/manufacturing/doctype/manufacturing_settings/manufacturing_settings.json` — `backflush_raw_materials_based_on`, `overproduction_percentage_for_*`
 - `apps/erpnext/erpnext/controllers/subcontracting_controller.py` — `SubcontractingController(StockController)` (:26)
-- `apps/erpnext/erpnext/buying/doctype/purchase_order/purchase_order.py` — `is_subcontracted` field (:24), `make_subcontracting_order` (:901)
-- Directory listing: `apps/erpnext/erpnext/manufacturing/doctype/` (v16-only: `master_production_schedule`, `master_production_schedule_item`, `sales_forecast`, `sales_forecast_item`, `workstation_cost`, `workstation_operating_component`, `workstation_operating_component_account`)
+- `apps/erpnext/erpnext/buying/doctype/purchase_order/purchase_order.py` — `make_subcontracting_order` (:901)
+- Patch: `apps/erpnext/erpnext/patches/v16_0/co_by_product_patch.py` (16.51.1 bench) — renamed scrap→secondary items
+- Directory listing: `apps/erpnext/erpnext/manufacturing/doctype/` (v16-only: `master_production_schedule`, `sales_forecast`, `workstation_cost`, `workstation_operating_component`; 16.51: `bom_secondary_item`, `job_card_secondary_item`, `work_order_additional_item`)

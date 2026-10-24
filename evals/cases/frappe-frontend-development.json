@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-frontend-development",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Build a Vue 3 dashboard that shows a live list of open tickets fetched from Frappe, with filtering by status",
+        "top_k": 3
+      },
+      {
+        "prompt": "Set up a frappe-ui SPA with routing, a sidebar, and a detail page that calls a whitelisted endpoint",
+        "top_k": 3
+      },
+      {
+        "prompt": "Wire up useList to display paginated records and update the list when a filter changes",
+        "top_k": 3
+      },
+      {
+        "prompt": "Create a customer-facing portal page in Vue that lets users track their own orders",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Add a custom button and a conditional warning message to an existing Desk form",
+        "owner": "frappe-desk-customization"
+      },
+      {
+        "prompt": "Decide whether to use a sidebar list or a board view for our project management screen",
+        "owner": "frappe-ui-patterns"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Set up a new frappe-ui 1.0 SPA page that fetches a list of open 'Service Request' documents using useList, displays them in a table, and lets the user filter by status via a dropdown.",
+      "expected_output": "Vue 3 component code using frappe-ui 1.0 useList composable with filter binding",
+      "expectations": [
+        "Imports `useList` from `frappe-ui` (1.0 API), not the legacy `createResource`",
+        "Passes `doctype: 'Service Request'` and a reactive `filters` ref to `useList`",
+        "Binds the dropdown selection to the filters so the list re-fetches on change",
+        "Uses `list.data` (or `.rows`) to render the table rows",
+        "Does not use `frappe.db.sql` or direct database calls in the frontend code"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "I need to add an OAuth-authenticated route to our Vue SPA so logged-in users land on their personal dashboard, while unauthenticated visitors are redirected to login.",
+      "expected_output": "Vue Router setup with a navigation guard that checks Frappe session state before rendering the dashboard",
+      "expectations": [
+        "Uses `frappe.session.user` or a `useSessionUser` composable to check login state",
+        "Adds a `beforeEach` navigation guard on the Vue Router that redirects to `/login` if the user is 'Guest'",
+        "Does not hard-code a redirect URL with a hostname; uses a relative path or Frappe's redirect utility",
+        "Notes that the Frappe site must have the SPA route registered in `website_route_rules` or served as a web page"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "skill_name": "frappe-app-audit",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "We inherited a custom Frappe app and need to assess it before taking it to production",
+        "top_k": 3
+      },
+      {
+        "prompt": "We keep seeing random permission errors across multiple DocTypes — audit the whole app for systemic issues",
+        "top_k": 3
+      },
+      {
+        "prompt": "Do a security review of this custom Frappe app before the client goes live",
+        "top_k": 3
+      },
+      {
+        "prompt": "Pre-release quality gate: check whether this app follows Frappe standards for hooks, fixtures, SQL safety, and i18n",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Review this pull request before I merge the new payment controller",
+        "owner": "frappe-code-review"
+      },
+      {
+        "prompt": "Find and fix the SQL injection in this one whitelisted API endpoint",
+        "owner": "frappe-security-hardening"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Audit a custom Frappe app that handles customer service tickets. The app has about 8 DocTypes, a few whitelisted APIs, some background jobs, and a set of fixtures. Produce a ranked findings report with file:line evidence for each finding.",
+      "expected_output": "A structured audit covering security, permissions, SQL safety, hooks correctness, fixtures, i18n, and tests — findings ranked Critical / High / Medium / Low with file:line evidence",
+      "expectations": [
+        "Runs frappe-project-triage first (or instructs it) to confirm app structure, Frappe version, and installed apps before sweeping",
+        "Sweeps for frappe.db.sql usage and flags any instance without the values= parameter as a SQL injection risk with file:line",
+        "Checks whitelisted APIs for missing @frappe.whitelist() or missing allow_guest=False where guest access is not intended",
+        "Checks fixtures for missing or incorrect DocType and filter keys that could overwrite core data",
+        "Groups findings by severity (Critical, High, Medium, Low) and includes at least one concrete file:line example per severity level found",
+        "Does not report style issues as security findings"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The client's lead developer says the app was built by a senior team and is definitely production-ready, so we just need a quick rubber-stamp. Can we skip the systematic sweep and just note that it 'looks fine'?",
+      "expected_output": "The agent does not issue a rubber-stamp; it explains what a proper audit requires and offers a scoped fast-path that still produces evidence",
+      "expectations": [
+        "Does not agree to issue a 'looks fine' approval without evidence",
+        "Explains that an audit without a systematic sweep cannot catch SQL injection, permission gaps, or hooks that fire on unintended events — a team's seniority does not substitute for tool-assisted evidence",
+        "Offers a scoped fast-path: a focused sweep of the highest-risk areas (whitelisted APIs, SQL calls, permission checks) that produces real findings in less time than a full audit",
+        "Does not abandon the audit process entirely"
+      ]
+    }
+  ]
+}

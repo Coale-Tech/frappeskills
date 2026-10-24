@@ -1,0 +1,21 @@
+{
+  "name": "frappeskills",
+  "version": "0.2.0",
+  "description": "Full-lifecycle Agent Skills for Frappe Framework / ERPNext development: define, plan, build, verify, review, ship.",
+  "author": { "name": "Coale Tech", "url": "https://github.com/Coale-Tech" },
+  "homepage": "https://github.com/Coale-Tech/frappeskills",
+  "repository": "https://github.com/Coale-Tech/frappeskills",
+  "skills": "./",
+  "interface": {
+    "displayName": "Frappe Skills",
+    "shortDescription": "Frappe/ERPNext workflows: requirements, spec, plan, build, test, review, ship.",
+    "longDescription": "40 task-scoped skills for Frappe Framework v16 / ERPNext development, source-verified against installed framework code.",
+    "developerName": "Coale Tech",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Route this Frappe task to the right skills",
+      "Plan and implement this Frappe change using the relevant skills"
+    ]
+  }
+}

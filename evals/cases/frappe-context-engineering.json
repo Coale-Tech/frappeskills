@@ -1,0 +1,56 @@
+{
+  "skill_name": "frappe-context-engineering",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Set up an AGENTS.md for this bench so every agent session starts with the right app structure and which skills to use",
+        "top_k": 3
+      },
+      {
+        "prompt": "The agent keeps using frappe.db.sql instead of frappe.qb and inventing hooks that don't exist — how do I fix the context it's receiving?",
+        "top_k": 3
+      },
+      {
+        "prompt": "How should I configure MCP and code search for this Frappe project so the agent has accurate context about our custom app?",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "My bench workers are stuck and bench doctor shows them as unhealthy — help me recover",
+        "owner": "frappe-bench-operations"
+      },
+      {
+        "prompt": "Interview me about what module we should build so we can nail down the requirements",
+        "owner": "frappe-requirements-interview"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "I'm starting a new AI session on a bench with a custom app called 'service_desk'. The app has a few DocTypes and custom hooks. Help me write an AGENTS.md that gives the agent everything it needs to work correctly.",
+      "expected_output": "A bench-scoped AGENTS.md covering installed apps, version, default site, developer_mode, app conventions, forbidden patterns, and which frappe-* skills apply",
+      "expectations": [
+        "The agent asks for or reads bench version and installed apps before drafting AGENTS.md",
+        "The AGENTS.md includes the site name, developer_mode status, and the app's module list",
+        "The AGENTS.md lists at least one forbidden pattern specific to Frappe (e.g. no frappe.db.sql, no editing core app files)",
+        "The AGENTS.md references at least one frappe-* skill relevant to the task at hand",
+        "The file is scoped to this bench — no absolute paths, no client names"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We're halfway through a session and the agent started hallucinating wrong hook names and calling APIs that don't exist. What do I do right now to recover?",
+      "expected_output": "A concrete recovery sequence: stash work, start a fresh session, re-load AGENTS.md, add the missing context before resuming",
+      "expectations": [
+        "The agent recommends starting a fresh session rather than continuing in the degraded one",
+        "The recovery steps include re-reading or updating AGENTS.md before resuming work",
+        "The agent identifies at least one likely cause of context rot (e.g. too many tool calls, missing skill context, session too long)",
+        "The agent suggests adding specific missing context (e.g. relevant skill, key file path) to AGENTS.md to prevent recurrence"
+      ]
+    }
+  ]
+}

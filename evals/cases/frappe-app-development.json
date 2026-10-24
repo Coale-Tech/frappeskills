@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-app-development",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Scaffold a new Frappe app and wire up the hooks so it installs cleanly on a bench",
+        "top_k": 3
+      },
+      {
+        "prompt": "I need a background job that runs every night to sync orders from an external API",
+        "top_k": 3
+      },
+      {
+        "prompt": "Add an entry in hooks.py to enqueue a background job with frappe.enqueue for processing nightly data in a Frappe app",
+        "top_k": 3
+      },
+      {
+        "prompt": "How do I ship custom fields as fixtures so they get applied on every fresh install?",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Add a new child table to the Purchase Order DocType with line-level tax fields",
+        "owner": "frappe-doctype-development"
+      },
+      {
+        "prompt": "Write a whitelisted API endpoint that returns customer balances as JSON",
+        "owner": "frappe-api-development"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Create a new Frappe app called 'logistics_hub' and configure it so a nightly scheduled task syncs shipment statuses from an external carrier API, with the results queued as background jobs.",
+      "expected_output": "Commands to scaffold the app, the hooks.py scheduler entry, and the background job implementation",
+      "expectations": [
+        "Uses `bench new-app logistics_hub` (or equivalent) to scaffold the app",
+        "Adds a scheduler entry under `scheduler_events` in hooks.py with the correct cron key (e.g. `daily`)",
+        "Defines the background job function in a module under the app and enqueues it with `frappe.enqueue`",
+        "Uses a queue name appropriate for long-running work (e.g. `long`)",
+        "Does not call `frappe.db.sql` for any data operations in the example code"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "I want to ship my app's Custom Fields and Property Setters so they are applied automatically when the app is installed on a new site, without running manual scripts.",
+      "expected_output": "Instructions for exporting fixtures, wiring them in hooks.py, and verifying they apply on install",
+      "expectations": [
+        "Explains `bench --site <site> export-fixtures` and the fixtures list in hooks.py",
+        "Shows the `fixtures` key format in hooks.py that scopes export to the correct DocTypes",
+        "Confirms fixtures are applied on `bench --site <site> migrate` or fresh install without manual steps",
+        "Mentions that Custom Fields should be exported after being created via Customize Form, not hand-coded JSON"
+      ]
+    }
+  ]
+}

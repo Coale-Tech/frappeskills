@@ -1,6 +1,6 @@
 ---
 name: frappe-enterprise-patterns
-description: Apply production-grade architecture for large Frappe apps like CRM, Helpdesk, and HRMS, including multi-entity modelling, workflows, SLAs, and service layers. Use when designing complex systems rather than single features.
+description: "Apply production-grade architecture for large Frappe apps like CRM, Helpdesk, and HRMS, including multi-entity modelling, workflows, SLAs, and service layers. Use when designing complex systems rather than single features."
 ---
 
 # Frappe Enterprise Patterns
@@ -97,6 +97,8 @@ aggregation to scheduled rollups when tables pass millions of rows.
 - Job and queue mechanics → [`frappe-app-development`](../frappe-app-development/SKILL.md)
 - Query performance → [`frappe-api-development`](../frappe-api-development/SKILL.md) → `database.md`
 - Standards sweep of the result → [`frappe-app-audit`](../frappe-app-audit/SKILL.md)
+- Query tuning and scalability → [`frappe-performance-optimization`](../frappe-performance-optimization/SKILL.md)
+- Failure state observability → [`frappe-observability`](../frappe-observability/SKILL.md)
 
 ## References
 
@@ -111,6 +113,28 @@ aggregation to scheduled rollups when tables pass millions of rows.
 - **Failures are documents, not log lines**: operators need to see and retry them
 - **Index before volume arrives**, not after the incident
 - **Don't build enterprise scaffolding for a small app**: cost without benefit
+
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I'll put the logic in the controller; it's simpler" | Controller logic is unreachable from jobs and tests without duplication; extract to a service. |
+| "The Workflow handles status, so code doesn't need to" | Unless one path is the sole owner, conflicting transitions corrupt state unpredictably. |
+| "Idempotency keys are overkill for this one integration" | A single webhook retry without a key creates a duplicate record that requires manual cleanup. |
+| "I'll add indexes when the queries get slow" | By the time queries are slow, millions of rows exist and `ALTER TABLE` locks the table under live traffic. |
+| "We can add the service layer when the app grows" | Refactoring business logic out of controllers after ten callers exist costs 10× more. |
+| "Errors in integration jobs go to logs; that's enough" | Operators cannot see or retry log-only failures; surface them as a document state. |
+
+## Red Flags
+
+- Business logic duplicated between the DocType controller and a whitelisted API method
+- A Workflow and a code path both writing to the same status field on the same DocType
+- Integration job retried by RQ with no idempotency key or duplicate-guard
+- `frappe.get_all` or `frappe.qb` called inside a loop without a batch limit or pagination
+- Exception swallowed with `frappe.log_error` and no document state updated for operator visibility
+- `track_changes` disabled on a DocType where an audit trail is a business requirement
 
 ## Common Mistakes
 

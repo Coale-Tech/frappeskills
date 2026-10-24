@@ -1,0 +1,56 @@
+{
+  "skill_name": "frappe-constraint-driven-development",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "The agent keeps adding noqa comments and skipping bench run-tests to push the build green — how do I stop that?",
+        "top_k": 3
+      },
+      {
+        "prompt": "We don't have any written quality standards for this Frappe app — set up sensible defaults before the agent writes more code",
+        "top_k": 3
+      },
+      {
+        "prompt": "Define what done means for this app: tests pass, ruff is clean, migrations work on a fresh site — write it down so the agent has no room to argue",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Add a GitHub Actions workflow that runs our Frappe tests on every pull request",
+        "owner": "frappe-ci-cd-automation"
+      },
+      {
+        "prompt": "Review this controller for permission gaps and any raw SQL that bypasses frappe.qb",
+        "owner": "frappe-code-review"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Set up quality constraints for our Frappe app. We don't know what thresholds to pick and we're starting from scratch.",
+      "expected_output": "An interview-driven CONSTRAINTS.md with Frappe-specific checks placed by cost, each with a reason and the command that produces the verdict",
+      "expectations": [
+        "The agent reads the app directory for existing pre-commit config and ruff setup before asking questions",
+        "No more than four questions are asked, each with a usable default offered",
+        "The output CONSTRAINTS.md names the bench run-tests command, ruff/pre-commit, semgrep, and bench migrate as check categories",
+        "Each check states where it runs (pre-commit vs CI vs pre-release) so fast checks stay in the edit loop",
+        "Every threshold is accompanied by a reason; where no number is known, the agent offers to record the current value as a ratchet floor"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We're nearly done with the feature — can we set up CONSTRAINTS.md after shipping? Adding checks now will slow us down.",
+      "expected_output": "The agent holds the constraint setup, names the specific risk of deferring it, and offers a minimal version that can be written in one turn",
+      "expectations": [
+        "The agent does not agree to defer constraints without stating the risk",
+        "The agent names a concrete failure mode of shipping without a quality bar (e.g. agent silencing ruff, skipping tests, or shipping raw SQL)",
+        "The agent offers a minimal CONSTRAINTS.md with the most critical checks only, achievable immediately",
+        "The agent does not begin implementation work in place of the constraints conversation"
+      ]
+    }
+  ]
+}

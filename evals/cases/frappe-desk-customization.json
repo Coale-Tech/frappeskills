@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-desk-customization",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Add a button to the Purchase Order form that calls a server method and shows the result in a dialog",
+        "top_k": 3
+      },
+      {
+        "prompt": "Show a warning banner on the Quotation form when the discount exceeds 20%",
+        "top_k": 3
+      },
+      {
+        "prompt": "Customize the list view of Customers so that inactive ones show a red indicator",
+        "top_k": 3
+      },
+      {
+        "prompt": "Create a Workspace with shortcuts to the five DocTypes our team uses every day",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Build a standalone Vue SPA that replaces the default Desk for our warehouse team",
+        "owner": "frappe-frontend-development"
+      },
+      {
+        "prompt": "Write a Python controller that fires when a Sales Order is saved to update a linked record",
+        "owner": "frappe-doctype-development"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Add a client-side script to the Sales Order form that, when a custom field `expected_delivery_days` is filled, automatically sets `delivery_date` to today plus that many days.",
+      "expected_output": "A Form Script (or Client Script) using frappe.ui.form.on with the correct event and field APIs",
+      "expectations": [
+        "Uses `frappe.ui.form.on('Sales Order', { expected_delivery_days: function(frm) { ... } })` or equivalent",
+        "Computes the date with `frappe.datetime.add_days(frappe.datetime.get_today(), days)` or similar Frappe date utility",
+        "Sets the field with `frm.set_value('delivery_date', computed_date)`",
+        "Does not use raw `new Date()` arithmetic when a Frappe date utility covers the case",
+        "Notes that the script lives in a Client Script record (Desk > Customization > Client Script), not in app Python code"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "I want the Customer list view to show a red dot for customers whose `credit_limit` is 0 and a green dot otherwise. How do I configure this without touching Python code?",
+      "expected_output": "Instructions for setting up a List View indicator using the Frappe indicator map convention",
+      "expectations": [
+        "Uses the `frappe.listview_settings` object in a List View Script or Client Script scoped to Customer list",
+        "Sets `listview_settings.get_indicator` as a function returning `['Red', ...]` or `['Green', ...]` based on `credit_limit`",
+        "Does not require a Python file change; the indicator logic lives in a client-side customization",
+        "Notes that the indicator label and color must use Frappe's supported color names"
+      ]
+    }
+  ]
+}

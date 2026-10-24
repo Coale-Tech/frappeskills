@@ -97,9 +97,16 @@ export default defineConfig({
     // esbuild's prebundler cannot resolve; the frappeui plugin resolves them
     // at request time instead. Skip prebundling frappe-ui itself...
     exclude: ['frappe-ui'],
-    // ...then explicitly prebundle its CJS transitive deps so the browser
-    // gets ESM.
-    include: ['feather-icons', 'tippy.js', 'showdown', 'engine.io-client', 'socket.io-client', 'debug'],
+    // ...then explicitly prebundle its CJS transitive deps so the browser gets ESM.
+    // Note: remove 'feather-icons' from include in frappe-ui 1.0 — FeatherIcon removed.
+    include: ['tippy.js', 'showdown', 'engine.io-client', 'socket.io-client', 'debug'],
+  },
+  // When using linked packages or a vendored UI snapshot (@whatsapp/ui, @framework/ui):
+  // duplicate state-bearing singletons (reka-ui provide/inject, prosemirror model) cause
+  // silent breakage. Add resolve.dedupe to force single copies:
+  resolve: {
+    dedupe: ['vue', 'vue-router', 'frappe-ui', 'reka-ui', '@vueuse/core',
+             '@tiptap/core', '@tiptap/pm', 'prosemirror-model', 'prosemirror-state'],
   },
 })
 ```
@@ -164,6 +171,9 @@ own `LucideIconsPlugin` resolves `~icons/lucide/*` content straight from
 ```js
 // tailwind.config.js
 import frappeUIPreset from 'frappe-ui/tailwind'
+// frappe-ui 1.0: named `content` export is the authoritative source-glob list
+// frappe-ui 0.1.x: `content` export does not exist; hand-write the globs below instead
+import { content as frappeUIContent } from 'frappe-ui/tailwind'
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -171,12 +181,11 @@ export default {
   content: [
     './index.html',
     './src/**/*.{vue,js,ts,jsx,tsx}',
-    // Tailwind v3 does NOT merge `content` from presets (only `theme` merges) —
-    // frappe-ui's own preset.js documents this — so list its source globs here
-    // too, or component-internal classes (e.g. inside Dialog, FormControl)
-    // get purged.
-    './node_modules/frappe-ui/src/**/*.{vue,js,ts,jsx,tsx}',
-    './node_modules/frappe-ui/frappe/**/*.{vue,js,ts,jsx,tsx}',
+    // frappe-ui 1.0: spread the exported content array
+    ...frappeUIContent,
+    // frappe-ui 0.1.x fallback (use INSTEAD of ...frappeUIContent):
+    // './node_modules/frappe-ui/src/**/*.{vue,js,ts,jsx,tsx}',
+    // './node_modules/frappe-ui/frappe/**/*.{vue,js,ts,jsx,tsx}',
   ],
 }
 ```
@@ -361,18 +370,17 @@ tables above being skipped.
 
 ## Sources
 
-Verified against frappe-ui `1.0.0-beta.29` (`apps/frappe-ui/package.json`),
-cross-checked against the `0.1.261` baseline vendored at
-`apps/crm/frontend/node_modules/frappe-ui`:
+Verified against frappe-ui `1.0.0-beta.29` (coale_v16 bench `apps/frappe-ui/package.json`)
+and cross-checked against frappe-ui `1.0.0-rc.2` in 16.51.1 bench CRM frontend (`apps/crm/frontend/package.json`).
+frappe-ui is not a separate bench app in 16.51.1 bench; it is a declared dependency in the CRM frontend.
 
-- `apps/frappe-ui/package.json` — `exports` map, `dependencies`/`devDependencies` (icon toolchain)
+- `apps/frappe-ui/package.json` — `exports` map, `dependencies`/`devDependencies` (icon toolchain); `tailwind/index.js` exports `content` named export in 1.0 (absent in 0.1.x)
 - `apps/frappe-ui/tailwind/preset.js` — `darkMode`, spacing scale, `@tailwindcss/forms`/`@tailwindcss/typography`, Lucide icon-class plugin
-- `apps/frappe-ui/vite/index.js` — `frappeui()` plugin array, sub-plugin defaults, unconditional `optimizeDeps.include`
-- `apps/frappe-ui/vite/frappeProxy.js`, `apps/frappe-ui/vite/README.md:85` — proxy `source` regex (README omits `desk`, source code includes it)
-- `apps/frappe-ui/vite/buildConfig.js` — `outDir`/`baseUrl`/`indexHtmlPath`/`emptyOutDir`/`sourcemap` defaults, `findOutputDir`/`findAppDir`
-- `apps/frappe-ui/vite/jinjaBootData.js` — production-only Jinja boot-data injection
-- `apps/frappe-ui/vite/lucideIcons.js`, `apps/frappe-ui/vite/barrelImports.js`, `apps/frappe-ui/vite/siteBanner.js`, `apps/frappe-ui/vite/frappeTypes.js`
-- `apps/frappe-ui/vite/utils.js` — `getConfig()` reads `frappeui.json` but is uncalled by any plugin
+- `apps/frappe-ui/vite/index.js` — `frappeui()` plugin array, sub-plugin defaults; unconditional `optimizeDeps.include: ['highlight.js/lib/core', 'interactjs']` (no `feather-icons` in beta.29)
+- `apps/frappe-ui/vite/frappeProxy.js`, `apps/frappe-ui/vite/README.md:85` — proxy `source` regex
+- `apps/frappe-ui/vite/buildConfig.js`, `vite/jinjaBootData.js`, `vite/lucideIcons.js`
 - `apps/frappe-ui/src/utils/plugin.ts` — `FrappeUI` plugin install (`resourcesPlugin`, `$call`, `initSocket`)
 - `apps/frappe-ui/src/components/Provider/FrappeUIProvider.vue` — renders `<Dialogs />`/`<ToastProvider />`
-- `apps/frappe-ui/src/components/Button/Button.vue:191-212` — `root` computed renders `RouterLink` only when the `route` prop is set
+- `apps/crm/frontend/vite.config.js` (16.51.1 bench, 1.0.0-rc.2) — `resolve.dedupe`, `optimizeDeps.exclude: ['frappe-ui']`, no `feather-icons` in include
+- `apps/crm/frontend/tailwind.config.js` (16.51.1 bench) — `import { content as frappeUIContent } from 'frappe-ui/tailwind'`, `...frappeUIContent`
+- `apps/crm/frontend/src/main.js` (16.51.1 bench) — `app.use(spritePlugin)` from `frappe-ui/experimental`; `telemetryPlugin` from `@framework/ui/telemetry`

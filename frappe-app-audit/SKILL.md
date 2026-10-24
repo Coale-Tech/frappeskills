@@ -1,6 +1,6 @@
 ---
 name: frappe-app-audit
-description: Audit a whole Frappe app against framework standards covering security, permissions, SQL safety, i18n, hooks correctness, fixtures, frontend, and tests. Use when assessing an existing app rather than making one change.
+description: "Audit or security-review a whole Frappe app against framework standards covering permissions, SQL safety, i18n, hooks correctness, fixtures, and tests. Use when assessing a custom app for production readiness, running a pre-live security sweep, or doing a comprehensive review rather than a single fix."
 ---
 
 # Frappe App Audit
@@ -69,7 +69,7 @@ unbuilt assets.
 
 ### 6) Sweep tests
 
-Do tests exist for the app's real contracts? Do any pin implementation details
+Do tests exist for the app's real contracts? List every `@frappe.whitelist()` method and every scheduler entry with no test touching it; absence is a Required finding, not a count. Do any tests pin implementation details
 or exact strings? Those are liabilities — flag them for deletion.
 
 ### 7) Report by severity
@@ -101,6 +101,10 @@ Full procedure and report template:
 - Fixing what the audit found → the owning skill via [`frappe-router`](../frappe-router/SKILL.md)
 - Architectural problems rather than defects → [`frappe-enterprise-patterns`](../frappe-enterprise-patterns/SKILL.md)
 - Unclear framework behaviour behind a finding → [`frappe-deep-research`](../frappe-deep-research/SKILL.md)
+- Fixing security findings → [`frappe-security-hardening`](../frappe-security-hardening/SKILL.md)
+- Fixing performance findings → [`frappe-performance-optimization`](../frappe-performance-optimization/SKILL.md)
+- Per-change review after remediation → [`frappe-code-review`](../frappe-code-review/SKILL.md)
+- Error log and monitoring gaps → [`frappe-observability`](../frappe-observability/SKILL.md)
 
 ## References
 
@@ -114,6 +118,28 @@ Full procedure and report template:
 - **Severity reflects exploitability and blast radius**, not personal taste
 - **Check the version before applying a rule**
 - **Verify each grep hit in context**: patterns over-match
+
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "The grep output is the finding" | Every pattern match must be verified in context; comments, test files and disabled code all match but are not findings. |
+| "I'll fix the issues while I audit" | Mixed audit-and-fix produces an unreviewable diff; audit outputs a report, fixes are separate tracked work. |
+| "The app has no tests; that's the developer's choice" | Absence of test coverage for real contracts is an audit finding — flag it with the risk, not just the count. |
+| "`allow_guest=True` is fine; this is a dev site" | Site config is not a security control; an endpoint without a permission gate is a finding regardless of environment. |
+| "I'll note the security issue without ranking it" | Unranked findings are not prioritised; severity (exploitability × blast radius) determines fix order. |
+| "Auditing without checking the version first is fine" | A v15 app audited with v16 rules produces false positives and misses v16-specific patterns. |
+
+## Red Flags
+
+- Findings reported as raw grep output without context verification
+- Audit and refactoring mixed in the same branch or PR
+- Security findings without severity ranking
+- `frappe-project-triage` not run before starting the audit
+- `@frappe.whitelist` methods reviewed only for presence, not for a `frappe.has_permission` call
+- Findings stated without a `file:line` reference
 
 ## Common Mistakes
 

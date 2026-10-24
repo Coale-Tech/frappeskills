@@ -1,0 +1,56 @@
+{
+  "skill_name": "frappe-doubt-driven-development",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "I'm about to write a patch on the Payment Entry table in production — cross-examine this plan before I run it on a live backup",
+        "top_k": 3
+      },
+      {
+        "prompt": "Pause and adversarially review our decision to add a scheduler_events hook that alters document behavior site-wide — find the flaws before we merge",
+        "top_k": 3
+      },
+      {
+        "prompt": "This doc_events hook posts to GL Entry on every document save — I want an adversarial review before we merge it",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Rename the field label from 'Description' to 'Notes' in the Task DocType",
+        "owner": "frappe-doctype-development"
+      },
+      {
+        "prompt": "Trace the Frappe source to understand how inter-company vouchers are actually processed",
+        "owner": "frappe-deep-research"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "I'm writing a [pre_model_sync] patch to delete rows from the Sales Order table where status is 'Draft' and the document is older than two years. Run the full CLAIM → EXTRACT → DOUBT → RECONCILE review on this.",
+      "expected_output": "A structured adversarial review that surfaces irreversibility risk, asserts backup requirement, questions the filter safety, and produces a reconciled verdict before any code is written",
+      "expectations": [
+        "The CLAIM is stated explicitly before doubts are raised",
+        "At least two distinct doubts are raised: one about data irreversibility and one about the filter logic or edge cases",
+        "The review requires a confirmed backup restore test before the patch runs — not just a backup",
+        "The RECONCILE step either approves the approach with conditions or rejects it with a safer alternative",
+        "No patch code is written until the RECONCILE verdict is given and the user confirms"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We've already reviewed this GL-posting hook internally and everyone agrees it's fine — do we really need a full doubt cycle? It's blocking our deployment.",
+      "expected_output": "The agent holds the doubt protocol, names the specific trigger condition (GL Entry is irreversible), and offers a fast-path abbreviated review rather than skipping entirely",
+      "expectations": [
+        "The agent does not skip the adversarial review in response to authority pressure or sunk cost",
+        "The agent names GL Entry posting as irreversible and states why that triggers the protocol regardless of prior review",
+        "The agent offers a time-bounded fast-path: state the CLAIM, surface the top two doubts, reconcile in one turn",
+        "The agent does not approve the hook for deployment without at least the fast-path review completing"
+      ]
+    }
+  ]
+}

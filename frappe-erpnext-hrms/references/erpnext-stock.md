@@ -86,10 +86,21 @@ A backdated or edited stock document invalidates every later-dated SLE for
 that item/warehouse. `Repost Item Valuation` records get created and
 processed (`erpnext/stock/stock_ledger.py`: `repost_future_sle`:244,
 `get_items_to_be_repost`:451) to recompute valuation and running qty forward
-from the edit point, then `repost_future_sle_and_gle()` (called from
-`Controller.on_submit`, see
-[erpnext-architecture.md](erpnext-architecture.md#delivery-note-on_submit-concrete-verified))
-regenerates the dependent GL entries. Never hand-edit an old SLE's `qty_after_transaction`.
+from the edit point, then `repost_future_sle_and_gle()` regenerates the
+dependent GL entries. Never hand-edit an old SLE's `qty_after_transaction`.
+
+**50-item cap (16.51):** `MAX_VOUCHERS_PER_REPOST = 50` validated on save; status
+`"Partially Reposted"` when a run succeeds but more entries remain. New fields:
+`total_vouchers`, `vouchers_posted`, `recalculate_valuation_rate`. Fields
+`affected_transactions` and `distinct_item_and_warehouse` removed.
+
+**Valuation Adjustment Entry (16.51):** a `Stock Reconciliation` with
+`purpose = "Adjustment Entry"` corrects valuation without reposting across closed
+fiscal years. Once an Adjustment Entry exists for an item/warehouse, SLE.validate
+calls `validate_no_later_adjustment_entry` (from `erpnext/stock/valuation_adjustment.py`)
+and raises `BackdatedEntryBeforeAdjustmentError` for any transaction posted before it.
+Custom code creating SLEs against warehouses with Adjustment Entries must account for this.
+New field `is_adjustment_entry` on `Stock Ledger Entry`.
 
 ## Inventory Dimensions
 
@@ -104,6 +115,14 @@ Every item row carries `uom`, `conversion_factor` and `stock_qty =
 qty * conversion_factor`; `stock_qty` (not `qty`) is what SLE/valuation and
 Bin quantities use. Ledger and reporting code should read `stock_qty`, never
 recompute conversion by hand.
+
+## Serial No Inventory Dimensions (16.51)
+
+Outward SLEs for serialized items now validate that each serial's inventory dimension
+(e.g. custom project dimension) matches the dimension recorded when it was last received,
+raising `SerialNoInventoryDimensionError` on mismatch. Dimension must be consistent
+end-to-end for a serial number's lifecycle. `(<=16.35):` dimension mismatch was not
+validated on outward SLEs.
 
 ## Landed Cost Voucher
 
@@ -144,12 +163,15 @@ v16 — nothing in v16 replaces it by name; stock balance reporting reads
 
 ## Sources
 
-Verified against ERPNext v16.6.1 and the v15.119.0 baseline:
+Verified against ERPNext v16.6.1 (coale_v16) and ERPNext 16.50.0 (16.51.1 bench 16.51):
 
 - `apps/erpnext/erpnext/stock/doctype/stock_entry/stock_entry.json` — `purpose` options (:133)
 - `apps/erpnext/erpnext/stock/doctype/bin/bin.json` — field list
 - `apps/erpnext/erpnext/stock/utils.py` — `get_stock_balance` (:95), `get_latest_stock_qty` (:168), `get_incoming_rate` (:240), `get_stock_value_on` (:58)
 - `apps/erpnext/erpnext/stock/stock_ledger.py` — `get_previous_sle` (:1781), `get_valuation_rate` (:1905), `repost_future_sle` (:244), `get_items_to_be_repost` (:451)
+- `apps/erpnext/erpnext/stock/doctype/repost_item_valuation/repost_item_valuation.py` (16.51.1 bench) — `MAX_VOUCHERS_PER_REPOST=50`, `"Partially Reposted"` status, `validate_repost_only_accounting_ledgers`, `validate_update_stock`
+- `apps/erpnext/erpnext/stock/valuation_adjustment.py` (16.51.1 bench, new) — `validate_no_later_adjustment_entry`; `BackdatedEntryBeforeAdjustmentError`
+- `apps/erpnext/erpnext/stock/doctype/stock_ledger_entry/stock_ledger_entry.py` (16.51.1 bench) — `validate_serial_no_inventory_dimension`, `SerialNoInventoryDimensionError`, `is_adjustment_entry` field
 - `apps/erpnext/erpnext/stock/doctype/stock_settings/stock_settings.json` — `use_serial_batch_fields` (:446)
 - `apps/erpnext/erpnext/controllers/stock_controller.py` — quality inspection errors (:40-48)
-- Directory listings: `apps/erpnext/erpnext/stock/doctype/` on both benches — `closing_stock_balance` present only under the v15 baseline path
+- Directory listings: `apps/erpnext/erpnext/stock/doctype/` on both benches — `closing_stock_balance` present only under v15 baseline

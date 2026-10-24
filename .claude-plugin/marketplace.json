@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "coale-frappeskills",
+  "description": "Full-lifecycle Agent Skills for Frappe Framework / ERPNext development.",
+  "owner": { "name": "Coale Tech", "url": "https://github.com/Coale-Tech" },
+  "plugins": [
+    {
+      "name": "frappeskills",
+      "version": "0.2.0",
+      "source": { "source": "github", "repo": "Coale-Tech/frappeskills" },
+      "description": "40 task-scoped Frappe skills covering requirements, spec, plan, build, verify, review and ship, with slash commands and specialist agents.",
+      "homepage": "https://github.com/Coale-Tech/frappeskills",
+      "keywords": ["frappe", "erpnext", "skills", "agents", "spec", "tdd", "review", "ship"]
+    }
+  ]
+}

@@ -404,6 +404,118 @@ and `standard_navbar_items` — registering either on v16 is silently ignored, n
 REST API v2 (`/api/v2/`, since v15) and token-based REST API authentication (since v11.0.3) both work
 unchanged on v16 — prefer them over version-gating for API compatibility.
 
+
+## Verified Version Matrix
+
+| Version set | Bench | Status |
+|---|---|---|
+| frappe 16.35.0 / erpnext 16.6.1 / hrms 16.4.1 | coale_v16 | Baseline: all v16 examples fully verified |
+| frappe 16.51.1 / erpnext 16.50.0 / hrms 16.50.0 | 16.51.1 bench | Delta pass: see `## What Changed in 16.51` below |
+
+## What Changed in 16.51 (source-verified: 16.51.1 bench vs coale_v16)
+
+Use `(16.51)` to tag behaviour present in 16.51.1 and absent in 16.35.0.
+Use `(<=16.35)` to tag the old form when both versions are in use.
+
+### 1. Sidebar fixture path: `workspace_sidebar/` removed (16.51)
+
+Apps used to ship sidebars as `<app>/workspace_sidebar/*.json`. The `workspace_sidebar/`
+directory is gone from Frappe 16.51. The new path is `<app>/<module>/sidebar/`
+(one JSON per module, standard doc-files walk). Old files are silently ignored.
+
+```bash
+# Migrate existing apps:
+bench --site <site> convert-sidebar-fixtures --app <app> [--dry-run]
+```
+
+The new doctype is `Sidebar` (not `Workspace Sidebar`); child is `Sidebar Item`
+(not `Workspace Sidebar Item`). Fixture `dt` keys must be updated to match.
+
+### 2. `frappe.utils.weasyprint` — shim only (16.51)
+
+`from frappe.utils.weasyprint import download_pdf, get_html` still works — the module
+exists as a forwarding shim. But the canonical import is now
+`frappe.utils.print_format_generator`. New print formats cannot select WeasyPrint
+(`validate_weasyprint_choice()` throws on new format creation). Typst is a new engine:
+`pdf_generator` field values are now `wkhtmltopdf | chrome | Typst | WeasyPrint`.
+`typst~=0.15.0` is a new required Python package installed by `pip install frappe` (16.51+).
+
+### 3. `frappe.breadcrumbs.clear()` / `toggle()` deprecated (16.51)
+
+```js
+// (<=16.35) — still works but logs a v17-removal warning:
+frappe.breadcrumbs.clear()
+frappe.breadcrumbs.toggle(show)
+
+// (16.51) preferred:
+frappe.get_current_page().set_breadcrumbs([])   // clear
+page.show_breadcrumbs = false                   // toggle
+```
+
+### 4. `frappe.boot.user.all_reports` deprecated (16.51)
+
+```js
+// (<=16.35):
+const reports = frappe.boot.user.all_reports
+
+// (16.51): same data, new canonical key:
+const reports = frappe.boot.allowed_reports
+```
+
+A getter on `frappe.boot.user.all_reports` still works but emits a console warning.
+Verified: `apps/frappe/frappe/public/js/frappe/desk.js:291-308`.
+
+### 5. `mask_field_value` removed from `frappe.model.db_query` (16.51)
+
+```python
+# (<=16.35) — worked because db_query re-exported it:
+from frappe.model.db_query import mask_field_value  # ImportError in 16.51+
+
+# (16.51) canonical — always the real location:
+from frappe.model.utils.mask import mask_field_value
+```
+
+`frappe.model.utils.mask` is the canonical module in both versions; only the
+re-export from `db_query` was removed.
+
+### 6. ERPNext 16.50 — BOM `scrap_items` → `secondary_items`
+
+| Old (<=16.6.1) | New (16.50+) |
+|---|---|
+| `BOM.scrap_items` | `BOM.secondary_items` |
+| `BOMScrapItem` | `BOMSecondaryItem` |
+| `scrap_material_cost` | `secondary_items_cost` |
+| `"% of FG Cost"` valuation literal | `"% of Component Cost"` |
+
+Patch `co_by_product_patch` migrated existing data. Custom code reading the old child
+table name will 404.
+
+### 7. HRMS 16.50 — Upload Attendance DocType deleted
+
+Patch `delete_upload_attendance_doctype` removes the `Upload Attendance` DocType.
+Replacement: Employee Attendance Tool. Any custom code referencing
+`frappe.get_doc("Upload Attendance", ...)` will fail after migration.
+
+### 8. CRM 2.x — `WhatsApp Message` → `WA Message`; `frappe_whatsapp` → `whatsapp`
+
+CRM 2.x (`crm/hooks.py`) registers doc_events on `"WA Message"`, not `"WhatsApp Message"`.
+The new `whatsapp` app (required by CRM 2.x) defines `WA Message`, `WA Account`,
+`WA Profile`, `WA Template` — all with the `WA` prefix. Custom apps hooking into
+`"WhatsApp Message"` doc_events will silently do nothing on CRM 2.x.
+
+### 9. `frappe-dependencies` pyproject.toml pin convention
+
+Frappe Cloud reads `[tool.bench.frappe-dependencies]` to verify compatibility window.
+The working upper-bound form is `<17.0.0`, not `<=16.x.0-dev` (rejected by Cloud CI).
+
+```toml
+[tool.bench.frappe-dependencies]
+frappe = ">=16.0.0-dev,<17.0.0"
+```
+
+`required_apps` in `hooks.py` is separate from this (declares runtime app deps).
+Verified: `a 16.51.1 bench app's `pyproject.toml`` (16.51.1 bench).
+
 ## Best Practices
 
 1. **Always use `createResource`** from frappe-ui for API calls
@@ -462,3 +574,16 @@ Verified against Frappe v16.35.0 at `<bench>/apps/frappe`, diffed against a v15.
 - `apps/frappe/frappe/patches.txt` (both versions, diffed for framework patch deltas)
 - `frappe-ui` `v1-release/changelog.md` and `v1-release/deprecated-removals.md` (0.1.x -> 1.0 beta
   breaking changes and deprecation table)
+
+16.51 delta verified against a 16.51.1 bench (frappe 16.51.1 / erpnext 16.50.0 / hrms 16.50.0):
+- `apps/frappe/frappe/desk/doctype/sidebar/` and `sidebar/convert_fixtures.py` (workspace_sidebar/ removal)
+- `apps/frappe/frappe/public/js/frappe/views/breadcrumbs.js` (`deprecated()` calls on clear/toggle)
+- `apps/frappe/frappe/public/js/frappe/desk.js:291-308` (`frappe.boot.user.all_reports` getter)
+- `apps/frappe/frappe/model/db_query.py` (mask_field_value no longer re-exported; confirmed absent)
+- `apps/frappe/frappe/model/utils/mask.py` (canonical location of mask_field_value)
+- `apps/frappe/frappe/utils/weasyprint.py` (shim confirmed present; delegates to print_format_generator)
+- `apps/frappe/pyproject.toml` (typst~=0.15.0 new dependency; RestrictedPython~=8.5)
+- `apps/erpnext/erpnext/manufacturing/doctype/bom/bom.py` (secondary_items, BOMSecondaryItem)
+- `apps/hrms/hrms/patches/v16_0/delete_upload_attendance_doctype.py` (Upload Attendance deletion)
+- `apps/crm/crm/hooks.py:270` (WA Message doc_events; WhatsApp Message absent)
+- a 16.51.1 bench app's `pyproject.toml` (`frappe-dependencies` pin `>=16.0.0-dev,<17.0.0`)

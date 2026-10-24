@@ -1,6 +1,6 @@
 ---
 name: frappe-testing
-description: Write and run Frappe tests including unit tests, test records and factories, CI pipelines, and Cypress UI tests. Use when proving behaviour, preventing regressions, or wiring test automation.
+description: "Write and run Frappe tests including unit tests, test records and factories, CI pipelines, and Playwright or Cypress UI tests. Use when proving behaviour, preventing regressions, or wiring test automation."
 ---
 
 # Frappe Testing
@@ -12,7 +12,7 @@ Prove the behaviour you changed, and keep it proven.
 - Writing unit or integration tests for controllers, APIs, or jobs
 - Building test data factories and fixtures
 - Wiring CI for an app
-- Writing Cypress UI tests for Desk or a portal
+- Writing Playwright or Cypress UI tests for Desk or a portal
 
 ## Inputs required
 
@@ -61,8 +61,8 @@ its writes. Parallel CI: `bench run-parallel-tests --app <app> --build-number
 
 ### 3) Add UI coverage where it matters
 
-Cypress for flows a Python test cannot cover — form interactions, list actions:
-[references/cypress.md](references/cypress.md).
+Playwright (≥1.63) is the default UI test runner in Frappe 16.51+ when `playwright.config.*` exists at the app root. Cypress 13 is still supported for apps that only have `cypress.config.*` (deprecated; will be removed in v17).
+Setup and CLI reference: [references/ui-testing.md](references/ui-testing.md).
 
 ### 4) Wire CI
 
@@ -83,8 +83,7 @@ GitHub Actions setup with MariaDB/Redis services and bench bootstrap:
 - **`DoesNotExistError` on test data**: dependency records not created; use a factory or `test_records`
 - **Tests pass alone, fail in the suite**: shared state or an uncommitted transaction leaking between tests
 - **"Testing is disabled for the site!"**: `allow_tests` not set on the site
-- **Cypress can't log in**: test user fixtures missing, or the site URL is wrong
-- **CI fails only in CI**: missing service (Redis/MariaDB) or a timezone/locale difference
+- **UI test runner can't reach the site or log in**: test user fixtures missing; or `BASE_URL` (Playwright) / `CYPRESS_baseUrl` (Cypress) env var not set
 - **Slow suite**: real network calls or unnecessary document creation per test
 
 ## Escalation
@@ -92,13 +91,17 @@ GitHub Actions setup with MariaDB/Redis services and bench bootstrap:
 - Behaviour is unclear before testing it → [`frappe-deep-research`](../frappe-deep-research/SKILL.md)
 - Whole-app quality sweep → [`frappe-app-audit`](../frappe-app-audit/SKILL.md)
 - Environment isolation for tests → [`frappe-manager`](../frappe-manager/SKILL.md)
+- UI flows that a Python test cannot cover → [`frappe-browser-testing`](../frappe-browser-testing/SKILL.md)
+- Diagnosing a failing test where the root cause is unclear → [`frappe-debugging-and-error-recovery`](../frappe-debugging-and-error-recovery/SKILL.md)
 
 ## References
 
 - [references/testing.md](references/testing.md) - Test runner, structure, assertions
 - [references/test-patterns.md](references/test-patterns.md) - Factories, fixtures, mocking
 - [references/ci-testing.md](references/ci-testing.md) - CI pipelines for Frappe apps
-- [references/cypress.md](references/cypress.md) - UI testing
+- [references/ui-testing.md](references/ui-testing.md) - UI testing: Playwright (default, 16.51+) and Cypress (legacy)
+- [references/cypress.md](references/cypress.md) - Cypress 13 command set (legacy — migrate to Playwright for new apps)
+- [references/tdd-workflow.md](references/tdd-workflow.md) - Red-green-refactor, Prove-It pattern, test pyramid applied to Frappe
 
 ## Guardrails
 
@@ -107,6 +110,28 @@ GitHub Actions setup with MariaDB/Redis services and bench bootstrap:
 - **Deterministic and isolated**: no ordering dependencies, no shared mutable state
 - **No external network calls** in tests
 - **Delete tests that pin wording or implementation** rather than re-pinning them
+
+
+<!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "The test passed once, ship it" | A single passing run proves nothing — flaky tests pass under some conditions and fail under others. |
+| "I tested it manually" | Manual testing does not persist; tomorrow's change breaks it with no automated signal. |
+| "This is too simple to test" | Simple DocType validators accumulate corner cases and translation regressions over time. |
+| "Tests slow me down on tight deadlines" | Regressions discovered on a production site cost far more than tests written now. |
+| "Running on the production site is the only real test" | The test runner writes and deletes data; running against production corrupts live records. |
+| "I'll write the tests after the feature is done" | Tests written post-hoc verify the implementation, not the contract; the Prove-It signal is lost. |
+
+## Red Flags
+
+- `from frappe.tests.utils import FrappeTestCase` — deprecated shim (removed in v17); use `from frappe.tests import IntegrationTestCase`
+- `allow_tests` not set on the test site — the runner exits silently without running any test
+- Tests depend on documents left by a previous test class (ordering dependency)
+- `assertRaisesRegex` or `assertIn` on an exact translated error string — breaks on locale change
+- Real network or third-party API calls inside a test method — slow, flaky, non-deterministic
+- Tests skipped with `@unittest.skip` "temporarily" with no linked issue or expiry
 
 ## Common Mistakes
 

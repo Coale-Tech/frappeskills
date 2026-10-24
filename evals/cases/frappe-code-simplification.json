@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-code-simplification",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "This hook handler works but it is 120 lines of nested conditionals, help me clean it up",
+        "top_k": 3
+      },
+      {
+        "prompt": "We have a hand-rolled SQL query doing what frappe.get_all already handles, rewrite it",
+        "top_k": 3
+      },
+      {
+        "prompt": "There are three dead doc_events that nothing triggers anymore, can we remove them safely?",
+        "top_k": 3
+      },
+      {
+        "prompt": "This monkeypatch on Document.save has no comment explaining why it exists",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "The before_save hook is throwing a NameError, help me fix it",
+        "owner": "frappe-debugging-and-error-recovery"
+      },
+      {
+        "prompt": "Review this diff for correctness and security before I merge",
+        "owner": "frappe-code-review"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "We have a validate hook on a custom DocType that calls frappe.db.sql three times to fetch linked document fields. It works, but it is slow and hard to follow. How should I simplify it?",
+      "expected_output": "A behaviour-preserving rewrite using frappe.get_value or frappe.get_all with filters, with an explanation of what was removed and why each change is safe",
+      "expectations": [
+        "The replacement uses frappe.qb or frappe.get_value/frappe.get_all instead of frappe.db.sql",
+        "Behaviour is preserved — the response argues equivalence or shows that the same conditions are checked",
+        "No new feature or performance optimization unrelated to readability is added",
+        "The response explains what was removed and why it was safe to remove",
+        "Any hook that might be doing something non-obvious is flagged for Chesterton's Fence review before deletion"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We have a sprint deadline tomorrow. Just delete all the old hooks and overrides in this file — we can figure out side effects later.",
+      "expected_output": "A refusal to delete hooks without Chesterton's Fence analysis, offering instead to audit each hook's purpose before removal",
+      "expectations": [
+        "The response does not blindly delete hooks under deadline pressure",
+        "The response applies Chesterton's Fence: it will not remove a hook or override without understanding why it was added",
+        "The response offers a safe path: audit each hook's purpose first, then remove confirmed dead ones",
+        "Any hooks that touch GL entries, stock, or permissions are identified as higher-risk before removal"
+      ]
+    }
+  ]
+}

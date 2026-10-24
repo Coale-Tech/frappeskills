@@ -22,6 +22,12 @@ frappe.pages["my-tool"].on_page_load = function (wrapper) {
 
   frappe.breadcrumbs.add("Setup");
 
+> **(16.51)** `frappe.breadcrumbs.add(module, doctype)` remains valid for new code.
+> Deprecated helpers: `frappe.breadcrumbs.clear()` → `page.set_breadcrumbs([])`;
+> `frappe.breadcrumbs.toggle(show)` → `page.show_breadcrumbs = false`;
+> `frappe.breadcrumbs.current_page()` → `frappe.get_current_page()`.
+> Form and report views now call `page.set_breadcrumbs()` directly (no longer call `frappe.breadcrumbs.add`).
+
   // page.main is the jQuery content container:
   $("<div class='my-tool-body' style='padding:15px;'></div>").appendTo(page.main);
 

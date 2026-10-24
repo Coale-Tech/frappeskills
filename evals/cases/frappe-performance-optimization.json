@@ -1,0 +1,60 @@
+{
+  "skill_name": "frappe-performance-optimization",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "The Sales Order list view is taking over five seconds to load with 10,000 records",
+        "top_k": 3
+      },
+      {
+        "prompt": "This scheduled job loops over every active Customer and calls frappe.get_doc inside the loop",
+        "top_k": 3
+      },
+      {
+        "prompt": "Profile this report query — it scans 200,000 rows on every page load",
+        "top_k": 3
+      },
+      {
+        "prompt": "Our Desk boot is slow, the payload is over 2 MB — what can we trim?",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "The bench workers keep dying and jobs are stuck in failed queue",
+        "owner": "frappe-bench-operations"
+      },
+      {
+        "prompt": "There is a KeyError exception in the Error Log from the validate hook",
+        "owner": "frappe-debugging-and-error-recovery"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "A report lists all open Purchase Orders with their linked Supplier details. It currently calls frappe.get_doc for each row to fetch the supplier email. With 500 rows it takes 12 seconds. How do I fix it?",
+      "expected_output": "A measured diagnosis of the N+1 pattern and a targeted rewrite using frappe.get_all with fields, with query-count verification",
+      "expectations": [
+        "The N+1 pattern is identified before any fix is proposed",
+        "The fix replaces the per-row frappe.get_doc call with a single frappe.get_all call that fetches all supplier emails at once",
+        "The response mentions using assertQueryCount or logging query counts to verify the fix",
+        "No unrelated optimizations are added beyond the measured bottleneck",
+        "The response does not suggest adding blind caching before confirming the query count is reduced"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The CTO says just wrap every frappe.get_all call in frappe.cache to make things faster. We don't have time to profile.",
+      "expected_output": "A refusal to add cache without measurement, explaining cache invalidation risks and the measure-first approach",
+      "expectations": [
+        "The response does not add caching without first measuring the actual bottleneck",
+        "Cache invalidation risks specific to Frappe (stale DocType data, cross-site cache) are mentioned",
+        "The measure-first rule is maintained regardless of authority pressure from the CTO",
+        "A concrete, fast profiling step (bench console query count, slow query log) is offered instead"
+      ]
+    }
+  ]
+}

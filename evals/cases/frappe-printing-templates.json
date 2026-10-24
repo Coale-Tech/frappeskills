@@ -1,0 +1,61 @@
+{
+  "skill_name": "frappe-printing-templates",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Create a custom print format for the Sales Invoice that shows our logo, payment terms, and an itemized table",
+        "top_k": 3
+      },
+      {
+        "prompt": "Build an email template for the quotation approval workflow that injects document fields using Jinja",
+        "top_k": 3
+      },
+      {
+        "prompt": "Generate a PDF attachment from a server script when a Delivery Note is submitted",
+        "top_k": 3
+      },
+      {
+        "prompt": "Set up a letter head with our company address and use it as the default for all outgoing documents",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Write a whitelisted endpoint that returns document data as JSON for a third-party reporting tool",
+        "owner": "frappe-api-development"
+      },
+      {
+        "prompt": "Build a Script Report that shows monthly revenue by customer with a bar chart",
+        "owner": "frappe-reports"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Create a Jinja print format for the Purchase Order DocType that shows the supplier name, PO date, and a table of items with columns: item_code, description, qty, rate, amount. The total must appear in words at the bottom.",
+      "expected_output": "A Jinja HTML print format template with the correct doc variable references and a total-in-words expression",
+      "expectations": [
+        "Uses `{{ doc.supplier }}`, `{{ doc.transaction_date }}`, and iterates `{% for item in doc.items %}` for the items table",
+        "Renders amount per row as `{{ item.amount }}` and the grand total as `{{ doc.grand_total }}`",
+        "Renders total in words using `{{ doc.in_words }}` or `frappe.utils.money_in_words`",
+        "Does not use `frappe.db.sql` or Python db calls inside the Jinja template",
+        "Template is valid HTML that Frappe's wkhtmltopdf pipeline can render"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "I want an email notification sent to the customer whenever a Delivery Note is submitted. The email body should mention the delivery date, tracking number (a custom field `tracking_no`), and list the items delivered.",
+      "expected_output": "An Email Template record definition with Jinja body referencing the correct doc fields",
+      "expectations": [
+        "Creates or describes an Email Template with a Jinja body using `{{ doc.posting_date }}` and `{{ doc.tracking_no }}`",
+        "Iterates `{% for item in doc.items %}` to list delivered items",
+        "Wires the template to a Notification (Desk > Notifications) triggered on Delivery Note submit event",
+        "Specifies the recipient as `{{ doc.customer_email }}` or a doc field that holds the customer email",
+        "Notes that the Notification DocType, not a custom hook, is the standard mechanism for event-driven emails"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "skill_name": "frappe-debugging-and-error-recovery",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "There's a TypeError in the Error Log from our on_submit hook — help me find the root cause",
+        "top_k": 3
+      },
+      {
+        "prompt": "A scheduled job shows Failed status in the Scheduled Job Log and I don't know where to start looking",
+        "top_k": 3
+      },
+      {
+        "prompt": "A frappe.call is returning a traceback in Error Log when the user clicks Save — help me triage which controller method is failing",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "The bench won't start — gunicorn crashes immediately on launch and workers never come up",
+        "owner": "frappe-bench-operations"
+      },
+      {
+        "prompt": "Write a unit test that will catch this off-by-one in the controller before it reaches production again",
+        "owner": "frappe-testing"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "The Error Log shows `frappe.exceptions.ValidationError: Missing linked DocType` on every save of our custom Sales Invoice extension. Help me reproduce it, find the root cause, and fix it.",
+      "expected_output": "A five-step triage: reproduce the error, localize it to a specific function, reduce to the minimal case, apply a targeted fix, and add a guard against regression",
+      "expectations": [
+        "The agent reproduces the error before proposing a fix — either via bench console or a targeted test run",
+        "The root cause is localized to a specific controller method or hook, not stated as a guess",
+        "The fix targets the root cause, not a symptom suppression (e.g. does not catch and silence the exception)",
+        "A regression guard is added: either a test or a validation that would have caught the original error",
+        "bench --site <site> run-tests or bench --site <site> console is used as evidence, not manual narration alone"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The client is watching and the error is happening live — just disable the after_save hook for now so they can keep working, we'll find the root cause later.",
+      "expected_output": "The agent resists disabling the hook without first reproducing and localizing the error, explaining the risk of a silent data state, and offering a safer short-term measure",
+      "expectations": [
+        "The agent does not immediately disable the hook in response to time pressure without localization",
+        "The agent names the risk: disabling the hook may leave data in an inconsistent state if it performs a required action",
+        "The agent offers a safer immediate action (e.g. read the traceback from Error Log to localize in under two minutes) before any hook change",
+        "If the hook must be disabled as an emergency measure, the agent insists the traceback is captured first as evidence"
+      ]
+    }
+  ]
+}

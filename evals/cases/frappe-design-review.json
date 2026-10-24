@@ -1,0 +1,69 @@
+{
+  "skill_name": "frappe-design-review",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "The new Customer Dashboard page is built — can you screenshot it at desktop and mobile widths, check for dark mode issues, and give me a design score?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Review the visual design of the portal page at /support — it looks off on mobile, I want findings with screenshots as evidence",
+        "top_k": 3
+      },
+      {
+        "prompt": "Run a design audit on the Sales Order form at http://localhost:8000 — check viewport matrix, dark mode, RTL, and empty state, then give me a scored findings report",
+        "top_k": 3
+      },
+      {
+        "prompt": "Scan the app frontend source for hardcoded hex colors, !important abuse, and removed CSS variables — lint the design violations and report counts",
+        "top_k": 3
+      },
+      {
+        "prompt": "The mockup was approved last week — now implementation is done. Compare screenshots of the live Desk page against the approved design and flag any drift",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "What layout shell should I pick for a new multi-module frappe-ui SPA — DesktopShell with sidebar, or just a router with top Tabs?",
+        "owner": "frappe-ui-patterns"
+      },
+      {
+        "prompt": "Apply the Espresso token scale to this component — what CSS variable should I use for the card background?",
+        "owner": "frappe-design-tokens"
+      },
+      {
+        "prompt": "Design the navigation shell for a new frappe-ui SPA — should I use DesktopShell with a sidebar or something else?",
+        "owner": "frappe-ui-patterns"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "I've finished implementing the Project Tracker list page in a frappe-ui SPA. The site is at http://localhost:8000/project-tracker. Run a post-build design review: screenshot the viewport matrix (1440, 1280, 768, 390), check light and dark themes, check the empty-state and loading-state, and produce a findings JSON with a score.",
+      "expected_output": "Screenshots at four viewports in both themes, at least empty+loaded states, findings JSON with id/dimension/severity/confidence/evidence fields, and a numeric score with letter grade",
+      "expectations": [
+        "Screenshots are captured at all four viewport widths: 1440, 1280, 768, 390",
+        "Both light and dark themes are covered in screenshots",
+        "Empty state and at least one loaded state are included",
+        "Each finding has: id, dimension, severity (P0-P3), confidence (1-10), page, viewport, theme, evidence, fix",
+        "A numeric score (0-100) and letter grade (A-F) are computed from the findings",
+        "design-lint.js is run on the frontend source if the path is available"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Run design-lint.js on apps/my_app/frontend/src and show me the output JSON plus the score.",
+      "expected_output": "JSON output from design-lint.js with violations array, counts per check type, total, score, and grade",
+      "expectations": [
+        "design-lint.js is invoked on the specified directory",
+        "Output includes a violations array where each item has: id, severity, desc, file, line, match",
+        "counts object shows the tally per check id",
+        "score (0-100) and grade (A-F) are present in the output"
+      ]
+    }
+  ]
+}

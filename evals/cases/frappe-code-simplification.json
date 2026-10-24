@@ -21,7 +21,7 @@
     ],
     "negative": [
       {
-        "prompt": "The before_save hook is throwing a NameError, help me fix it",
+        "prompt": "The before_save hook is throwing a NameError, check the Error Log and help me fix it",
         "owner": "frappe-debugging-and-error-recovery"
       },
       {

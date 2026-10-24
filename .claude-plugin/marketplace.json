@@ -8,7 +8,7 @@
       "name": "frappeskills",
       "version": "0.2.0",
       "source": { "source": "github", "repo": "Coale-Tech/frappeskills" },
-      "description": "40 task-scoped Frappe skills covering requirements, spec, plan, build, verify, review and ship, with slash commands and specialist agents.",
+      "description": "45 task-scoped Frappe skills covering requirements, spec, plan, build, verify, review and ship, with slash commands and specialist agents.",
       "homepage": "https://github.com/Coale-Tech/frappeskills",
       "keywords": ["frappe", "erpnext", "skills", "agents", "spec", "tdd", "review", "ship"]
     }

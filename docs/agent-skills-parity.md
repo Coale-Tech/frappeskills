@@ -36,8 +36,8 @@ Every feature of [addyosmani/agent-skills](https://github.com/addyosmani/agent-s
 | Upstream | frappeskills |
 |---|---|
 | Common Rationalizations + Red Flags sections | Sections 9 and 10 of every skill ([skill-anatomy.md](skill-anatomy.md)) |
-| 9 slash commands | `commands/frappe-{spec,plan,build,test,constraints,review,simplify,perf,ship}.md`; `/frappe-build auto` |
-| 4 agent personas | `omp/agents/frappe-{reviewer,security-auditor,test-engineer,performance-auditor}.md` plus `frappe-scout`; rules in [agents.md](agents.md) |
+| 10 slash commands | `commands/frappe-{spec,plan,plan-review,build,test,constraints,review,simplify,perf,ship}.md`; `/frappe-build auto` |
+| 4 agent personas | `omp/agents/frappe-{reviewer,security-auditor,test-engineer,performance-auditor}.md` plus `frappe-scout`, `frappe-dev` and the gstack-derived `frappe-{migration,api-contract}-auditor`; rules in [agents.md](agents.md) |
 | Reference checklists | In the owning skill: definition-of-done (constraint-driven-development), security, performance, observability, accessibility (ui-patterns), orchestration patterns (router) |
 | `validate-*.js`, `skill-lint` | `scripts/` ([skill-anatomy.md](skill-anatomy.md) rules) |
 | Tier 2 routing evals, Tier 3 behavioural evals | `scripts/run-evals.js`, `evals/cases/` (Tier 3 is dialogue-graded only) |

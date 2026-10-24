@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "Frappe Skills",
     "shortDescription": "Frappe/ERPNext workflows: requirements, spec, plan, build, test, review, ship.",
-    "longDescription": "40 task-scoped skills for Frappe Framework v16 / ERPNext development, source-verified against installed framework code.",
+    "longDescription": "45 task-scoped skills for Frappe Framework v16 / ERPNext development, source-verified against installed framework code.",
     "developerName": "Coale Tech",
     "category": "Productivity",
     "capabilities": ["Interactive", "Read", "Write"],

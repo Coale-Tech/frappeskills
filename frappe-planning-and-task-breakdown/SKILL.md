@@ -126,6 +126,7 @@ After every 2-3 tasks:
 - Definition of done / constraints → [`frappe-constraint-driven-development`](../frappe-constraint-driven-development/SKILL.md)
 - Executing the plan slice-by-slice → [`frappe-incremental-implementation`](../frappe-incremental-implementation/SKILL.md)
 - DocType design questions → [`frappe-doctype-development`](../frappe-doctype-development/SKILL.md)
+- Scope / architecture quality gate before task breakdown → [`frappe-plan-review`](../frappe-plan-review/SKILL.md)
 
 ## References
 

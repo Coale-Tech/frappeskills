@@ -95,6 +95,7 @@ affordances before shipping.
 - Token values and scales → [`frappe-design-tokens`](../frappe-design-tokens/SKILL.md)
 - Data and workflow modelling → [`frappe-enterprise-patterns`](../frappe-enterprise-patterns/SKILL.md)
 - Frappe CRM's actual DocTypes, permissions, SLAs and integrations behind the "Pipeline / deals" pattern → [`frappe-crm-app`](../frappe-crm-app/SKILL.md)
+- Generate token-faithful HTML mockups and score a design BEFORE writing code → [`frappe-design-mockup-review`](../frappe-design-mockup-review/SKILL.md)
 
 - Verify interaction flows in a real browser → [`frappe-browser-testing`](../frappe-browser-testing/SKILL.md)
 

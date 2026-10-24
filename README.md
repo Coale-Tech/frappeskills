@@ -7,10 +7,10 @@
 
   <p>
     <img src="https://img.shields.io/badge/frappe-v16-2490EF" alt="frappe v16" />
-    <img src="https://img.shields.io/badge/skills-40-1467B1" alt="40 skills" />
-    <img src="https://img.shields.io/badge/references-119-555" alt="119 references" />
-    <img src="https://img.shields.io/badge/commands-10-555" alt="10 commands" />
-    <img src="https://img.shields.io/badge/agents-6-555" alt="6 agents" />
+    <img src="https://img.shields.io/badge/skills-45-1467B1" alt="45 skills" />
+    <img src="https://img.shields.io/badge/references-139-555" alt="139 references" />
+    <img src="https://img.shields.io/badge/commands-11-555" alt="11 commands" />
+    <img src="https://img.shields.io/badge/agents-8-555" alt="8 agents" />
   </p>
 </div>
 
@@ -46,6 +46,9 @@ ends with a `## Sources` section naming the files it was checked against.
 |  | [frappe-spec-driven-development](frappe-spec-driven-development/SKILL.md) | SPEC.md before code: DocTypes, roles, workflows, APIs, test plan | 0 |
 |  | [frappe-constraint-driven-development](frappe-constraint-driven-development/SKILL.md) | CONSTRAINTS.md quality bar and definition of done, enforced per change | 1 |
 | **Plan** | [frappe-project-triage](frappe-project-triage/SKILL.md) | Project type, versions, installed apps, v15↔v16 deltas | 3 |
+|  | [frappe-plan-review](frappe-plan-review/SKILL.md) | Pre-build plan review: stock ERPNext first, architecture, upgrade risk, API DX | 1 |
+|  | [frappe-design-consultation](frappe-design-consultation/SKILL.md) | Brand direction for website/portal themes, print and email branding, SPA theme overrides; DESIGN.md hand-off | 1 |
+|  | [frappe-design-mockup-review](frappe-design-mockup-review/SKILL.md) | Token-faithful HTML mockups, scored design rubric, hand-off spec before Vue code | 2 |
 |  | [frappe-planning-and-task-breakdown](frappe-planning-and-task-breakdown/SKILL.md) | Approved spec → small ordered tasks with acceptance criteria | 0 |
 |  | [frappe-context-engineering](frappe-context-engineering/SKILL.md) | Bench AGENTS.md/CLAUDE.md, skill selection, context hygiene | 0 |
 |  | [frappe-deep-research](frappe-deep-research/SKILL.md) | "How does Frappe do X" against installed source; pattern log | 4 |
@@ -71,6 +74,8 @@ ends with a `## Sources` section naming the files it was checked against.
 |  | [frappe-bench-operations](frappe-bench-operations/SKILL.md) | Bench CLI, site management, broken-bench recovery | 2 |
 |  | [frappe-manager](frappe-manager/SKILL.md) | Docker dev environments with `fm` | 5 |
 | **Review** | [frappe-code-review](frappe-code-review/SKILL.md) | Five-axis per-change review with Frappe checklist | 1 |
+|  | [frappe-devex-review](frappe-devex-review/SKILL.md) | Live integrator-experience audit of a built API or app onboarding: curl evidence, time-to-first-success, DX scorecard | 1 |
+|  | [frappe-design-review](frappe-design-review/SKILL.md) | Post-build UI QA: design lint, viewport/theme/state matrix, iOS PWA, scored findings | 1 |
 |  | [frappe-code-simplification](frappe-code-simplification/SKILL.md) | Behaviour-preserving simplification; advisory ignore markers | 0 |
 |  | [frappe-security-hardening](frappe-security-hardening/SKILL.md) | Permissions, `allow_guest`, injection, XSS, CSRF, secrets, file privacy | 1 |
 |  | [frappe-performance-optimization](frappe-performance-optimization/SKILL.md) | Measure-first: query count, N+1, indexes, cache, jobs, bundles | 1 |
@@ -82,9 +87,13 @@ ends with a `## Sources` section naming the files it was checked against.
 |  | [frappe-observability](frappe-observability/SKILL.md) | Logs, Error Log, Sentry, monitoring, alerts, runbooks | 1 |
 |  | [frappe-shipping-and-launch](frappe-shipping-and-launch/SKILL.md) | Go/no-go checklist, backup, rollback, staged rollout | 1 |
 
-**Commands** (`commands/`): `/frappe-spec` · `/frappe-plan` · `/frappe-build` (`auto` for unattended slices) · `/frappe-test` · `/frappe-constraints` · `/frappe-review` · `/frappe-simplify` · `/frappe-perf` · `/frappe-ship`, plus `/frappe` (router).
+**Commands** (`commands/`): `/frappe-spec` · `/frappe-plan` · `/frappe-plan-review` · `/frappe-build` (`auto` for unattended slices) · `/frappe-test` · `/frappe-constraints` · `/frappe-review` · `/frappe-simplify` · `/frappe-perf` · `/frappe-ship`, plus `/frappe` (router).
 
-**Agents** (`omp/agents/`): `frappe-dev`, `frappe-reviewer`, `frappe-security-auditor`, `frappe-test-engineer`, `frappe-performance-auditor`, `frappe-scout`. See [docs/agents.md](docs/agents.md).
+**Agents** (`omp/agents/`): `frappe-dev`, `frappe-reviewer`, `frappe-security-auditor`, `frappe-test-engineer`, `frappe-performance-auditor`, `frappe-migration-auditor`, `frappe-api-contract-auditor`, `frappe-scout`. See [docs/agents.md](docs/agents.md).
+
+**Safety hook** (optional): `scripts/bench-guard.sh` plus an omp adapter blocks `bench drop-site`, core-app edits and similar. Advisory only; setup in [docs/bench-guard.md](docs/bench-guard.md).
+
+**Provenance**: plan-review, design-review, QA/ship and guard ideas are adapted from gstack (MIT). Per-skill verdicts, including what was skipped and why: [docs/gstack-adoption.md](docs/gstack-adoption.md).
 
 ## Installation
 
@@ -110,7 +119,7 @@ core skills; the rest load on demand through `frappe-router`.
 For any other agent runtime, point its skill root at this directory or copy the
 skill folders into it. Adoption walkthrough: [docs/adoption-guide.md](docs/adoption-guide.md).
 
-**Context cost:** 40 descriptions are always in context. Prune with your host's ignore list
+**Context cost:** 45 descriptions are always in context. Prune with your host's ignore list
 (omp: `skills.ignoredSkills`) and keep `frappe-router` plus the phases you use.
 
 ## How it works

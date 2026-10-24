@@ -101,6 +101,7 @@ Update it when decisions change. Commit it alongside the code. Reference the spe
 - API design → [`frappe-api-development`](../frappe-api-development/SKILL.md)
 - Reports / prints → [`frappe-reports`](../frappe-reports/SKILL.md), [`frappe-printing-templates`](../frappe-printing-templates/SKILL.md)
 - Quality bar for the spec's output → [`frappe-constraint-driven-development`](../frappe-constraint-driven-development/SKILL.md)
+- Scope / architecture review before task breakdown → [`frappe-plan-review`](../frappe-plan-review/SKILL.md)
 
 ## References
 

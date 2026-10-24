@@ -270,6 +270,77 @@ than maintaining two markup trees. Component and prop reference:
 | Hardcoding `MobileNav` to exactly 4 columns | `MobileNav`'s grid adapts to item count automatically | Just add/remove `MobileNavItem`s |
 | Wrapping `BottomSheet`'s content in another swipeable/scrollable region | Competes with the handle's pointer-swipe gesture for events | Keep custom gesture handling out of a `BottomSheet` body; use its own `70vh` scroll region |
 
+## iOS PWA (installed web app) — design review notes
+
+When a frappe-ui SPA is added to the iOS home screen (installed PWA,
+`display-mode: standalone`), the browser chrome disappears and two physical
+hardware features require explicit layout handling.
+
+### Safe-area insets
+
+`frappe-ui` handles safe-area insets automatically for its own components:
+
+- **`MobileShell` header area** (`PageHeaderTarget` inside the shell) adds
+  `pt-[env(safe-area-inset-top)]` under the `@media(display-mode:standalone)`
+  query so page headers clear the notch/Dynamic Island.
+  Source: `apps/frappe-ui/src/components/MobileShell/MobileShell.vue`
+  (iOS 26 full-screen viewport fix for the shell itself — in 1.0.2, see CHANGELOG.)
+
+- **`MobileNav` bottom bar** adds
+  `pb-[max(1rem,env(safe-area-inset-bottom))]` under the same query so the
+  tab bar clears the home indicator (the horizontal pill at the bottom of
+  Face-ID iPhones).
+  Source: `apps/frappe-ui/src/components/MobileNav/MobileNav.vue`
+
+**Custom footers or sticky elements outside these components must add their
+own safe-area padding:**
+
+```html
+<!-- tailwind class — standalone PWA only -->
+<div class="fixed bottom-0 ... [@media(display-mode:standalone)]:pb-[max(1rem,env(safe-area-inset-bottom))]">
+```
+
+### Viewport height in standalone mode
+
+`frappe-ui/style.css` sets `html` `min-height` to
+`min(100lvh, calc(100% + env(safe-area-inset-top)))` under the standalone
+media query. **Use `100lvh` (large viewport height), not `100dvh` or `100vh`:**
+
+| Unit | Behaviour in Safari standalone |
+|---|---|
+| `100vh` | Correct in standalone, but wrong in normal Safari (toolbar area ignored) |
+| `100dvh` | Dynamic — shrinks when Safari toolbar is visible; unnecessary overhead in standalone |
+| `100lvh` | Assumes toolbar hidden — correct and stable in standalone |
+
+Source: `apps/frappe-ui/src/style.css` (verified 1.0.2)
+
+### Testing checklist for iOS PWA
+
+- [ ] Add the app to the iOS home screen from Safari ("Add to Home Screen")
+- [ ] Verify page header is not clipped by the notch / Dynamic Island
+- [ ] Verify `MobileNav` bottom bar clears the home indicator — no content behind the pill
+- [ ] Verify custom fixed-bottom elements also clear the home indicator
+- [ ] Test in both portrait (390 × 844) and landscape (844 × 390) on iPhone 14 logical px
+- [ ] Confirm no `100vh` usage in custom layout code — use `100lvh` or `100svh`
+
+### Translucent status bar (iOS 26+)
+
+iOS 26 introduced a translucent status bar that overlaps web content in
+standalone PWAs. `frappe-ui 1.0.2` added a fix for this in `MobileShell`.
+If the app uses a custom shell, add:
+
+```css
+/* frappe-ui/style.css pattern — targets html, not a component class */
+@media (display-mode: standalone) {
+  html {
+    min-height: min(100lvh, calc(100% + env(safe-area-inset-top)));
+  }
+}
+```
+
+And ensure the top padding uses `env(safe-area-inset-top)`, not a hardcoded
+value — the inset height varies by device model.
+
 ## Sources
 
 Verified against frappe-ui `1.0.2` (`apps/frappe-ui/package.json`):

@@ -1,0 +1,96 @@
+{
+  "skill_name": "frappe-design-mockup-review",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Before I build the leave request screen, generate a couple of HTML mockup variants using frappe-ui tokens so we can pick the best layout",
+        "top_k": 3
+      },
+      {
+        "prompt": "I have two HTML mockup variants for the Purchase Order approval screen — score each one on the Frappe rubric for docstatus colours, workflow banner, and permission-aware buttons before we start coding",
+        "top_k": 3
+      },
+      {
+        "prompt": "Score this mockup for the Job Card list view on the Frappe design rubric — I want to know if the docstatus colours and empty state are correct before I write any code",
+        "top_k": 3
+      },
+      {
+        "prompt": "What screen type should I use for this HR dashboard — a list view, a query report, or a dashboard widget? Walk me through the Frappe-specific constraints",
+        "top_k": 3
+      },
+      {
+        "prompt": "Generate a static HTML prototype for our new Asset Maintenance screen using the real frappe-ui 1.0 tokens so we can review it in light and dark mode",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Replace the hardcoded #3A6BCF hex colour in our Badge component with the correct frappe-ui token class",
+        "owner": "frappe-design-tokens"
+      },
+      {
+        "prompt": "I shipped the Sales Invoice form last week and the reviewer says it feels visually inconsistent with the rest of Desk — audit the live code",
+        "owner": "frappe-design-review"
+      },
+      {
+        "prompt": "Decide whether to show asset details in a sidebar panel or a full-screen modal for our HRMS extension",
+        "owner": "frappe-ui-patterns"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "I'm designing a Leave Allocation list view for HRMS. Users are HR Managers and Employees. On mobile, HR Managers need to approve pending requests quickly. What constraints should I establish before generating the mockup, and what states does the mockup need to cover?",
+      "expected_output": "A structured constraints brief and state list specific to this Frappe Leave Allocation screen",
+      "expectations": [
+        "Identifies the surface type (frappe-ui 1.0 SPA or Desk customisation) and asks/infers which applies",
+        "Notes the two roles (HR Manager vs Employee) and that they see different buttons (HR Manager sees Approve/Reject, Employee sees their own allocations only)",
+        "Specifies mobile-specific constraint: HR Manager approval action must be reachable in ≤2 taps at 375px",
+        "Lists all required states: empty (no allocations), loading (skeleton rows), error (toast), permission-denied, and docstatus states if Leave Allocation is a submittable Doctype",
+        "Mentions checking whether Leave Allocation uses docstatus and what the grey/blue/red badge convention means for it"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Here is a mockup description: 'A card grid of Purchase Invoices with gradient accents on each card header. Each card has the supplier name, invoice number, amount, and a coloured circle icon. Draft cards have a yellow border, Submitted cards have a green border, Cancelled cards have a grey border.' Score this on the Frappe design rubric and name every anti-pattern.",
+      "expected_output": "A scored rubric assessment with specific anti-patterns called out from the Frappe slop list",
+      "expectations": [
+        "Flags over-cards (D2/density): card grid for invoice records where dense list rows are correct for OPERATE mode; expected 44px list rows, not 80-100px cards",
+        "Flags docstatus wrong colour (D13): Submitted must be blue, Cancelled must not be orange — yellow/green/grey borders are incorrect; Desk shows Draft=red, Submitted=blue, Cancelled=red; the design must document its mapping",
+        "Flags AI slop (D3/consistency): icon-in-coloured-circle matches the gstack AI slop pattern for icon tiles / decorative icon circles",
+        "Flags gradient hero in a form (D4/tokens): gradient accents likely involve hardcoded colour values, not semantic tokens",
+        "Gives low scores on D2 (density) and D13 (docstatus) — both are likely ≤4 which blocks the hand-off spec",
+        "Recommends replacing cards with frappe-ui list rows and documenting a valid docstatus badge mapping"
+      ]
+    },
+    {
+      "id": 3,
+      "kind": "dialogue",
+      "prompt": "I need to decide between three screen types for a monthly GST return summary view: (A) a Dashboard with KPI tiles, (B) a Script Report / QueryReport, or (C) a custom List view. The finance team needs to export data to Excel, filter by tax period, and click through to individual invoices. Which is correct and why?",
+      "expected_output": "A screen-type recommendation with Frappe-specific reasoning",
+      "expectations": [
+        "Recommends Script Report or QueryReport (option B) as the correct choice",
+        "Cites that QueryReport/Script Report supports Export to Excel natively; Dashboard does not",
+        "Notes that filter-by-period is a standard Report filter parameter, not a dashboard widget filter",
+        "Notes that clicking through to individual invoices is a standard Report link column feature",
+        "Explains why Dashboard (A) fails: KPI tiles are for summaries, not filterable tabular data",
+        "Explains why custom List view (C) is wrong: List views are for Doctype record queues, not aggregated financial reports"
+      ]
+    },
+    {
+      "id": 4,
+      "kind": "dialogue",
+      "prompt": "The hand-off spec for our new customer portal screen includes: Button(intent='warning'), dialog.alert('Saved'), and Badge(theme='orange'). Are there any problems with this spec before we send it to the frontend developer?",
+      "expected_output": "Identification of all three invalid frappe-ui API usages with correct replacements",
+      "expectations": [
+        "Flags intent='warning': not a valid frappe-ui prop; correct is theme='amber' with appropriate variant",
+        "Flags dialog.alert(): method does not exist in frappe-ui 1.0; correct is dialog.confirm() for informational confirmations",
+        "Flags Badge(theme='orange'): 'orange' is not a valid Badge theme; correct is 'amber' (orange does not exist for Button or Badge)",
+        "Provides the corrected spec: Button(variant='subtle', theme='amber'), dialog.confirm({...}), Badge(theme='amber')"
+      ]
+    }
+  ]
+}

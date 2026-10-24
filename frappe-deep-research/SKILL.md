@@ -117,7 +117,7 @@ low-confidence entries older than 90 days with zero uses.
 - [references/learned-patterns.md](references/learned-patterns.md) - Discovered patterns log: Debugging, API & ORM, Frontend, Version Compatibility
 - [references/learned-patterns-ops.md](references/learned-patterns-ops.md) - Discovered patterns log: Build & Deployment, Permissions, Caching & Asset
 
-- [references/source-citation-protocol.md](references/source-citation-protocol.md) - Source precedence, file:line citation format, version detection, [INFERENCE] tagging
+- [references/source-citation-protocol.md](references/source-citation-protocol.md) — Source precedence, file:line citation format, version detection, [INFERENCE] tagging; includes the evidence rule: every claimed limitation requires verbatim source or a live probe, not pattern-matched memory
 
 ## Guardrails
 
@@ -128,6 +128,7 @@ low-confidence entries older than 90 days with zero uses.
 - **Fix the reference that was wrong** instead of leaving both versions alive
 - **Record sparingly**: one strong reusable lesson beats several vague ones
 - **Genericize before recording**: no client/bench/app names, hostnames, or machine topology in `learned-patterns*.md` entries — write "a custom app" or "a site", not the real name
+- **Claimed limitations need evidence**: "the API can't do this" or "X isn't possible on v16" is a material claim — produce the `file:line` that proves it (a missing function, a version guard, a `NotImplemented`) or a live probe result before asserting the limitation to a caller.
 
 <!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
 ## Common Rationalizations

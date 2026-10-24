@@ -156,6 +156,10 @@ Create `AGENTS.md` (or `CLAUDE.md`) at the bench root or app root to give AI age
 
 This prevents agents from re-deciding settled questions. See `frappe-context-engineering` for the full context-file strategy.
 
+### 8) Post-ship documentation sync
+
+After code is merged: update DocType `description` fields and API docstrings for any method that changed signature; add a CHANGELOG entry covering consumer impact (step 6); verify README install steps match the release tag; flag ADRs still "Proposed" for decisions that shipped. Prevents docs from drifting from live behavior after the fact.
+
 ## Verification
 
 - [ ] ADR exists for every significant technical decision made in this change

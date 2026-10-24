@@ -96,6 +96,7 @@ Full command surface and troubleshooting:
 - **Always `--site`** inside the container too
 - **Keep app code on the host, dependencies in the container**
 - **Never point `fm` at production data**
+- **`bench-guard.sh` patterns match classic `bench` only**: `fm` commands are not covered
 
 
 <!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->

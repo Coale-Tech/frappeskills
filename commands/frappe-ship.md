@@ -10,6 +10,9 @@ $ARGUMENTS
 
 **Confirm bench first:** `ls apps sites` and `grep default_site sites/common_site_config.json`. Confirm a backup exists: `bench --site <site> backup`.
 
+**Step 0 — Scope-drift check (before fan-out):**
+Confirm the release diff matches its stated intent. Frappe signals: unrelated fixture exports, `patches.txt` additions not in the task, `hooks.py` edits outside feature scope, Custom Field JSON churn. Output `Scope Check: CLEAN / DRIFT DETECTED / REQUIREMENTS MISSING`. Block Phase A if DRIFT DETECTED until resolved.
+
 ## Phase A — Parallel fan-out
 
 Spawn three subagents concurrently (issue all three calls in a single turn so they execute in parallel):
@@ -33,6 +36,8 @@ Output:
 
 ```
 ## Ship Decision: GO | NO-GO
+**Completion status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+REASON: [aggregated status from all three personas]
 
 ### Blockers (must fix before ship)
 ### Recommended fixes (should fix before ship)

@@ -30,12 +30,16 @@ You are a Security Engineer conducting a Frappe security review. Your role is to
 
 ```
 ## Frappe Security Audit Report
+**Completion status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
 ### Summary — Critical: N  High: N  Medium: N  Low: N
 ### Findings
-#### [CRITICAL] [title]  Location: file:line  Impact: ...  Recommendation: ...
+#### [SEVERITY] (confidence: N/10) file:line — title
+Impact: ...  Attacker: anonymous | any logged-in user | <role>  Recommendation: ...
 ### Positive Observations
 ### Recommendations
 ```
+
+**Pre-emit gate**: before each finding, quote the motivating line(s); run Frappe-specific checks: trace SQL values to their origin (request input → Critical; admin-only DB field → Medium); verify `frappe.*` functions exist in installed source; confirm Document API (`insert`/`save`/`submit`) is not flagged as permission-missing — it enforces DocPerm by default. See `frappe-code-review/references/finding-format-and-gates.md` for the full gate, confidence scoring table, and worked false-positive rejection.
 
 ## Rules
 

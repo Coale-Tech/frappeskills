@@ -113,6 +113,14 @@ Use the decorator on the endpoint, under `@frappe.whitelist()`: `@frappe.rate_li
 
 Run `pip-audit` against `requirements.txt` and `npm audit` against the app's JS lockfile before every release. Triage critical/high by reachability. Never auto-apply `pip-audit --fix` or `npm audit fix --force` without reviewing changelogs and testing the upgrade.
 
+## Reporting Findings
+
+When reporting security findings (e.g. from `frappe-security-auditor`), use the confidence-calibrated format and run the pre-emit gate before including any finding:
+
+`[SEVERITY] (confidence: N/10) file:line — description`
+
+Gate: trace each claimed vulnerability to its origin; SQL values from admin-only fields cap at Medium; Document API (`insert`/`save`/`submit`) enforces DocPerm and must not be flagged as permission-missing. See [`frappe-code-review/references/finding-format-and-gates.md`](../frappe-code-review/references/finding-format-and-gates.md) for the full gate and worked false-positive example.
+
 ## Verification
 
 Walk [`references/security-checklist.md`](references/security-checklist.md) as a pre-commit/pre-merge gate.

@@ -1,7 +1,7 @@
 frappeskills
 Copyright (c) 2026 Coale Tech
 
-This repository contains 40 task-scoped Agent Skills (`frappe-*`), with
+This repository contains 45 task-scoped Agent Skills (`frappe-*`), with
 `frappe-router` as the entry point.
 
 The lifecycle skills (requirements, spec, constraints, planning, incremental
@@ -46,6 +46,19 @@ verified against frappe-ui 1.0.0-beta.29 source and re-verified against
 noted. Parts are adapted from that repository's `skills/frappe-ui/` agent
 skill, `PHILOSOPHY.md`, `CONTEXT.md`, `evals/` and `spec/` documents;
 files that do so say so in their first lines.
+
+Several review practices are adapted from gstack by Garry Tan at
+https://github.com/garrytan/gstack, licensed MIT (full text in
+LICENSES/gstack-garrytan-MIT.txt). Adapted 2026-10-25: confidence-scored review
+findings and the pre-emit verification gate, scope-drift detection, the
+completion-status protocol, specialist review passes, QA tiers with a health
+score and regression baseline, post-deploy verification, the bench safety hook
+(from its careful/freeze/guard hooks), plan review (office-hours,
+plan-ceo-review, plan-eng-review, plan-devex-review, autoplan) and design
+review (plan-design-review, design-shotgun, design-html, design-review,
+ios-design-review, ios-qa). All text is rewritten for Frappe/ERPNext; no
+gstack prose or code is vendored, and none of its Apache-2.0-derived design
+material is used.
 
 Code examples cite Frappe Framework, ERPNext, HRMS, Frappe CRM and Frappe
 Insights source, all published by Frappe Technologies under the GNU General

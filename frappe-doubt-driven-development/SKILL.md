@@ -107,6 +107,13 @@ If 3 cycles still surface unresolved findings: the artifact may not be ready. Su
 - [ ] Reviewer prompt was adversarial ("find what is wrong"), not validating ("is this good?")
 - [ ] Every finding classified (contract misread / actionable / trade-off / noise) against the artifact text
 - [ ] Stop condition met: trivial findings, 3 cycles, or user override
+- [ ] Completion status reported (see below)
+
+**Completion Status Protocol.** When the doubt cycle concludes, report one of:
+- `DONE` — stop condition met, all findings resolved or accepted trade-offs
+- `DONE_WITH_CONCERNS` — shipped, but unresolved trade-offs documented explicitly
+- `BLOCKED` — 3 cycles completed with unresolved findings; artifact not ready; escalate to user
+- `NEEDS_CONTEXT` — doubt cycle halted on a high-stakes ambiguity (data model, destructive scope, site-wide hook); state exactly what context is needed
 
 ## Failure modes / debugging
 

@@ -27,13 +27,27 @@ Not for whole-app quality sweeps → [`frappe-app-audit`](../frappe-app-audit/SK
 
 ## Procedure
 
-### 1) Understand intent before looking at code
+### 0) Scope-drift check
+
+Before reviewing code quality, check whether the diff matches its stated intent.
 
 ```
+Scope Check: [CLEAN / DRIFT DETECTED / REQUIREMENTS MISSING]
+Intent: <what the task/spec requested>
+Delivered: <what the diff actually does>
+[Drift: list each out-of-scope change]
+[Missing: list each unaddressed requirement]
+```
+
+Frappe drift signals: unrelated fixture exports, `patches.txt` additions not mentioned in the task, `hooks.py` edits outside the feature scope, schema JSON churn from a stray `bench export-fixtures`, Custom Field JSON not listed in the spec.
+
+This is **informational** — does not block the review.
+
+### 1) Understand intent before looking at code
+
 - What is this change trying to accomplish?
 - Which DocType, controller, API, hook, patch, or fixture does it touch?
 - What is the expected behaviour change?
-```
 
 ### 2) Review tests first
 
@@ -72,19 +86,11 @@ See [references/frappe-review-checklist.md](references/frappe-review-checklist.m
 
 ### 5) Categorise findings
 
-Label every comment so the author knows what is required vs advisory:
-
-| Prefix | Meaning | Action |
-|--------|---------|--------|
-| **Critical:** | Blocks merge | Security hole, data loss, broken functionality |
-| *(no prefix)* | Required change | Must address before merge |
-| **Nit:** | Minor, optional | Author may ignore |
-| **Optional:** / **Consider:** | Suggestion | Worth considering, not required |
-| **FYI** | Informational | No action needed |
+Use format `[SEVERITY] (confidence: N/10) file:line — description`. See [references/finding-format-and-gates.md](references/finding-format-and-gates.md) for the severity table, confidence scoring, pre-emit verification gate, and a worked false-positive rejection.
 
 Lead with what matters: correctness and security first, then architecture, then nits.
 
-Severity needs evidence. A security finding is **Critical** only if you can name who triggers it (anonymous, any logged-in user, or a specific role) and what they gain. Reachable only by a trusted role or by admin-editable data (e.g. a Department name feeding a scheduler query): rate it Required and say so. Never raise severity because a pattern looks alarming.
+Severity needs evidence: **Critical** names the attacker (anonymous / any logged-in user / role) and what they gain. Reachable only by a trusted role or admin-editable data → downgrade to Required.
 
 ### 6) Review-your-own-changes procedure
 
@@ -147,6 +153,8 @@ Splitting strategies:
 ## References
 
 - [references/frappe-review-checklist.md](references/frappe-review-checklist.md) — Full Frappe review checklist with severity labels
+- [references/finding-format-and-gates.md](references/finding-format-and-gates.md) — Confidence-calibrated format, pre-emit verification gate, worked false-positive rejection
+- [references/specialist-passes.md](references/specialist-passes.md) — Specialist review passes (created by peer worker)
 
 ## Guardrails
 

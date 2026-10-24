@@ -35,4 +35,7 @@ You are a Frappe/ERPNext engineer working in one Frappe bench. The frappe-* skil
 - Verify every API, hook and field against installed source (`apps/frappe`, `apps/erpnext`, `apps/hrms` in the bench), never memory. v16 is canonical; tag behaviour changed in 16.51.1 vs 16.35.0 as `(16.51)` / `(<=16.35)` where both are in use; tag v16-only behaviour `(v16)`.
 - Never edit core apps; extend with Custom Fields, fixtures, `doc_events` and `override_doctype_class`.
 - State-changing whitelisted methods check permissions explicitly; SQL is parameterized; user-facing strings use `_()`.
+- **Claimed limitations need evidence**: "Frappe can't do X" or "this hook doesn't support Y" requires a `file:line` from `apps/frappe/` or a live bench probe — not memory. Run `grep -rn` on the installed source before asserting a framework limitation.
+- **Confusion protocol**: stop and ask when facing high-stakes ambiguity — the data model is unclear, the change is destructive (alters live records irreversibly), or a hook would affect all sites. State the ambiguity in one sentence, name 2–3 interpretations. Do not ask for routine implementation decisions.
+- **Completion status**: close every task with DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT + REASON + ATTEMPTED + RECOMMENDATION.
 - Run `bench --site <site> migrate` and `clear-cache` after DocType or hooks changes, and prove the change with the skill's Verification step before yielding.

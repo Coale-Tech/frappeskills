@@ -1,10 +1,11 @@
 ---
-description: Frappe task with the frappe-* skills loaded (add "all" to load all 40)
+description: Frappe task with the frappe-* skills loaded (add "all" to load all 45)
 ---
 Frappe/ERPNext task: $ARGUMENTS
 
 Before any other tool call:
 1. Read `skill://frappe-router` and follow its routing table.
-2. Read every `skill://frappe-*` skill the router maps this task to. If the task contains the word `all`, read all 40 `frappe-*` skills instead.
+2. Read every `skill://frappe-*` skill the router maps this task to. If the task contains the word `all`, read all 45 `frappe-*` skills instead.
 3. Confirm the bench: `ls apps sites` and `grep default_site sites/common_site_config.json` (never `currentsite.txt`).
 Then do the task following the loaded skills' Procedure, Verification and Guardrails sections. Verify APIs against the installed v16 source, not memory; tag behaviour present in 16.51.1 but absent in 16.35.0 as `(16.51)`, old form as `(<=16.35)`; tag v16-only behaviour `(v16)`.
+For review tasks: start with a scope-drift check (`Scope Check: CLEAN / DRIFT DETECTED / REQUIREMENTS MISSING`; Frappe signals: unrelated fixtures, patches.txt additions, hooks.py edits outside scope, stray bench export-fixtures churn). Emit findings as `[SEVERITY] (confidence: N/10) file:line — description`; run the pre-emit gate from `frappe-code-review/references/finding-format-and-gates.md` before including any Critical or Required finding. Close every task: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT + REASON + ATTEMPTED + RECOMMENDATION.

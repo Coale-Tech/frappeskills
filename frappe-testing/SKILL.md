@@ -69,6 +69,14 @@ Setup and CLI reference: [references/ui-testing.md](references/ui-testing.md).
 GitHub Actions setup with MariaDB/Redis services and bench bootstrap:
 [references/ci-testing.md](references/ci-testing.md).
 
+### 5) Score a QA session
+
+After a manual or browser QA pass, serialize findings to `.qa/findings.json` (schema in [references/qa-tiers-and-health-score.md](references/qa-tiers-and-health-score.md)) and score them:
+```bash
+node frappe-testing/scripts/qa-score.js .qa/findings.json --save-baseline
+```
+Quick, Standard, and Exhaustive tier definitions, the weighted rubric, baseline diff, and the one-fix-one-commit rule are all in the reference.
+
 ## Verification
 
 - [ ] The new test fails before the fix and passes after it
@@ -102,6 +110,7 @@ GitHub Actions setup with MariaDB/Redis services and bench bootstrap:
 - [references/ui-testing.md](references/ui-testing.md) - UI testing: Playwright (default, 16.51+) and Cypress (legacy)
 - [references/cypress.md](references/cypress.md) - Cypress 13 command set (legacy — migrate to Playwright for new apps)
 - [references/tdd-workflow.md](references/tdd-workflow.md) - Red-green-refactor, Prove-It pattern, test pyramid applied to Frappe
+- [references/qa-tiers-and-health-score.md](references/qa-tiers-and-health-score.md) - QA tiers, Frappe health score rubric, baseline schema, regression mode, atomic commit rule
 
 ## Guardrails
 

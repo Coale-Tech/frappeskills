@@ -112,6 +112,17 @@ This mirrors `frappe/.github/workflows/linters.yml` exactly. The `frappe/semgrep
 
 **Image-based deploy:** build a `frappe_docker`-compatible image and push on `version-*` tag push. Trigger a downstream workflow via `workflow_dispatch` — same pattern as ERPNext's `on_release.yml`.
 
+**Post-deploy health check job (bench-based):** run after the deploy step as a separate `needs: [deploy]` job to catch server-side regressions before users do:
+```yaml
+- name: Post-deploy health check
+  run: |
+    ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+      "cd <bench> && bench doctor --site ${{ secrets.SITE }} && \
+       bench --site ${{ secrets.SITE }} console <<< \
+         'import frappe; print(frappe.db.count(\"Error Log\")); exit()'"
+```
+Full diagnostic checklist (Error Log diff, Patch Log, queue depth): [`../frappe-shipping-and-launch/references/post-deploy-verification.md`](../frappe-shipping-and-launch/references/post-deploy-verification.md).
+
 ### 6) Failure feedback loop
 
 When CI fails, paste the job log into the agent prompt:

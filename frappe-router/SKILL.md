@@ -44,6 +44,11 @@ changed behaviour; `(<=16.35)` tags the old form when both versions are in use. 
 | Verify Desk/portal UI in a real browser | → `frappe-browser-testing` |
 | Write or run tests, TDD, CI | → `frappe-testing` |
 | Five-axis per-change code review | → `frappe-code-review` |
+| Review a built UI: dark mode, viewports, design lint, visual QA | → `frappe-design-review` |
+| Review a plan before building: configure vs build, architecture, API DX | → `frappe-plan-review` |
+| Mockup before code: HTML variants on real tokens, scored design review | → `frappe-design-mockup-review` |
+| Brand/theme direction for website, portal, print, email or SPA theme overrides | → `frappe-design-consultation` |
+| Audit a live API or app onboarding as a new integrator (curl, timing, DX score) | → `frappe-devex-review` |
 | Behaviour-preserving simplification | → `frappe-code-simplification` |
 | Build-time security: perms, SQL, XSS, CSRF, secrets | → `frappe-security-hardening` |
 | Query N+1, indexes, cache, background jobs, load | → `frappe-performance-optimization` |
@@ -74,9 +79,11 @@ Before deep work, run `frappe-project-triage` to establish project type, version
 | DEFINE | `/frappe-spec` | `frappe-requirements-interview`, `frappe-spec-driven-development` |
 | DEFINE | `/frappe-constraints` | `frappe-constraint-driven-development` |
 | PLAN | `/frappe-plan` | `frappe-planning-and-task-breakdown` |
+| PLAN | `/frappe-plan-review` | `frappe-plan-review`, `frappe-design-consultation` (brand), `frappe-design-mockup-review` (UI) |
 | BUILD | `/frappe-build [auto]` | `frappe-incremental-implementation` + task skills |
 | VERIFY | `/frappe-test` | `frappe-testing`, `frappe-browser-testing` |
 | REVIEW | `/frappe-review`, `/frappe-simplify`, `/frappe-perf` | `frappe-code-review`, `frappe-code-simplification`, `frappe-performance-optimization` |
+| REVIEW | `frappe-design-review` (post-build UI), `frappe-devex-review` (post-build API/onboarding) | `frappe-design-review`, `frappe-devex-review` |
 | SHIP | `/frappe-ship` | `frappe-shipping-and-launch`, `frappe-deprecation-and-migration` |
 
 Full stage detail and skill combinations: `references/lifecycle.md`.
@@ -99,6 +106,9 @@ Full orchestration rules and anti-patterns: `references/orchestration-patterns.m
 Unknown project?                      → frappe-project-triage
 Requirements / spec before code?      → frappe-requirements-interview
                                         → frappe-spec-driven-development
+Plan ready, is scope/architecture right? → frappe-plan-review
+Mockup / design review before code?   → frappe-design-mockup-review
+Brand / theme direction (no design system given)? → frappe-design-consultation
 Quality bar / CONSTRAINTS.md?         → frappe-constraint-driven-development
 Task breakdown from spec?             → frappe-planning-and-task-breakdown
 Thin vertical slice to implement?     → frappe-incremental-implementation
@@ -114,6 +124,8 @@ Public data collection?               → frappe-web-forms
 Proof it works (TDD)?                 → frappe-testing / frappe-browser-testing
 Something broke?                      → frappe-debugging-and-error-recovery
 Code review?                          → frappe-code-review
+Built UI visual / mobile / dark audit? → frappe-design-review
+Built API / onboarding DX audit?      → frappe-devex-review
 Security check?                       → frappe-security-hardening
 Simplify code?                        → frappe-code-simplification
 Performance?                          → frappe-performance-optimization

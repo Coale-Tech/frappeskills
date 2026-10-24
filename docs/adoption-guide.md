@@ -8,9 +8,13 @@ How to roll the lifecycle skills out on a Frappe codebase. Skills load on demand
 |---|---|---|---|
 | Define | `/frappe-spec` | `frappe-requirements-interview`, `frappe-spec-driven-development`, `frappe-constraint-driven-development` | Requirements brief, approved spec, `CONSTRAINTS.md` |
 | Plan | `/frappe-plan` | `frappe-planning-and-task-breakdown` | Ordered tasks with acceptance + verification |
+| Plan review | `/frappe-plan-review` | `frappe-plan-review`, `frappe-design-mockup-review` (UI work) | Scope/architecture verdict, scored mockup, hand-off spec |
 | Build | `/frappe-build` (or `auto`) | `frappe-incremental-implementation` + task skills via `frappe-router` | One verified, committed slice at a time |
 | Verify | `/frappe-test` | `frappe-testing`, `frappe-browser-testing`, `frappe-debugging-and-error-recovery` | Tests that fail first, browser evidence |
 | Review | `/frappe-review`, `/frappe-simplify`, `/frappe-perf` | `frappe-code-review`, `frappe-security-hardening`, `frappe-code-simplification`, `frappe-performance-optimization` | Severity-labelled review, measured fixes |
+| UI review | `frappe-design-review` (after build) | `frappe-design-review` | Design lint, viewport/theme matrix, scored findings |
+| Brand/theme direction | `frappe-design-consultation` (before build) | `frappe-design-consultation`, `frappe-design-mockup-review` | DESIGN.md hand-off, contrast-checked palette |
+| Integrator DX audit | `frappe-devex-review` (after build) | `frappe-devex-review` | Curl evidence, time-to-first-success, DX scorecard |
 | Ship | `/frappe-ship` | `frappe-git-workflow-and-versioning`, `frappe-ci-cd-automation`, `frappe-shipping-and-launch`, `frappe-observability` | Restore-tested backup, staged rollout, rollback plan |
 
 Start with `/frappe-constraints`: decide the quality bar once so every later stage can enforce it.

@@ -109,7 +109,7 @@ Summarize before dropping: "Import error traced to circular dependency in `utils
 - [ ] `AGENTS.md` or `CLAUDE.md` exists at the bench root with app versions, default site, and key commands
 - [ ] App versions read from `apps/<app>/<app>/__init__.py`, not hardcoded
 - [ ] `frappe-router` loaded at session start before task-specific skills
-- [ ] Only task-relevant skill loaded per session (not all 40)
+- [ ] Only task-relevant skill loaded per session (not all 45)
 - [ ] Context ordered: stable rules first, active task last, error at generation point
 - [ ] Agent output follows `frappe.qb`, extends via Custom Fields, names hooks correctly
 - [ ] Context trimming begins before the window fills
@@ -155,7 +155,7 @@ Summarize before dropping: "Import error traced to circular dependency in `utils
 - Agent proposes editing a core Frappe or ERPNext DocType instead of extending with Custom Fields
 - Agent uses a hook name without verifying it in `apps/frappe/frappe/model/document.py`
 - No `AGENTS.md` or `CLAUDE.md` at the bench root
-- All 40 skills loaded simultaneously in the context
+- All 45 skills loaded simultaneously in the context
 - Context rot detected but session continues without a reset
 - AGENTS.md contains absolute host paths or client-specific app names
 

@@ -1,0 +1,78 @@
+{
+  "skill_name": "frappe-plan-review",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Before we start building, check whether our spec is using standard ERPNext features or if we are rebuilding something Frappe already ships natively",
+        "top_k": 3
+      },
+      {
+        "prompt": "Review the architecture in this spec — are our DocType boundaries correct and is the permission model complete enough to ship?",
+        "top_k": 3
+      },
+      {
+        "prompt": "Our spec includes a whitelisted REST API endpoint — score the developer experience and tell me how long it takes to make the first successful call",
+        "top_k": 3
+      },
+      {
+        "prompt": "Run a standard-first review of this plan and tell me what we can configure instead of build before any code is written",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "I am not sure what DocTypes we need or who the users are — interview me about the requirements before we write any spec",
+        "owner": "frappe-requirements-interview"
+      },
+      {
+        "prompt": "The spec is approved — now break it into ordered implementation tasks with dependencies so we can hand it to agents",
+        "owner": "frappe-planning-and-task-breakdown"
+      },
+      {
+        "prompt": "Do a full audit of our entire running app for security gaps, performance problems, and dead code",
+        "owner": "frappe-app-audit"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Here is a spec for a custom leave approval module: a Leave Request DocType with an HR Manager approval step, email notification on approval, and auto-assignment to the reporting manager. Review the scope before we build anything.",
+      "expected_output": "A scope verdict that identifies at least two standard Frappe capabilities (Workflow DocType for approval, Notification DocType for email, Assignment Rule for manager assignment) and proposes reducing scope before any custom Python is written",
+      "expectations": [
+        "The agent checks standard ERPNext capabilities before evaluating the DocType design",
+        "The agent identifies that a Frappe Workflow DocType covers the approval step without custom controller logic",
+        "The agent identifies that the Notification DocType covers the email-on-approval requirement",
+        "The agent identifies that an Assignment Rule covers auto-assignment to the reporting manager",
+        "The agent produces a scope verdict (Reduce scope) with an explicit trade-off: what the custom approach costs vs what stock configuration cannot do",
+        "The agent scores Standard Coverage, Configure Ratio, and Upgrade Risk before moving to architecture review"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Review the architecture of this spec: one Supplier Evaluation DocType linked to Supplier, with a submit/cancel lifecycle, an HR Manager and Purchase Manager approval, and a `@frappe.whitelist()` method that returns the average score for a supplier.",
+      "expected_output": "Mode D architecture findings covering DocType boundary, submittable + Workflow pairing, permission matrix completeness, and a DX score for the whitelisted method",
+      "expectations": [
+        "The agent runs Mode D last, after scope and DX reviews",
+        "The agent checks that is_submittable combined with a Frappe Workflow DocType requires workflow_state to be auto-added by the framework (v16)",
+        "The agent flags any missing permission matrix entries — HR Manager and Purchase Manager must each appear for the Supplier Evaluation DocType",
+        "The agent scores the whitelisted method on TTHW, error clarity, and auth discoverability",
+        "Each finding is raised as a separate question with a recommendation rather than batched"
+      ]
+    },
+    {
+      "id": 3,
+      "kind": "dialogue",
+      "prompt": "The spec is approved and complete — skip the plan review, it will slow us down. Let us go straight to task breakdown.",
+      "expected_output": "The agent holds the review step, names a concrete risk of skipping it for Frappe work, and offers a fast-path abbreviated review (scope check only) rather than abandoning the process",
+      "expectations": [
+        "The agent does not begin task breakdown in response to this prompt",
+        "The agent names a concrete risk of skipping review specific to Frappe (e.g. permission matrix gap, standard Workflow DocType covers the approval chain without custom code)",
+        "The agent offers a time-bounded alternative: a Mode A scope check only, which can complete in one turn",
+        "Task breakdown is offered only after the abbreviated review is approved"
+      ]
+    }
+  ]
+}

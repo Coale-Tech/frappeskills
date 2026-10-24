@@ -37,6 +37,7 @@ Key gates that are non-negotiable:
 2. **Patches reviewed**: every new `patches.txt` entry is idempotent and has been dry-run on the restored backup.
 3. **CI is green**: lint, semgrep, tests, asset build all pass on the release tag.
 4. **Maintenance mode tested**: confirm `set-maintenance-mode on` works before you need it under pressure.
+5. **Scope check**: confirm the release matches its stated intent — no unrelated fixture exports, unrequested `patches.txt` additions, or hooks changes have crept in. Flag any `DRIFT DETECTED` to the team before opening the maintenance window.
 
 ### 1) Take and verify the backup
 
@@ -113,6 +114,10 @@ Within 30 minutes of re-enabling each site:
 
 For observability dashboards, alert thresholds, and Sentry integration, see [`frappe-observability`](../frappe-observability/SKILL.md).
 
+### 5a) Detailed post-deploy verification
+
+Before advancing to the next wave, run the diagnostic commands in [`references/post-deploy-verification.md`](references/post-deploy-verification.md): Error Log diff since deploy time, Patch Log completeness check, background queue depth, scheduler and worker health (`bench doctor --site <site>`), and email queue status. The reference marks each step as 🔍 READ-ONLY (safe on production) or ⚠️ MUTATES (staging only).
+
 ### 6) Rollback procedure
 
 **What is reversible:**
@@ -176,6 +181,7 @@ For benches with multiple sites, reverse the rollout order (wave 3 → wave 1).
 ## References
 
 - [`references/launch-checklist.md`](references/launch-checklist.md) — Full pre-launch and post-deploy checklist for Frappe sites
+- [`references/post-deploy-verification.md`](references/post-deploy-verification.md) — Diagnostic commands and frappe.qb queries for post-deploy verification; read-only production steps and staging smoke tests
 
 ## Guardrails
 

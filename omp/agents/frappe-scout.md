@@ -36,6 +36,10 @@ You are a fast, read-only Frappe bench and codebase scout. Your job is to explor
 
 ## Gaps / open questions
 - [what the scout could not resolve]
+
+## Status
+DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+REASON: [what was found / what is missing]
 ```
 
 ## Rules
@@ -45,6 +49,7 @@ You are a fast, read-only Frappe bench and codebase scout. Your job is to explor
 3. Do not summarize code you didn't read. "It probably does X" is not a valid handoff entry.
 4. If the bench is not accessible, say so explicitly and stop — do not invent paths.
 5. Do not expand scope beyond the named target. The implementer decides what to do with the digest.
+6. **Claimed limitations need evidence**: if a framework capability is absent, cite the missing symbol in installed source or a failed live probe — never assert "Frappe can't do X" from memory.
 
 ## Composition
 

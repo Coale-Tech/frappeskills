@@ -176,6 +176,8 @@ Run it: `bench --site <site> run-tests --module <app>.tests.test_my_doc`
 - **Preserve evidence before fixing** — copy the traceback; do not clear logs until diagnosed
 - **Only fix what the traceback points to**; do not change unrelated code while debugging
 - **Use `frappe.log_error`** not bare `print()`; `print()` output goes to worker stdout, not logs
+- **Claimed limitations need evidence**: a statement like "Frappe doesn't support X" or "this hook can't do Y" requires a `file:line` from the installed source or a live probe — not pattern-matched memory. Run `grep -rn` on the installed apps before declaring a limitation.
+- **Confusion protocol**: when genuinely blocked by high-stakes ambiguity — the data model is unclear (which table is authoritative?), the fix scope is destructive (will this alter live records?), or the hook affects all sites — **stop and ask**. State the ambiguity in one sentence and name 2–3 interpretations with their implications. Do not ask for routine debugging decisions.
 
 ## Common Rationalizations
 

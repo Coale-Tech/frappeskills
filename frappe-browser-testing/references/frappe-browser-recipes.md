@@ -142,3 +142,10 @@ Verified against Frappe v16.35.0 and v16.51.1:
 - `apps/frappe/frappe/public/js/frappe/ui/dialog.js` line 196 (16.51.1) — `get_primary_btn()` returns `.btn-modal-primary`; was `.btn-primary` in ≤16.35
 - `apps/frappe/frappe/public/js/frappe/ui/components/toast.js` (16.51.1) — `frappe.ui.toast()`; container `.es-toast-container`
 - `apps/frappe/frappe/public/js/frappe/ui/messages.js` (16.51.1) — `frappe.show_alert` aliased to `frappe.ui.toast`
+
+## Design review integration
+
+For post-build visual QA — viewport matrix screenshots, dark-mode checks,
+and scored findings — see [`frappe-design-review`](../../frappe-design-review/SKILL.md).
+The selectors in the **Selector changes (16.51+)** table above (`.btn-modal-primary`,
+`.es-toast-container`) are the primary Frappe-specific targets that skill checks.

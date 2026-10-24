@@ -11,6 +11,8 @@ Specialist personas that play a single role with a single perspective. Each is a
 | [frappe-security-auditor](../omp/agents/frappe-security-auditor.md) | Security Engineer (read-only) | Permission model, SQL injection, OWASP-style audit |
 | [frappe-test-engineer](../omp/agents/frappe-test-engineer.md) | QA Engineer (may write tests) | Test strategy, coverage analysis, Prove-It pattern |
 | [frappe-performance-auditor](../omp/agents/frappe-performance-auditor.md) | Performance Engineer (read-only) | Query count, N+1, index, cache, background-job audit |
+| [frappe-migration-auditor](../omp/agents/frappe-migration-auditor.md) | Migration Engineer (read-only) | Patches, `patches.txt`, schema changes, data-loss and idempotency risk |
+| [frappe-api-contract-auditor](../omp/agents/frappe-api-contract-auditor.md) | API Contract Reviewer (read-only) | Whitelisted method signature, return shape, verb and `allow_guest` changes |
 | [frappe-scout](../omp/agents/frappe-scout.md) | Bench/code explorer (read-only) | Map an unknown bench or trace a flow before implementation |
 
 ## How personas relate to skills and commands

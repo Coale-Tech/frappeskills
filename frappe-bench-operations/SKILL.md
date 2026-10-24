@@ -117,6 +117,7 @@ re-run. Never leave a half-migrated site serving users.
 - **Restart workers after deploying code**: they hold the old module tree
 - **Use bare `bench`**, not `./env/bin/bench` or a full path
 - **Run `bench start` under a supervisor**, one per bench
+- **Optional hook**: `scripts/bench-guard.sh` (Claude Code) or its omp adapter blocks `drop-site`, `reinstall` and core-app edits; see `docs/bench-guard.md`
 
 
 <!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->

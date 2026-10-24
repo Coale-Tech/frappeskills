@@ -1,0 +1,74 @@
+{
+  "skill_name": "frappe-design-consultation",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "We're launching a customer-facing portal on ERPNext. Design a brand theme — our colours are #1A3C5E (deep navy) and #F4A924 (amber). Apply it to the Website Theme and give me a DESIGN.md.",
+        "top_k": 3
+      },
+      {
+        "prompt": "I need to brand our frappe-ui SPA with the client's colours (green #2D7D46, white #FFFFFF). Set up CSS variable overrides and verify the WCAG contrast ratios.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Before we build the portal, establish a visual identity: research the existing site, propose a typography and colour direction, check accessibility, and produce DESIGN.md.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Design a branded print format and email template style for our invoices — logo at top-right, brand colours, and clean typography. Show me the WCAG contrast numbers and how to apply the styles.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Our login splash page needs to match our company brand. Help set up a Website Theme with our font (Nunito) and brand colours, and write a DESIGN.md hand-off.",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "What CSS variable should I use for the card background in a frappe-ui 1.0 Espresso screen?",
+        "owner": "frappe-design-tokens"
+      },
+      {
+        "prompt": "Run a visual design audit on the portal page at http://localhost:8000 — screenshot it and give me scored findings",
+        "owner": "frappe-design-review"
+      },
+      {
+        "prompt": "Generate an HTML mockup for my new Sales Order list page and score it on the Frappe design rubric",
+        "owner": "frappe-design-mockup-review"
+      },
+      {
+        "prompt": "What layout shell should I use for a new frappe-ui SPA — DesktopShell with sidebar or top Tabs?",
+        "owner": "frappe-ui-patterns"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Design a brand theme for our customer portal. Brand colours: primary #2563EB (blue), background #FFFFFF, text #111827. The portal shows invoices and support tickets to customers. Apply to Website Theme doctype fields and produce a DESIGN.md with WCAG contrast checks.",
+      "expected_output": "Computed WCAG contrast ratios for primary/background and text/background pairs shown numerically. Mapping to Website Theme fields (primary_color, background_color, text_color pointing to Color docs). A DESIGN.md with SURFACE, AUDIENCE, FONT, PRIMARY, BACKGROUND, TEXT, WCAG AA, and IMPLEMENTATION rows. Note that Desk UI must not be overridden via Website Theme SCSS.",
+      "expectations": [
+        "WCAG contrast ratio is computed numerically (not just claimed to pass)",
+        "Primary #2563EB on white background: ratio shown (~5.9:1, passes AA ≥4.5:1)",
+        "Text #111827 on white background: ratio shown (~16.7:1, passes AA)",
+        "Design direction maps to primary_color, background_color, text_color Website Theme fields",
+        "DESIGN.md produced with all required fields including WCAG AA row",
+        "Skill notes Desk UI must not be overridden via Website Theme SCSS"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Theme our frappe-ui SPA with brand colors: background #0F172A (dark navy), text #F8FAFC (near-white), accent #6366F1 (indigo). Compute WCAG contrast and give me the CSS variable overrides.",
+      "expected_output": "Contrast ratios computed for text on background and accent on background. CSS variable override block provided targeting --surface-white, --ink-gray-9, etc. with :root and [data-theme=\"dark\"] sections.",
+      "expectations": [
+        "Contrast ratio for #F8FAFC on #0F172A computed and shown (expected ~18:1, passes AA)",
+        "Contrast ratio for accent #6366F1 on #0F172A computed (expected ~4.7:1, passes AA for UI components ≥3:1)",
+        "CSS variable override block provided with :root and optional [data-theme=\"dark\"] sections",
+        "Variables use frappe-ui semantic names (--surface-*, --ink-*, --outline-*)",
+        "Override placement instruction: place after all CSS imports in the SPA entry stylesheet"
+      ]
+    }
+  ]
+}

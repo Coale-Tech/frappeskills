@@ -16,7 +16,7 @@ for both eras (below).
 
 **Version note:** these composables already exist in the `0.1.261` baseline
 many production apps pin, minus the pieces tagged `(v1)` below (new in
-`1.0.0-beta.29`). Check `frontend/package.json` for the pinned version before
+`1.0.2`). Check `frontend/package.json` for the pinned version before
 relying on a `(v1)`-tagged option. See
 [frontend-architecture.md](frontend-architecture.md) for Pinia store, router,
 and socket.io wiring in real apps (CRM, Insights) — not duplicated here.
@@ -114,8 +114,8 @@ Notes verified against `useCall.ts` / `useCall.test.ts`:
   (useful once `immediate:false` + a reactive `params` function is set).
 - `abort()` sets `aborted = true`; an aborted request does not populate
   `error` (it is not treated as a resource error).
-- `beforeSubmit` errors are surfaced through `.error`, not thrown to the
-  caller of `submit()`.
+- `beforeSubmit` throwing **rejects `submit()`** and cancels the request, but
+  does **not** set `.error` (verified: `call.error === null` in `useCall.test.ts:207`).
 
 ### Caching (`cacheKey` / `staleOnError`)
 
@@ -344,10 +344,31 @@ interface UseListOptions<T> {
 ```
 
 Returns `data`, `hasNextPage`, `hasPreviousPage`, `start`/`limit`
-(read-only), `error`, `loading`, `next()`/`previous()`,
+(read-only), `error`, `loading`, `isFetching`, `isFinished`, `canAbort`,
+`aborted`, `url`, `abort()`, `next()`/`previous()`,
 `execute`/`fetch`/`reload`, `updateRow(doc)`/`removeRow(name)` (local-only
-patch, no request), plus three `useCall`-shaped sub-resources: `insert`,
-`setValue`, `delete`.
+patch, no request), plus three action sub-objects: `insert`, `setValue`,
+`delete`. These are **not** full `useCall` instances — they expose a
+lightweight `useAction`-derived shape:
+
+```typescript
+// insert
+{ data: Ref<T|null>, error: Ref<Error|null>, loading: ComputedRef<boolean>,
+  isLoading: () => boolean,            // same as loading (no name until server responds)
+  submit: (values: Partial<T>) => Promise<T|null> }
+// setValue
+{ data, error, loading,
+  isLoading: (name: string) => boolean, // true while this specific row is in flight
+  submit: (params: Partial<T> & { name: string }) => Promise<T|null> }
+// delete
+{ data, error, loading,
+  isLoading: (name: string) => boolean,
+  submit: (params: { name: string }) => Promise<'ok'|null> }
+```
+
+Each `submit()` inside the sub-objects **rejects** on a failed request (same
+as `useCall.submit`). On success, `insert`/`setValue`/`delete` trigger a
+list re-fetch automatically when `refetch: true` (the default).
 
 ```typescript
 import { useList } from 'frappe-ui'
@@ -397,6 +418,33 @@ involved. True socket.io realtime (`list_update` events from
 wiring in a real app; `useList`/`useDoc` do not subscribe to sockets
 themselves.
 
+**Realtime reconnect (1.0.1):** `onDocUpdate` (from `'frappe-ui'`, used by
+`createListResource`/`createDocumentResource`'s `realtime: true` option) now
+resubscribes every watched doctype on every reconnect (not just the first
+`connect`). The fix uses `WeakMap<Socket, Set<string>>` so each new socket
+tracks its own subscriptions and old sockets can be garbage-collected
+(verified in `src/resources/realtime.ts`).
+
+### Stale-write gate / `writeGate` (1.0.2)
+
+Two concurrent writes to one document must leave the stores on the **newer
+dispatch**, not on whichever response settled last. Every request takes a
+sequence number when `useFrappeFetch` dispatches it; a store write presents
+that number to `writeGate.admit(key, stamp)` before it lands. A write whose
+sequence is older than the newest already applied is **dropped whole** — no
+publish, no IDB write. The gate is per `doctype/name`, so two different
+documents never block each other.
+
+- `LOCAL_WRITE` (a `Symbol`) is the stamp for writes that did not come from
+  a network request (e.g. seeding the store from cache). It is always
+  admitted and never records.
+- `docStore`, `listStore`, and `writeGate` are **internal** — not exported
+  from `'frappe-ui'`. Observed effects only via `useDoc`/`useList`/`useDoctype`.
+- `useIsolatedCall` (also internal) is what `useDoc.setValue`, `useDoc.delete`,
+  and `useDoc`'s `methods:` entries actually use — it gives each `submit()` its
+  own request (avoiding the abort-race of a shared `useCall`), while presenting
+  the same public surface as `useCall`.
+
 ---
 
 ## `call` / `frappeRequest` / `request` / `initSocket`
@@ -443,6 +491,90 @@ const customer = await call('frappe.client.get', { doctype: 'Customer', name: 'C
 
 ---
 
+## Decision table — which composable to use
+
+| Situation | Use |
+|---|---|
+| One API call (v2 method or custom endpoint), read or write | `useCall` |
+| Read a DocType list, paginated, with reactive filters | `useList` |
+| Read and mutate a single known document | `useDoc` |
+| Batch-create, batch-delete, or run a method on arbitrary names | `useDoctype` |
+| Insert a new document from a local draft form | `useNewDoc` |
+| RPC dotted-path method (`frappe.client.*`, etc.) | `call()` |
+| Same as above but reactive / in a composable | `useCall` with `url: '/api/method/...'` |
+| Existing code using `createResource` family | leave it; both APIs are supported through 1.x |
+
+### Failure modes
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `submit()` silently resolves but data is wrong | `execute()`/`fetch()`/`reload()` always resolve; only `submit()` rejects | Use `submit()` for writes; check `.error` after `execute()` |
+| Permission error (403) | Server returns `FrappeResponseError` with `type: 'PermissionError'` | Check `error instanceof FrappeResponseError && error.type === 'PermissionError'` |
+| Empty `.data` on first render | `cacheKey` not set and `immediate: true` — data arrives asynchronously | Add `initialData` for a skeleton, or set `cacheKey` for IDB hydration |
+| Stale data visible after a write | Another composable wrote a higher-sequence response first (write-gate) | Normal — the gate keeps the newest write; reload to get a fresh read |
+| `beforeSubmit` throws but `.error` is null | By design: `beforeSubmit` rejects `submit()` without touching `.error` | `try/catch` around `submit()` |
+| `useNewDoc` `submit()` sends on every keypress | `refetch: true` on `useNewDoc` is silently excluded; only possible via direct `useCall` | Use `useNewDoc` as designed; never pass `refetch` |
+
+---
+
+## Vite plugin — auto-generated DocType TypeScript interfaces
+
+The `frappeuiPlugin` vite plugin (from `'frappe-ui/vite'`) includes an
+optional `frappeTypes` sub-plugin that generates TypeScript interfaces for
+your app's DocTypes at dev-server startup. It reads the DocType JSON files
+from the bench `apps/` folder and writes a `.ts` file your composables can
+import.
+
+```javascript
+// vite.config.js
+import { frappeuiPlugin } from 'frappe-ui/vite'
+
+export default {
+  plugins: [
+    frappeuiPlugin({
+      frappeTypes: {
+        input: {
+          my_app: ['Task', 'Project', 'Comment'],  // appName: [DoctypeNames]
+        },
+        output: 'src/types/doctypes.ts',           // default: 'src/types/doctypes.ts'
+      },
+    }),
+  ],
+}
+```
+
+Generated output (example):
+
+```typescript
+// Last updated: 2024-01-15 10:30:00
+export interface Task extends DocType {
+  /** Subject: Data */
+  subject: string;
+  /** Status: Select */
+  status: 'Open' | 'Working' | 'Completed' | 'Cancelled';
+  /** Priority: Select */
+  priority?: 'Low' | 'Medium' | 'High';
+  /** Expected End Date: Date */
+  exp_end_date?: string;
+}
+```
+
+- Runs only in `mode === 'development'`; skips production builds.
+- Child-table DocTypes are generated recursively when a `Table` or
+  `Table MultiSelect` field references them.
+- Skips a DocType when the JSON `modified` timestamp matches the existing
+  interface header — no unnecessary rewrites.
+- Base interfaces `DocType` and `ChildDocType` are auto-emitted in the output.
+- Field types: `Data`/`Link`/`Attach Image`/etc. → `string`; `Int`/`Float`/`Percent`
+  → `number`; `Check` → `0 | 1`; `Select` → a union of its option strings;
+  `Table` → `RelatedType[]`; anything else → `any`.
+- Required fields (`reqd: 1`) and `Check`/`Table` fields are non-optional; all
+  others get `?`.
+
+Use the generated types with `useDoc<Task>`, `useList<Task>`, `useNewDoc<Task>`.
+
+---
+
 ## See also
 
 - [frappe-ui-data-fetching-legacy.md](frappe-ui-data-fetching-legacy.md) —
@@ -456,17 +588,25 @@ const customer = await call('frappe.client.get', { doctype: 'Customer', name: 'C
 
 ## Sources
 
-Verified against frappe-ui `1.0.0-beta.29` (`package.json`); inline
+Verified against frappe-ui `1.0.2` (`apps/frappe-ui/package.json`); inline
 `Verified …`/`Notes verified against …` callouts above pin specific claims
 to specific test files:
 
-- `apps/frappe-ui/src/data-fetching/useCall/useCall.ts`, `useCall/useCall.test.ts`, `useCall/types.ts`
-- `apps/frappe-ui/src/data-fetching/useFrappeFetch.ts` — `FrappeResponseError`, `/api/v2/...` error envelope
-- `apps/frappe-ui/src/data-fetching/useDoc/useDoc.ts`, `useDoc/useDoc.test.ts`
-- `apps/frappe-ui/src/data-fetching/docStore.ts`, `docStore.test.ts` — 5-minute IndexedDB staleness TTL, `docStore`/`listStore` not exported from `src/index.ts`
-- `apps/frappe-ui/src/data-fetching/useDoctype/useDoctype.ts`, `useDoctype/useDoctype.test.ts`
-- `apps/frappe-ui/src/data-fetching/useNewDoc/useNewDoc.ts`
-- `apps/frappe-ui/src/data-fetching/useList/useList.ts`, `useList/useList.test.ts`, `useList/listStore.ts`, `useList/types.ts`
-- `apps/frappe-ui/src/data-fetching/utils.ts` — `parseFilters`, `unrefObject`, `makeGetParams`, `normalizeCacheKey`
-- `apps/frappe-ui/src/utils/call.ts` (`call`/`createCall`), `apps/frappe-ui/src/utils/frappeRequest.ts`, `apps/frappe-ui/src/utils/request.ts`, `apps/frappe-ui/src/utils/socketio.ts` (`initSocket`)
+- `apps/frappe-ui/src/data-fetching/useCall/useCall.ts`, `useCall/useCall.test.ts`, `useCall/types.ts` — options, return shape, `submit()` reject on error, `beforeSubmit` throw
+- `apps/frappe-ui/src/data-fetching/useFrappeFetch.ts` — `FrappeResponseError`, `/api/v2/...` error envelope, dispatch stamp
+- `apps/frappe-ui/src/data-fetching/useDoc/useDoc.ts`, `useDoc/useDoc.test.ts` — `RESERVED_DOC_MEMBERS`, `useIsolatedCall` for `setValue`/`delete`/methods
+- `apps/frappe-ui/src/data-fetching/docStore.ts`, `docStore.test.ts` — 5-minute IndexedDB staleness TTL, `publish` stale-while-revalidate, `docStore`/`listStore` not exported
+- `apps/frappe-ui/src/data-fetching/writeGate.ts` — `WriteGate`, `LOCAL_WRITE`, `DispatchStamp`, per-`doctype/name` gate
+- `apps/frappe-ui/src/data-fetching/useDoctype/useDoctype.ts` — `isLoading` signatures per method
+- `apps/frappe-ui/src/data-fetching/useNewDoc/useNewDoc.ts` — `refetch`/`cacheKey`/`staleOnError` excluded by design (DAT-Q6)
+- `apps/frappe-ui/src/data-fetching/useList/useList.ts`, `useList/types.ts` — full return shape, `insert`/`setValue`/`delete` as `useAction` wrappers with `isLoading`
+- `apps/frappe-ui/src/data-fetching/useIsolatedCall.ts` — internal; not exported from package
+- `apps/frappe-ui/src/data-fetching/useAction.ts` — internal; not exported from package
+- `apps/frappe-ui/src/data-fetching/index.ts` — public exports: `useCall`, `useDoc`, `useDoctype`, `useList`, `useNewDoc`, `FrappeResponseError`, `UseCallOptions`, `UseListOptions` etc.
+- `apps/frappe-ui/src/data-fetching/utils.ts` — `parseFilters`, `CACHE_VERSION` (`v2`), `normalizeCacheKey`, `withCacheNamespace`
+- `apps/frappe-ui/src/data-fetching/idbStore.ts` — `IDBStore`, memory fallback when no `window.indexedDB`
+- `apps/frappe-ui/src/utils/call.ts` (`call`/`createCall`), `apps/frappe-ui/src/utils/frappeRequest.ts` (`FrappeResourceError`), `apps/frappe-ui/src/utils/socketio.ts` (`initSocket`)
 - `apps/frappe-ui/src/utils/plugin.ts` (`FrappeUI` — `app.config.globalProperties.$socket`)
+- `apps/frappe-ui/src/index.ts` — legacy resources "supported and frozen through 1.x, un-deprecated (ADR-0013)"
+- `apps/frappe-ui/vite/doctypeInterfaceGenerator.js`, `vite/frappeTypes.js`, `vite/generateTypes.js` — DocType TS interface generation
+- `apps/frappe-ui/CHANGELOG.md` — 1.0.1: realtime reconnect fix; 1.0.2: Vite benchFiles fix

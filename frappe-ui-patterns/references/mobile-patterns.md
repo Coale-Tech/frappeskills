@@ -97,28 +97,27 @@ tab or a router `scrollBehavior` can drive it without an app-owned global.
 
 ## PageHeaderMobile / PageHeaderBackButton `(v1)`
 
-`PageHeaderMobile` keeps its title centered regardless of the `#left`/`#right`
+`PageHeaderMobile` keeps its title centered regardless of the `#prefix`/`#suffix`
 control widths and clamps it to two lines; it teleports into the
 `PageHeaderTarget` `MobileShell` pins for it, same mechanism as the desktop
-`PageHeader`.
+`PageHeader`. **(1.0.1: `#prefix`/`#suffix` follow text direction for RTL.)**
 
 | Prop | Type | Default | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `title` | `string` | — | Centered title; overridden by the `#default` slot |
 
-**Slots:** `#left`, `#default`, `#right`.
+**Slots:** `#prefix`, `#default`, `#suffix`.
 
 `PageHeaderBackButton`:
 
 | Prop | Type | Default | Notes |
-|---|---|---|---|
-| `to` | `string \| RouteLocationRaw` | — | Navigation target; omit to fall back to browser history |
+| --- | --- | --- | --- |
+| `fallbackRoute` | `RouteDestination` | — | Used only when there is no in-app history (cold deep-link); taps otherwise go back through history |
 | `label` | `string` | `"Back"` | Accessible label |
 
-There's also `PageHeaderMobileTitle` (props: `title`; slots: `#icon`,
-`#default`) — the title-plus-leading-icon primitive `PageHeaderMobile` is
-built from, for a custom header row that still needs the centered-title
-behavior.
+There's also `PageHeaderMobileTitle` (props: `title`; slots: `#prefix`
+(leading glyph), `#default` (overrides `title`)) — the title-plus-leading-icon
+primitive `PageHeaderMobile` is built from.
 
 ## MobileNav / MobileNavItem `(v1)`
 
@@ -132,11 +131,12 @@ padding clears the home-indicator area in an installed PWA
 `MobileNavItem`:
 
 | Prop | Type | Default | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `label` | `string` | — | **Required.** Shown under the icon; also the accessible name |
 | `icon` | `string \| Component` | — | `lucide-*` class or a component; ignored when the `#default` slot is used |
-| `to` | `string \| RouteLocationRaw` | — | Router link target. Tapping the item while it's already the current route scrolls the shell to top instead of re-navigating |
-| `active` | `boolean` | inferred from `to` | Highlight independent of the current route, so one tab can stay lit across a whole section |
+| `route` | `RouteDestination` | — | Router link target. Tapping the item while it's already the current route scrolls the shell to top instead of re-navigating |
+| `href` | `string` | — | External URL; used when `route` is absent |
+| `active` | `boolean` | inferred from `route` | Highlight independent of the current route |
 
 **Slots:** `#default` (`{ active: boolean }`) — a custom glyph or `Avatar`,
 overriding `icon`. **Emits:** `click` (`[event: MouseEvent]`).
@@ -272,17 +272,16 @@ than maintaining two markup trees. Component and prop reference:
 
 ## Sources
 
-Verified against frappe-ui `1.0.0-beta.29` (`apps/frappe-ui/package.json`):
+Verified against frappe-ui `1.0.2` (`apps/frappe-ui/package.json`):
 
 - `apps/frappe-ui/src/composables/useScreenSize.ts` — `useScreenSize`/`useIsMobile`, `1024×768` SSR fallback, `640` default breakpoint
-- `apps/frappe-ui/src/components/MobileShell/MobileShell.vue` — fixed full-height column, pinned `PageHeaderTarget` with `standalone` safe-area padding, `#default`/`#nav` slots, no props
-- `apps/frappe-ui/src/composables/useScrollContainer.ts` — `registerScrollContainer`/`unregisterScrollContainer`/`useScrollContainer`/`getScrollContainer`/`scrollToTop` registry
-- `apps/frappe-ui/src/components/PageHeader/PageHeaderMobile.vue`, `PageHeaderBase.vue`, `types.ts` — centered title with dynamic `#left`/`#right` inset, two-line clamp, shared `Teleport`-to-target mechanism with desktop `PageHeader`
-- `apps/frappe-ui/src/components/PageHeader/PageHeaderBackButton.vue` — `label` default `'Back'`, `to` falls back to `router.back()`
-- `apps/frappe-ui/src/components/PageHeader/PageHeaderMobileTitle.vue` — `#icon`/`#default` slots
-- `apps/frappe-ui/src/components/MobileNav/MobileNav.vue` — bare `grid auto-cols-fr grid-flow-col` frame, `#default`-only slot
-- `apps/frappe-ui/src/components/MobileNav/MobileNavItem.vue`, `types.ts` — required `label`, `to`/`active` props, tap-when-current scrolls to top instead of re-navigating, `#default` slot receives `{ active }`, `click` emit
-- `apps/frappe-ui/src/components/BottomSheet/BottomSheet.vue`, `types.ts` — built on `reka-ui`'s `DialogRoot`, fixed `h-[70vh]` scroll region, `dismissible` (default `true`) gates outside-click/Escape/swipe, `usePointerSwipe`-driven drag with `CLOSE_HEIGHT_RATIO = 0.25` and rubber-band on upward drag, `update:open`/`after-leave` emits
+- `apps/frappe-ui/src/components/MobileShell/MobileShell.vue`, `MobileShell.api.md` — `#default`/`#nav` slots, no props, iOS 26 safe-area fix (1.0.2)
+- `apps/frappe-ui/src/composables/useScrollContainer.ts` — scroll-container registry
+- `apps/frappe-ui/src/components/PageHeader/PageHeaderMobile.vue`, `PageHeader.api.md` — slots `#prefix`/`#suffix` (RTL fix 1.0.1), `fallbackRoute` prop on `PageHeaderBackButton`
+- `apps/frappe-ui/src/components/PageHeader/PageHeaderMobileTitle.vue` — `#prefix`/`#default` slots
+- `apps/frappe-ui/src/components/MobileNav/MobileNav.vue`, `MobileShell.api.md` — `MobileNavItem` `route`/`href`/`active` props
+- `apps/frappe-ui/src/components/BottomSheet/BottomSheet.vue`, `BottomSheet.api.md` — `dismissible` (default `true`), `update:open`/`after-leave` emits, swipe gesture
+- `apps/frappe-ui/CHANGELOG.md` — 1.0.1 PageHeaderMobile RTL fix; 1.0.2 MobileShell iOS 26 safe-area
 - No `ActionSheet` component anywhere in the package (repo-wide search)
-- `apps/frappe-ui/skills/frappe-ui/DESIGN.md` — desktop→mobile translation rules (sidebar→BottomSheet, action clusters→Dropdown, row-height/title-scale deltas, `[@media(display-mode:standalone)]` footer padding)
-- `apps/frappe-ui/src/index.ts` — `ListView` "do not deprecate until `frappe-ui/list` reaches parity" comment; full `List`/`ListView` API verification lives in [frappe-ui-list-and-editor.md](../../frappe-frontend-development/references/frappe-ui-list-and-editor.md)
+- `apps/frappe-ui/skills/frappe-ui/DESIGN.md` — desktop→mobile translation rules
+- `apps/frappe-ui/src/index.ts` — `ListView`/`MobileShell` export comments

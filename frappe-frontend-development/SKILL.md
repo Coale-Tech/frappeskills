@@ -11,7 +11,7 @@ portal page when an SPA is overkill.
 ## When to use
 
 - Building a custom dashboard, portal, or customer-facing app
-- Consuming Frappe data with `useCall` / `useList` / `useDoc` (or legacy `createResource`)
+- Consuming Frappe data with `useCall` / `useList` / `useDoc` (or `createResource` family — supported through 1.x)
 - Structuring stores, router, sockets and TypeScript in an SPA
 - Writing a website/portal page without a build step
 
@@ -38,10 +38,10 @@ portal page when an SPA is overkill.
 ### 1) Scaffold the SPA
 
 There is no `frappe/frappe-ui/templates/spa` to degit. Scaffold Vite + Vue, then wire:
-- **Vite 5 + Tailwind v3** for standalone apps (Vite 8 is used by CRM with `resolve.dedupe` for linked packages)
-- `frappeui()` in `vite.config.js`; `frappe-ui` in `optimizeDeps.exclude`
+- **Vite 7 + Tailwind v3** for standalone apps (peerDeps allow `vite >=5`; Vite 8 used by CRM with `resolve.dedupe`) (1.0.2)
+- `frappeui()` in `vite.config.js` (the plugin sets its own `optimizeDeps`; do not add `exclude: ['frappe-ui']`) (1.0.2)
 - `...frappeUIContent` from `frappe-ui/tailwind` spread into Tailwind `content` (1.0); hand-write glob for 0.1.x
-- `app.use(FrappeUI)` + `app.use(spritePlugin)` (from `frappe-ui/experimental`) + `<FrappeUIProvider>` wrapper
+- `<FrappeUIProvider>` at app root; `app.use(spritePlugin)` from `frappe-ui/experimental`; `app.use(FrappeUI)` is optional (no injections) (1.0.2)
 - `website_route_rules` + `www/<app>.py` boot context. Full detail: [references/frappe-ui-setup.md](references/frappe-ui-setup.md).
 
 ### 2) Fetch data with the data layer
@@ -65,8 +65,8 @@ const approve = useCall({
 // approve.submit({ name: 'SO-0001' })
 ```
 
-Never use raw `fetch`/`axios`. `createResource` & family are legacy but still
-exported: [references/frappe-ui-data-fetching.md](references/frappe-ui-data-fetching.md),
+Never use raw `fetch`/`axios`. `createResource` & family are older but still
+supported through 1.x (un-deprecated): [references/frappe-ui-data-fetching.md](references/frappe-ui-data-fetching.md),
 [references/frappe-ui-data-fetching-legacy.md](references/frappe-ui-data-fetching-legacy.md).
 Component catalog index (which file for what):
 [references/frappe-ui-components.md](references/frappe-ui-components.md).
@@ -117,8 +117,7 @@ bench --site <site> clear-cache
 
 - **Blank page after build**: route not registered in `hooks.py`, or the built `index.html` path is wrong
 - **`Package subpath '…' is not defined by "exports"`**: deep import such as `frappe-ui/src/...`; use `frappe-ui/tailwind`, `frappe-ui/style.css`, `frappe-ui/editor`, `frappe-ui/list`
-- **`Could not resolve '~icons/lucide/…'`**: add `optimizeDeps.exclude: ['frappe-ui']`
-- **`injection "Symbol(router)" not found`**: `app.use(router)` missing — Button needs it
+- **`Could not resolve '~icons/lucide/…'`**: only fires when `lucideIcons: true` is passed to `frappeui()` (off by default); icons use CSS masks, not virtual imports — remove that option (1.0.2)
 - **`useCall` 404**: the URL lacks `/api/v2/method/` or the site runs Frappe < v15
 - **403 on every call**: session not shared — check the site origin and that the user is logged in
 - **Toast disappears instantly (1.0)**: `duration` is milliseconds, not seconds
@@ -144,6 +143,7 @@ bench --site <site> clear-cache
 - [references/frappe-ui-form-controls.md](references/frappe-ui-form-controls.md) - Inputs, Select/Combobox/MultiSelect, date/time pickers, FileUploader, Link
 - [references/frappe-ui-overlays.md](references/frappe-ui-overlays.md) - Dialog, `dialog.*`, toast, Dropdown, Popover, HoverCard
 - [references/frappe-ui-list-and-editor.md](references/frappe-ui-list-and-editor.md) - `frappe-ui/list`, legacy ListView, `frappe-ui/editor`
+- [references/frappe-ui-experimental.md](references/frappe-ui-experimental.md) - Unstable experimental components and migration paths (`frappe-ui/experimental`)
 - [references/frappe-ui-data-fetching.md](references/frappe-ui-data-fetching.md) - `useCall`, `useList`, `useDoc`, `useDoctype`, `useNewDoc`, `call`
 - [references/frappe-ui-data-fetching-legacy.md](references/frappe-ui-data-fetching-legacy.md) - `createResource` family and migration to v3
 - [references/frappe-desk-client-apis.md](references/frappe-desk-client-apis.md) - Desk `frappe.*` vanilla-JS APIs
@@ -153,6 +153,7 @@ bench --site <site> clear-cache
 - [references/app-shell-patterns.md](references/app-shell-patterns.md) - DesktopShell/MobileShell/Sidebar, 0.1.x fallback
 - [references/frontend-portal.md](references/frontend-portal.md) - Website/portal pages without a build step
 - `assets/`: `App.vue`, `ListPage.vue`, `DetailPage.vue`, `FormWizard.vue`, `page.js` (Desk Page embed), `useVersion.js`, `tailwind.config.js` templates
+- [references/frappe-ui-contracts.md](references/frappe-ui-contracts.md) - API contracts: v-model shapes, variant/theme per component, slot names, dialog/toast APIs, data-fetch gotchas (1.0.2)
 
 ## Guardrails
 
@@ -162,6 +163,7 @@ bench --site <site> clear-cache
 - **No deprecated exports**: `FeatherIcon`/`Input` removed 1.0; use `Icon`/`TextInput`
 - **Composition API + `<script setup>`**; every call handles loading, error and empty
 - **Design tokens only**; rebuild after changes
+- **`app.use(FrappeUI)` is optional** — it installs no injections; `<FrappeUIProvider>` at the app root is what enables `dialog.*` / `toast.*` (1.0.2)
 
 <!-- Adapted from addyosmani/agent-skills (MIT): anti-rationalization pattern -->
 ## Common Rationalizations
@@ -179,17 +181,17 @@ bench --site <site> clear-cache
 
 - Raw `fetch` or `axios` calls inside a Vue component
 - `FeatherIcon` or `Input` imported from `frappe-ui` (removed in 1.0)
-- `frappe-ui` not in `optimizeDeps.exclude` when on frappe-ui 1.0
 - Hardcoded hex colors or `px` spacing values in `.vue` files
-- `vite` or `tailwindcss` version unpinned (standalone: Vite 5 / Tailwind 3)
+- Tailwind v4 in `package.json` (breaks the preset silently; use `tailwindcss@^3.4`)
 - `app.use(FrappeUI)` without `<FrappeUIProvider>` — `toast()` / `dialog.*` render nothing
+- `Tabs v-model:tab` or `dialog.alert(...)` in component code — both are wrong API calls (`tab` is `SettingsDialog`'s model; `alert` does not exist)
 
 ## Common Mistakes
 
 | Mistake | Why It Fails | Fix |
 |---------|--------------|-----|
 | Raw `fetch` calls | No auth, no error handling | `useCall` |
-| Vite 6+/Tailwind v4 (standalone) | Plugin and preset silently fail | Pin Vite 5, Tailwind 3.4 |
+| Tailwind v4 | Preset is v3-shaped; design tokens never load | Use `tailwindcss@^3.4` |
 | `<FeatherIcon>` or `<Input>` (1.0) | Removed from root exports | `<Icon name="lucide-*">` / `<TextInput>` |
 | `ListView`/`CommandPalette` from `frappe-ui` (1.0) | Moved to `frappe-ui/experimental` | Import from `frappe-ui/experimental` |
 | No `<FrappeUIProvider>` in App.vue | `toast()`/`dialog.*` render nothing | Wrap root with `<FrappeUIProvider>` |
@@ -197,3 +199,9 @@ bench --site <site> clear-cache
 | No `...frappeUIContent` in Tailwind content | Components unstyled | Import `content` from `frappe-ui/tailwind` |
 | No `resolve.dedupe` with linked packages | Reka-ui/tiptap singleton breaks | Add `vue`, `frappe-ui`, `reka-ui`, editor packages |
 | Building an SPA for simple CRUD | Maintenance for nothing | Use Desk |
+| `dialog.alert(...)` | No such method; throws `TypeError` at runtime | `dialog.danger` (destructive) or `dialog.confirm` |
+| `<Tabs v-model:tab="…">` | `tab` model belongs to `SettingsDialog`, not `Tabs` | Bare `v-model` on `Tabs` |
+| `useDoc.data` accessed | `useDoc` returns `doc`, not `data` | Use `.doc` — see [contracts](references/frappe-ui-contracts.md) |
+| `Dropdown { group, items: [...] }` | `items` is typed `never`; renders nothing | `{ group, options: [...] }` |
+| `<LoadingText :lines="3">` | No `:lines` prop; `text?: string` only | `<Skeleton class="h-4 w-40">` for placeholders |
+| `<PageHeader><template #suffix>…` | `PageHeader` has only a default slot | Put all content including actions in the default slot |

@@ -17,7 +17,7 @@ two ways:
 > preset generated from a Figma export — different pipeline, same names. See
 > [frappe-ui-tailwind-tokens.md](frappe-ui-tailwind-tokens.md) for the
 > generated color/typography/radius/shadow/icon utility classes (v1,
-> `1.0.0-beta.29`) and [frappe-ui-tokens-v2-migration.md](frappe-ui-tokens-v2-migration.md)
+> `1.0.2`) and [frappe-ui-tokens-v2-migration.md](frappe-ui-tokens-v2-migration.md)
 > for the espresso-v2 rename migration. For the conceptual overview,
 > dark-mode mechanics, semantic tokens, icons, and the Desk-vs-frappe-ui
 > split, see [espresso-design-system.md](espresso-design-system.md).
@@ -459,7 +459,7 @@ larger scale (more typography sizes, a numbered radius scale, per-weight
 typography classes). Import path is version-gated — check
 `frontend/package.json`:
 
-- **v1** (`1.0.0-beta.x`, canonical): `import frappeUIPreset from 'frappe-ui/tailwind'`
+- **v1** (`1.0.2`, canonical): `import frappeUIPreset from 'frappe-ui/tailwind'`
 - **0.1.261 baseline**: same `import frappeUIPreset from 'frappe-ui/tailwind'`
   (`./tailwind` was already a stable export subpath)
 - **very old 0.1.x** (e.g. `apps/hrms/frontend` pins `0.1.105`): a pre-exports-map

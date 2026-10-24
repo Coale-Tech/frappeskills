@@ -46,8 +46,8 @@ Tailwind class for each: [references/design-tokens.md](references/design-tokens.
 ```js
 // tailwind.config.js (Tailwind v3)
 import frappeUIPreset, { content as frappeUIContent } from 'frappe-ui/tailwind'
-// frappe-ui 1.0: use the exported `content` array — it's the authoritative glob list
-// frappe-ui 0.1.x: no `content` export; hand-write './node_modules/frappe-ui/src/**/*.{vue,js,ts}'
+// frappe-ui 1.0: use the exported `content` array — authoritative glob list
+// frappe-ui 0.1.x: no `content` export; hand-write the glob instead
 export default { presets: [frappeUIPreset], content: ['./src/**/*.{vue,js,ts}', ...frappeUIContent] }
 ```
 
@@ -58,10 +58,20 @@ export default { presets: [frappeUIPreset], content: ['./src/**/*.{vue,js,ts}', 
 
 Import `frappe-ui/tailwind`, not `frappe-ui/src/...` (outside the package
 `exports` map). Semantic families: `ink-*`, `surface-*`, `outline-*`; icons are
-`lucide-<name>` classes; dark mode is `[data-theme="dark"]` driven by `useTheme()` —
+`lucide-<name>` classes; dark mode is `[data-theme="dark"]` driven by `useColorScheme()` —
 [references/frappe-ui-tailwind-tokens.md](references/frappe-ui-tailwind-tokens.md).
 Migrating an app to the v2 token names:
 [references/frappe-ui-tokens-v2-migration.md](references/frappe-ui-tokens-v2-migration.md).
+
+`useColorScheme()` stamps `data-theme="dark"` on `<html>` and briefly adds `.no-transition`
+during the swap to suppress a full-page cross-fade. `frappe-ui/style.css` provides that rule —
+apps that skip the import lose the suppression. Do not roll a custom theme switcher.
+The preset also includes `future.hoverOnlyWhenSupported: true` so `hover:` styles activate
+only on pointer-capable devices (no ghost fills on touch).
+
+**Chart tokens**: components from `frappe-ui/charts` read `--chart-*` CSS vars for series colors.
+Use `useChartTokens(plotEl)` and `paletteColors()` for custom ECharts plots — never hardcode hex.
+See [../frappe-reports/references/data-visualization.md](../frappe-reports/references/data-visualization.md).
 
 ### 3) Respect the semantic layer
 

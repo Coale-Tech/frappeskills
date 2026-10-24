@@ -408,6 +408,188 @@ e.g. `{"colors": ["#d1d8dd", "#ff5858"]}`), and the usual `is_standard`/`module`
 app-bundled dashboards (`frappe/desk/doctype/dashboard/dashboard.json`).
 
 ---
+## frappe-ui Charts (`frappe-ui/charts`)
+
+Eleven ECharts-backed Vue 3 components imported from `frappe-ui/charts`
+(separate subpath — importing it loads the `--chart-*` CSS color tokens).
+Not the legacy `frappe-charts` SVG library: these are reactive Vue components.
+
+```js
+import { BarChart, LineChart, DonutChart } from 'frappe-ui/charts'
+```
+
+### Chart components
+
+| Component | Import | Use for |
+|---|---|---|
+| `BarChart` | `frappe-ui/charts` | Grouped, stacked (`stacked`/`stacked: 'normalized'`) and horizontal bars |
+| `LineChart` | `frappe-ui/charts` | Trends, dual Y axis, gaps (null values) |
+| `AreaChart` | `frappe-ui/charts` | Lines with a fill — same API as `LineChart` |
+| `DonutChart` | `frappe-ui/charts` | Share of a total, optional half-ring variant |
+| `PercentageBarChart` | `frappe-ui/charts` | Share of a total as one segmented bar |
+| `FunnelChart` | `frappe-ui/charts` | Stage drop-off (no ECharts — custom SVG) |
+| `HeatmapChart` | `frappe-ui/charts` | Value across two categorical dimensions |
+| `CalendarHeatmapChart` | `frappe-ui/charts` | One value per calendar day |
+| `ScatterChart` | `frappe-ui/charts` | Two measures against each other |
+| `SankeyChart` | `frappe-ui/charts` | Flow from source nodes to target nodes |
+| `NumberCard` | `frappe-ui/charts` | Single KPI: value, delta, sparkline, progress bar |
+
+### Common props (`ChartBaseProps`)
+
+All charts accept:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `title` | `string` | — | Card header |
+| `subtitle` | `string` | — | Second line under title |
+| `loading` | `boolean` | `false` | Shows placeholder skeleton |
+| `error` | `string\|null` | — | Shows error state with this message |
+| `dir` | `'ltr'\|'rtl'` | doc dir | Layout direction |
+
+### Axis charts (BarChart / LineChart / AreaChart)
+
+```vue
+<BarChart
+  :data="rows"
+  x="month"
+  :y="['revenue', 'cost']"
+  y2="margin_pct"
+  split-by="region"
+  :max-series="10"
+  :series-config="{ revenue: { label: 'Revenue', color: 'var(--ink-blue-5)' } }"
+  :stacked="true"
+  :horizontal="false"
+  :show-data-labels="false"
+  :smooth="false"
+  :show-data-points="false"
+  :reference-lines="[{ value: 100000, label: 'Target', axis: 'y', dashed: true }]"
+  :tooltip-columns="[{ name: 'count', label: 'Orders' }]"
+  :x-axis="{ title: 'Month', type: 'time' }"
+  :y-axis="{ title: 'USD', format: v => '$' + v.toLocaleString(), min: 0 }"
+  :y2-axis="{ title: '%', format: v => v + '%' }"
+  palette="sequential"
+  v-model:hidden-series="hiddenSeries"
+  @select="onSelect"
+/>
+```
+
+Key prop notes:
+- `x`: row key for category/time axis. Type inferred (`'time'` if values are ISO dates/Dates, else `'category'`).
+- `y`: one column name or array. `y2`: second value axis (ignored on horizontal charts).
+- `splitBy`: splits rows into one series per distinct value (long data). Use with a single `y`.
+- `maxSeries`: caps split-by series; tail → "Others" (`OTHERS_KEY`).
+- `seriesConfig`: keyed by column name (or splitBy value). Per-series overrides: `label`, `color`,
+  `type` (`'bar'|'line'|'area'`), `format`, `showDataLabels`, `stackName`, `dashed`, `smooth`,
+  `showDataPoints`, `connectNulls`, `echartOptions`.
+- `stacked: 'normalized'` → 100% stacked (value axis pinned to 0-100).
+- `referenceLines`: `{ value, axis: 'y'|'y2'|'x', label, labelPlacement, color, dashed }`.
+  Value axis extends to include the value.
+- `tooltipColumns`: extra row columns shown only in tooltip, not plotted.
+- `v-model:hiddenSeries`: controls legend visibility from outside the component.
+- `echartOptions`: deep-merged into the ECharts option as last-resort escape hatch.
+
+### DonutChart
+
+```vue
+<DonutChart
+  :data="rows"
+  category="status"
+  value="amount"
+  :max-slices="9"
+  order="size"
+  :show-data-labels="false"
+  center-label="Total"
+  variant="full"
+  :colors="{ Overdue: 'var(--ink-red-5)' }"
+  format="v => '$' + v"
+  palette="categorical"
+  v-model:hidden-slices="hiddenSlices"
+  @select="onSelect"
+/>
+```
+
+- Tail beyond `maxSlices` → "Others" (`OTHERS_KEY`). `order: 'rows'` preserves row order.
+- `variant: 'half'` → semicircle.
+
+### PercentageBarChart
+
+Same `category`/`value`/`maxSlices`/`order`/`hiddenSlices`/`colors`/`palette` API as DonutChart.
+Single horizontal bar divided into colored segments.
+
+### NumberCard
+
+```vue
+<NumberCard
+  title="Revenue"
+  :value="125000"
+  prefix="$"
+  :delta="-4200"
+  delta-suffix="vs last month"
+  :negative-is-better="false"
+  :format="v => '$' + v.toLocaleString()"
+  :delta-format="v => '$' + v.toLocaleString()"
+  :sparkline="{ data: [100, 120, 115, 130], type: 'area' }"
+  :progress="{ value: 72 }"
+/>
+```
+
+- `value: null` → empty state. `value: string` → rendered as-is (no formatting applied).
+- `delta` sign drives up/down arrow. `negativeIsBetter` flips arrow colors (for cost/churn).
+- `target`: prints ` / target` in value formatting.
+- No `subtitle` prop (use `deltaCaption` instead).
+- No ECharts instance exposed; `FunnelChart` and `PercentageBarChart` also expose none.
+
+### Palette
+
+`palette` prop on all charts: `'sequential'` | `'categorical'` | `'diverging'` | `string[]`.
+Named ramps read `--chart-*` CSS tokens (resolved at render, updates on theme change).
+Defaults: axis charts → `'sequential'`; donut/scatter/sankey → `'categorical'`;
+funnel → `'sequential'` reversed; heatmap/calendar → `'sequential'`.
+
+### Color tokens
+
+`frappe-ui/charts` imports `src/charts/style.css` which declares `--chart-categorical-1..10`,
+`--chart-sequential-1..9`, `--chart-diverging-1..9`, plus axis/label token vars.
+Use `useChartTokens(plotEl)` to read them as computed strings for a custom ECharts plot.
+`paletteColors(palette, tokens, count)` picks `count` colors from a named ramp or array.
+
+### States and slots
+
+Every chart has `#loading`, `#error`, and `#empty` slots (replace the whole state region).
+The `#actions` slot places controls at the top-right of the card (e.g. a period Select).
+Set `card: false` when the chart is already inside a card (`ChartCard`/`ChartContainer`
+can be used independently for custom ECharts plots).
+
+### Custom ECharts plots
+
+Use `useChart({ container, option })` + `registerChartModules([...])` to wrap a raw ECharts
+instance in the frappe-ui lifecycle. Pair with `ChartCard`, `ChartContainer`, `ChartLegend`,
+`ChartTooltip` and `useChartTokens` to match the built-in chart style.
+
+### HeatmapChart / CalendarHeatmapChart
+
+HeatmapChart props: `x` (column), `y` (column), `value` (column), `min`/`max`, `xAxis`/`yAxis`
+(each accepts `{ format: (v) => string }`), `showDataLabels`, `format`, `palette` (continuous
+ramps only: `'sequential'|'diverging'|string[]`).
+
+CalendarHeatmapChart props: `date` (column — `Date` or ISO string), `value` (column),
+`start`/`end` (range), `weekStart`, `min`/`max`, `format`, `palette`.
+
+### ScatterChart
+
+Props: `x`/`y` (columns), `size` (column, optional bubble sizing), `splitBy` (one series per value),
+`label` (column for point names), `showDataLabels`, `xAxis`/`yAxis` (value axis options),
+`referenceLines` (both axes), `format`, `hiddenSeries`, `palette`.
+
+### SankeyChart
+
+Props: `source`/`target`/`value` (columns), `vertical` (top→bottom flow), `nodeAlign`
+(`'left'|'right'|'justify'`), `format`, `palette`.
+
+### FunnelChart
+
+Props: `category`/`value` (columns), `format`, `palette`. Draws its own SVG — no ECharts instance.
+
 
 ## Frappe Insights
 
@@ -513,3 +695,13 @@ Verified against Frappe 16.35.0 (`apps/frappe`):
 - `apps/frappe/frappe/desk/doctype/dashboard_chart_source/dashboard_chart_source.json` (Custom chart source)
 - Query builder: `apps/frappe/frappe/query_builder/functions.py:4` (re-exports `pypika.functions.{Avg,Count,Sum}` via `frappe.query_builder.functions`), `apps/frappe/frappe/utils/data.py:330,428` (`add_months`, `nowdate`)
 - Frappe Insights is an external app: https://github.com/frappe/insights (not on this bench)
+
+frappe-ui/charts section verified against frappe-ui **1.0.2**:
+- `apps/frappe-ui/src/charts/index.ts` — exported components, types, utilities
+- `apps/frappe-ui/src/charts/types.ts` — all `*Props`, `*Emits`, `*Slots`, config shapes
+- `apps/frappe-ui/src/charts/tokens.ts` — `ChartTokens`, `paletteColors`, `useChartTokens`, palette ramp lengths
+- `apps/frappe-ui/src/charts/docs/Overview.md` — overview, custom chart pattern
+- `apps/frappe-ui/src/charts/{AreaChart,BarChart,LineChart,DonutChart,FunnelChart,NumberCard}.vue`
+- `apps/frappe-ui/src/charts/{HeatmapChart,CalendarHeatmapChart,ScatterChart,SankeyChart,PercentageBarChart}.vue`
+- `apps/frappe-ui/src/charts/style.css` — `--chart-*` token declarations
+- `apps/frappe-ui/package.json` (`exports["./charts"]`); version 1.0.2

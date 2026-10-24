@@ -6,19 +6,19 @@ still-supported alternative so existing code isn't misdiagnosed as wrong.
 
 ## List: which family to use
 
-| | `frappe-ui/list` `(v1)` | `ListView` (top-level) |
+| | `frappe-ui/list` `(v1)` | `ListView` (experimental `(1.0.2)`) |
 |---|---|---|
-| Import | `import { List, ListRows, ... } from 'frappe-ui/list'` | `import { ListView } from 'frappe-ui'` |
+| Import | `import { List, ListRows, ... } from 'frappe-ui/list'` | `import { ListView } from 'frappe-ui/experimental'` |
 | Shape | Composition primitives (`List` + `ListRows` + `ListRow` + `ListCell`) | One config-driven component (`:columns`, `:rows`, `:options`) |
-| Status | New in v1; the forward direction | **Not deprecated.** Source explicitly keeps it until `frappe-ui/list` reaches feature parity (grouping, footer/pagination, resize-column, select-banner). |
+| Status | New in v1; the forward direction | **Not deprecated.** Source explicitly keeps it until `frappe-ui/list` reaches feature parity (grouping, footer/pagination, resize-column, select-banner). Moved from the root export to `frappe-ui/experimental` `(1.0.2)`. |
 | Grouping, footer/pagination, resizable columns, select-banner | Not yet (roll your own) | Built in (`ListGroup(s)`, `ListFooter`, `resizeColumn`, `ListSelectBanner`) |
-| Virtualization | `virtual` prop on `ListRows` (`useVirtualRows`) | Not built in |
+| Virtualization | `virtual` prop on `ListRows` (boolean) | Not built in |
 
 Pick `frappe-ui/list` for new feed/table UI without heavy chrome (settings
 lists, simple record tables, master-detail panes). Reach for `ListView` when
 you need grouped rows, built-in pagination footer, resizable columns, or a
 bulk-selection banner today — its API is stable, not a deprecated fallback.
-Both are present in 1.0.0-beta.29; only `ListView` is present in the 0.1.261
+Both are present in 1.0.2 (ListView via `frappe-ui/experimental`); only `ListView` is present in the 0.1.261
 baseline.
 
 ## `frappe-ui/list` `(v1)`
@@ -31,7 +31,7 @@ contents (typography, avatars, badges) are entirely app-authored.
 ```ts
 import {
   List, ListRow, ListCell, ListHeader, ListHeaderCell,
-  ListHeaderCellSort, ListRows, ListGroup, useVirtualRows,
+  ListHeaderCellSort, ListRows, ListGroup,
 } from 'frappe-ui/list'
 ```
 
@@ -77,8 +77,7 @@ plain `div`.
 
 `ListRows` props: `items` (required), `rowKey` (string field name or
 `(item, index) => key`; defaults to `name`, then `id`, then index),
-`virtual` (`boolean | ListVirtualOptions`, windows rows via
-`useVirtualRows`). Scoped slot: `{ item, index, value }`.
+`virtual` (`boolean`; activates row windowing via the internal `useVirtualRows` — not a public export). Scoped slot: `{ item, index, value }`.
 
 ### Active row (master-detail)
 
@@ -150,10 +149,9 @@ toggle rules, and (for server ordering) feeding `sortField`/`sortDir` into
 </List>
 ```
 
-Only rows near the viewport mount (`vueuse` `useVirtualList` under the hood).
-The scroll container is the nearest scrollable ancestor — the list windows
-against an app-owned scroll area, not its own. `itemHeight` defaults to the
-`List`'s `rowHeight`.
+Only rows near the viewport mount (windowed via the internal `useVirtualRows`).
+The scroll container is resolved as the nearest scrollable ancestor; the list
+windows against an app-owned scroll area, not its own.
 
 ### Styling hooks
 
@@ -167,11 +165,11 @@ values for targeting: `list`, `list-header`, `list-header-cell`, `list-row`,
 
 (`src/molecules/list/`)
 
-## `ListView` (top-level, still supported)
+## `ListView` (experimental — `frappe-ui/experimental` `(1.0.2)`)
 
 ```vue
 <script setup>
-import { ListView } from 'frappe-ui'
+import { ListView } from 'frappe-ui/experimental'
 
 const columns = [
   { label: 'Name', key: 'lead_name', width: 3 },
@@ -222,11 +220,11 @@ allRowsSelected, selectAll, unselectAll }`).
 
 ## Rich text: which family to use
 
-| | `frappe-ui/editor` `(v1)` | `TextEditor` (top-level) |
+| | `frappe-ui/editor` `(v1)` | `TextEditor` (deprecated) |
 |---|---|---|
-| Import | `import { Editor, useEditor, RichTextKit } from 'frappe-ui/editor'` | `import { TextEditor } from 'frappe-ui'` |
+| Import | `import { Editor, useEditor, RichTextKit } from 'frappe-ui/editor'` | `import { TextEditor } from 'frappe-ui/experimental'` `(1.0.2)` |
 | Shape | Renderless `<Editor>` + `useEditor` composable + composable kits | One opinionated SFC with a fixed/bubble menu |
-| Status | v1 canonical | **`@deprecated` — use `frappe-ui/editor` instead.** Still exported for back-compat. |
+| Status | v1 canonical | **`@deprecated`** — use `frappe-ui/editor` instead. Parked in `frappe-ui/experimental` `(1.0.2)`; will be removed. |
 | Present in 0.1.261 | No | Yes (this is the 0.1.x API) |
 
 ## `frappe-ui/editor` `(v1)`
@@ -267,7 +265,9 @@ the shape `format` names. Emits `change`, `focus`, `blur`, `transaction`.
 
 Building blocks composed inside the default slot: `EditorContent` (renders
 the document), `EditorFixedMenu`, `EditorBubbleMenu`, `EditorFloatingMenu`
-(toolbars — each takes `:editor` and an `:items` array of `MenuItem`s).
+(toolbars — each takes `:editor` and an `:items` array of `MenuItem`s),
+`EditorTableMenu` (the table-context toolbar), `EditorDropZone` (drag-and-drop
+file target for image/video/attachment).
 
 ### Kits
 
@@ -284,13 +284,21 @@ Kits are TipTap extension bundles with a typed `.configure()`:
   Full document editing (articles, wiki pages).
 
 ```ts
+const usersRef = ref<MentionSuggestionItem[]>([])
+// populate usersRef from useList / createResource / etc.
+
 const extensions = [
   RichTextKit.configure({
-    mention: { fetchSuggestions: (query) => fetchUsers(query) },
+    mention: { items: usersRef },  // MaybeRefOrGetter<MentionSuggestionItem[]>
     table: true,
   }),
 ]
 ```
+
+`MentionSuggestionItem`: `{ label: string; value: string; [extra: string]: any }`.
+Results are ranked by query `(1.0.2)`: exact label match → label starts-with → any word starts-with, limited to 10.
+`mention: false` disables the extension; passing `null` (or omitting `items`)
+renders existing mentions but shows no suggestion menu.
 
 Toolbar presets (arrays of `MenuItem` for the menu components):
 `minimalToolbar`, `commentToolbar`, `articleToolbar`, `tableToolbar`. Command
@@ -301,11 +309,82 @@ building blocks (`Bold`, `Italic`, `Strike`, `InlineCode`, `BulletList`,
 `InsertTable` + table controls, `HorizontalRule`, `Undo`, `Redo`,
 `Separator`) compose custom toolbars when a preset doesn't fit.
 
+### `useEditor` (L4 — headless)
+
+`useEditor(options)` → `ShallowRef<TiptapEditor | null>` — builds the editor
+without `<Editor>`. Use when the component's lifecycle doesn't fit (a global
+editor, a non-SFC context). Options mirror `Editor` props plus lifecycle
+callbacks (`onUpdate`, `onFocus`, `onBlur`, `onTransaction`). The caller owns
+disposal; `onBeforeUnmount` is NOT called automatically.
+
+```ts
+import { useEditor, RichTextKit, type TiptapEditor } from 'frappe-ui/editor'
+
+const editor = useEditor({
+  content: myContentRef,
+  format: 'html',
+  extensions: [RichTextKit.configure({ mention: { items: usersRef } })],
+  onUpdate(e) { /* sync */ },
+})
+```
+
 (`src/molecules/editor/`)
 
-## `TextEditor` (deprecated, 0.1.x baseline)
+## `frappe-ui/code-editor`
 
-Still present and functional in v1 for migration, but new code should use
+A CodeMirror 6 code editor, same compositional shape as `frappe-ui/editor`.
+
+```ts
+import {
+  CodeEditor, CodeEditorContent,
+  CodeKit, useCodeEditor,
+  loadLanguage, codeChrome, codeHighlight, codeKeymap,
+  type LanguageKey, type CodeEditorOptions, type CodeEditorExposed,
+} from 'frappe-ui/code-editor'
+```
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { CodeEditor, CodeEditorContent, CodeKit, loadLanguage } from 'frappe-ui/code-editor'
+
+const code = ref('')
+const extensions = ref([CodeKit])
+
+onMounted(async () => {
+  const lang = await loadLanguage('python')  // dynamic import
+  if (lang) extensions.value = [CodeKit, lang]
+})
+</script>
+
+<template>
+  <CodeEditor v-model="code" :extensions="extensions" @change="onCommit">
+    <template #default="{ editor }">
+      <CodeEditorContent :editor="editor" />
+    </template>
+  </CodeEditor>
+</template>
+```
+
+`CodeEditor` props: `extensions` (required, `Extension[]`, reactive — a new
+array is re-applied without recreating the view, so document/selection/history
+survive a language change), `editable` (default `true`), `autofocus` (default
+`false`). `v-model` is a `string`. Emits `change` (on blur), `focus`, `blur`.
+Scoped slot: `{ editor: EditorView | null }`. `defineExpose`: `{ editor }`.
+
+`LanguageKey`: `'json' | 'html' | 'javascript' | 'python' | 'sql' | 'markdown' | 'css' | 'scss' | 'yaml' | 'xml'`. `loadLanguage(key?)` dynamically imports the matching `@codemirror/lang-*` package and returns a `Promise<Extension | null>` (null = plain text / unknown key).
+
+`CodeKit` is the one default extension bundle (chrome + highlight + keymap). Individual members: `codeChrome` (frappe-design-system gutter/border shell), `codeHighlight` (lowlight tree-sitter themes), `codeKeymap` (indent/dedent/comment keybindings). Use `CodeKit.configure({ member: false })` to remove members.
+
+`useCodeEditor(options)` → `ShallowRef<EditorView | null>` — the L4 API; builds the view without `<CodeEditor>`. Options: `content` (Ref<string>), `extensions` (MaybeRefOrGetter<Extension[]>), `editable`, `autofocus`, `onChange`, `onFocus`, `onBlur`.
+
+(`src/molecules/code-editor/`)
+
+## `TextEditor` (deprecated — `frappe-ui/experimental` `(1.0.2)`)
+
+`import { TextEditor } from 'frappe-ui/experimental'`
+
+Still present and functional for migration, but new code should use
 `frappe-ui/editor` above. This is the 0.1.261 API:
 
 ```vue
@@ -346,12 +425,13 @@ built-in set), `starterkitOptions`, `mentions`, `tags`. Slots: `#top`,
 
 ## Sources
 
-Verified against frappe-ui `1.0.0-beta.29` (`package.json`), cross-checked
-against the `0.1.261` baseline vendored at
-`apps/crm/frontend/node_modules/frappe-ui`:
+Verified against frappe-ui `1.0.2` (`apps/frappe-ui/package.json`):
 
-- `apps/frappe-ui/src/molecules/list/List.vue`, `ListRows.vue`, `ListRow.vue`/`ListRowBase.vue`, `ListCell.vue`, `ListHeader.vue`, `ListHeaderCell.vue`, `ListHeaderCellSort.vue`, `ListGroup.vue`, `useVirtualRows.ts`, `list-context.ts`, `types.ts`, `list.api.md`
-- `apps/frappe-ui/src/components/ListView/ListView.vue`, `ListEmptyState.vue`, `ListFooter.vue`, `ListGroupHeader.vue`, `ListGroupRows.vue`, `ListGroups.vue`, `ListHeader.vue`, `ListHeaderItem.vue`, `ListRow.vue`, `ListRowItem.vue`, `ListRows.vue`, `ListSelectBanner.vue`, `ListView.api.md`
-- `apps/frappe-ui/src/molecules/editor/Editor.vue`, `EditorContent.vue`, `EditorFixedMenu.vue`, `EditorBubbleMenu.vue`, `EditorFloatingMenu.vue`, `kits.ts`, `menu.ts`, `extensions.ts`
-- `apps/frappe-ui/src/components/TextEditor/TextEditor.vue`, `TextEditor.api.md`
-- `apps/frappe-ui/src/index.ts` — `TextEditor` re-exported with `@deprecated Use the 'frappe-ui/editor' subpath instead`
+- `apps/frappe-ui/src/molecules/list/List.vue`, `ListRows.vue`, `ListRow.vue`, `ListRowBase.vue`, `ListCell.vue`, `ListHeader.vue`, `ListHeaderCell.vue`, `ListHeaderCellSort.vue`, `ListGroup.vue`, `useVirtualRows.ts` (internal), `list-context.ts`, `types.ts`, `index.ts`, `list.api.md`
+- `apps/frappe-ui/experimental/ListView/index.ts` — `ListView` and full legacy family exported from `frappe-ui/experimental`
+- `apps/frappe-ui/src/molecules/editor/Editor.vue`, `EditorContent.vue`, `EditorFixedMenu.vue`, `EditorBubbleMenu.vue`, `EditorFloatingMenu.vue`, `EditorTableMenu.vue`, `EditorDropZone.vue` (components/), `kits.ts`, `menu.ts`, `extensions.ts`, `index.ts`, `useEditor.ts`, `SuggestionExtension.ts`
+- `apps/frappe-ui/src/molecules/editor/extensions/mention/mention-extension.ts` — `items: MaybeRefOrGetter<MentionSuggestionItem[]>` (not `fetchSuggestions`), `rankByQuery` scorer (exact → starts-with → word-starts-with, 1.0.2)
+- `apps/frappe-ui/src/molecules/editor/extensions/slash-commands/slash-commands-extension.ts` — `SlashCommandsOptions.items?: MaybeRefOrGetter<CommandItem[]>`
+- `apps/frappe-ui/src/molecules/code-editor/CodeEditor.vue`, `CodeEditorContent.vue`, `index.ts`, `kit.ts`, `extensions.ts`, `languages.ts`, `useCodeEditor.ts`
+- `apps/frappe-ui/experimental/TextEditor/index.ts` — deprecated family re-parked in `frappe-ui/experimental`
+- `apps/frappe-ui/experimental.ts` — all experimental re-exports with comments naming the tracking issue

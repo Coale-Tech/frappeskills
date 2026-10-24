@@ -4,12 +4,14 @@ Adapted in part from frappe/frappe-ui (MIT): `skills/frappe-ui/COMPONENTS.md`.
 
 `createResource` / `createListResource` / `createDocumentResource`
 (`src/resources/`) predate the v3 composables in
-[frappe-ui-data-fetching.md](frappe-ui-data-fetching.md) and remain exported
-"until official apps finish the v3 migration" (`src/index.ts`). **Do not use
-this family in new code** — reach for `useCall`/`useList`/`useDoc`/
-`useDoctype`/`useNewDoc` instead. This page exists to read and migrate
-existing code (CRM, Helpdesk, Gameplan, and most 0.1.x apps still use this
-family throughout).
+[frappe-ui-data-fetching.md](frappe-ui-data-fetching.md). As of 1.0.2 they
+are **supported and frozen through 1.x, un-deprecated** — see `src/index.ts`
+comment and ADR-0013. The implementation stays JS with no API changes; both
+families coexist. **Prefer the v3 composables (`useCall`/`useList`/`useDoc`/
+`useDoctype`/`useNewDoc`) for new code** — they compose better, are fully
+TypeScript-typed, and talk to the `/api/v2/...` REST surface. This page
+exists to read and migrate existing code (CRM, Helpdesk, Gameplan, and most
+0.1.x apps still use this family throughout).
 
 ---
 
@@ -309,7 +311,7 @@ without creating a new one; `this.$getDoc(doctype, name)` is a shortcut for
 | --- | --- | --- |
 | `createResource({ url, method, params, auto })` | `useCall({ url, method, params, immediate })` | `auto` → `immediate`; legacy defaults to RPC `/api/method/`, v3 composables target `/api/v2/...` — pick the matching backend route. |
 | `resource.fetch()` / `.reload()` | `call.execute()` / `.fetch()` / `.reload()` | same three aliases. |
-| `resource.submit(params)` | `call.submit(params)` | v3 `submit` does not throw on error — check `.error` instead of `try/catch`. |
+| `resource.submit(params)` | `call.submit(params)` | v3 `submit()` **also throws** on request failure (`if (error.value) throw error.value` in `useCall.ts`); `execute()`/`fetch()`/`reload()` resolve either way — use those for reads, `submit()` for writes. |
 | `createListResource({ doctype, fields, filters, pageLength })` | `useList({ doctype, fields, filters, limit })` | `pageLength` → `limit`; `start`/pagination shape unchanged. |
 | `list.insert.submit(values)` | `list.insert.submit(values)` | same call shape; v3 refetches only when `refetch: true` (list default) vs. legacy always refetching. |
 | `list.setValue.submit(name, field, value)`-style code | `list.setValue.submit({ name, ...fields })` | legacy `makeParams(options)` already destructures `{name, ...values}` — both eras take one options object, not `(name, field, value)`. |
@@ -412,13 +414,15 @@ function onVisible(visible, entry) {
 
 ## Sources
 
-Verified against frappe-ui `1.0.0-beta.29` (`package.json`):
+Verified against frappe-ui `1.0.2` (`apps/frappe-ui/package.json`):
 
 - `apps/frappe-ui/src/resources/resources.js` — `createResource`, cache-key reuse, `handleError` re-throw, `previousData` rollback
 - `apps/frappe-ui/src/resources/listResource.js` — `createListResource`, `resourcesByDocType`, `updateRowInListResource`/`deleteRowInListResource`/`revertRowInListResource`
 - `apps/frappe-ui/src/resources/documentResource.js` — `createDocumentResource`, `getChangedFields` diffing, optimistic `setValue`/`save` mutation and rollback
-- `apps/frappe-ui/src/resources/plugin.js`, `apps/frappe-ui/src/resources/index.ts` (`resourcesPlugin` export) — Options API `$resources`/`$getResource`/`$getDocumentResource`/`$getListResource`/`$getDoc`
-- `apps/frappe-ui/src/index.ts:11` — legacy resources family "kept public until official apps finish the v3 migration"
+- `apps/frappe-ui/src/resources/plugin.js`, `apps/frappe-ui/src/resources/index.ts` — Options API exports
+- `apps/frappe-ui/src/resources/realtime.ts` — `onDocUpdate`, `WeakMap<Socket, Set<string>>` reconnect fix (1.0.1)
+- `apps/frappe-ui/src/index.ts` — legacy resources "supported and frozen through 1.x, un-deprecated (ADR-0013)"
 - `apps/frappe-ui/src/resources/resources.test.ts`, `apps/frappe-ui/src/resources/documentResource.test.ts`
 - `apps/frappe-ui/src/utils/debounce.ts`, `apps/frappe-ui/src/utils/file-to-base64.ts`, `apps/frappe-ui/src/utils/pageMeta.ts`
 - `apps/frappe-ui/src/directives/onOutsideClick.ts`, `apps/frappe-ui/src/directives/visibility.ts`
+- `apps/frappe-ui/CHANGELOG.md` — 1.0.1: realtime reconnect fix

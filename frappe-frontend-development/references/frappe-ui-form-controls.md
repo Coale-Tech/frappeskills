@@ -1,6 +1,6 @@
 # Frappe UI — Form Controls
 
-Every input, picker, and file-upload component in frappe-ui **1.0.0-beta.29**
+Every input, picker, and file-upload component in frappe-ui **1.0.2**
 (v1). Check `frontend/package.json` for the frappe-ui version actually
 pinned in your app before relying on anything tagged `(v1)` below — apps on
 `0.1.x` do not have it. Where the current baseline (`0.1.261`) has an
@@ -107,6 +107,28 @@ routes through the shared Lucide Tailwind utility; no longer imports
 still fires (mirrored off the `v-model` watcher) but is **deprecated** →
 `update:modelValue`/`v-model` (`src/components/Switch/Switch.vue`).
 
+### Radio / RadioGroup `(v1)`
+
+`RadioGroup` wraps reka-ui's group primitive; compose it with `Radio` items.
+
+**RadioGroup** `v-model: RadioValue` (`string | number | boolean`). Props:
+`size: ToggleSize` (default `"sm"`), `padded` (boolean, default `false` —
+wraps each item in a clickable hover/focus surface for selection-list UX),
+`disabled`, plus the labeling contract (`label`, `description`, `error`,
+`required`, `id`). Emits `update:modelValue`. Exposed `focus()`. Slots:
+`#default` (place `Radio` items), `#label`, `#description`.
+
+**Radio** (individual option): `value: RadioValue` (**required**), `disabled`,
+`label`, `description`, `id`. Slots: `#label`, `#description`.
+
+```vue
+<RadioGroup v-model="priority" label="Priority">
+  <Radio value="low" label="Low" />
+  <Radio value="medium" label="Medium" />
+  <Radio value="high" label="High" />
+</RadioGroup>
+```
+
 ### Rating
 
 `v-model: number` (0..`max`, in `step` increments). Props: `max: number`
@@ -129,12 +151,34 @@ latter fires once when dragging ends, for side effects you don't want on
 every intermediate step. No hardcoded `aria-label` (a prior "Volume" default
 was a bug); pass `label` explicitly (`src/components/Slider/types.ts`).
 
+### Duration `(v1 — new component, not in 0.1.261)`
+
+`src/components/Duration/Duration.vue`. `v-model: number | null` — seconds. Props: `placeholder` (default
+`"1h 30m 45s"`), `format` (`DurationFormat`: `'short' | 'long' | 'colon'` named presets, or a token
+template like `"h'h' m'm' s's'"` or `"hh:mm:ss"`, default `'short'`), `size: InputSize`,
+`variant: InputVariant`, `disabled`, plus the labeling contract. Emits `update:modelValue`.
+Exposed: `focus()`. The input accepts natural language on blur (`"1h 30m 45s"`, `"90"` = 90 s,
+`"1:30:00"`); the formatted display replaces it after commit.
+
 ### ErrorMessage
 
 Standalone, for contexts with no input to attach `error` to (e.g. a
 form-level banner): `<ErrorMessage :message="err" />`. Prop: `message: string
 | Error`. Uses `v-html` internally (kept as-is for v1 — not part of the
 inline `error` prop's plain-text contract on the controls above).
+
+### FormLabel
+
+`src/components/FormLabel/FormLabel.vue`. Standalone label (13px, `ink-gray-6`)
+for use outside of `FormControl`. Props: `id` (string — the `for` attribute),
+`label` (string), `required` (boolean). The size axis was removed in `1.0.0`
+(it was a no-op — the label was always 13px regardless). For richer label
+layouts use the `#label` slot on any input instead.
+
+> `InputLabeling` (`src/components/InputLabeling/`) — `InputLabel`, `InputDescription`,
+> `InputError`, `LabelingWrapper`, `RequiredIndicator` — are internal sub-components
+> not exported from the public API. Use the `label`/`description`/`error` props
+> on the owning control, or `FormLabel` for a standalone label.
 
 ## Selection family — Select / Combobox / MultiSelect
 
@@ -215,6 +259,22 @@ search box moved into the popover header. `Combobox` has no
 `allowCustomValue` — it was removed before `1.0.0`; build free-form
 acceptance from a `type: 'custom'` row whose `onClick` writes the typed query
 to the model.
+
+### Search ranking `(1.0.2)` — Combobox and MultiSelect
+
+When `filterable` is `true` and the user has typed, matching results are
+re-ordered by `rankMatch(label, query)` within each group (lower rank first):
+
+| Rank | Condition |
+| --- | --- |
+| 0 | Exact match, or empty query |
+| 1 | Label starts with the query |
+| 2 | Any word in the label starts with the query |
+| 3 | Any other substring match |
+
+Ties keep source order. `type: 'custom'` action rows are never re-ranked
+(they keep their declared slot). `filterable: false` bypasses ranking
+entirely (server-filtered results arrive pre-ranked).
 
 ### Customizing rows and trigger
 
@@ -544,13 +604,13 @@ response.
 
 ## Sources
 
-Verified against frappe-ui `1.0.0-beta.29` (`package.json`), cross-checked
+Verified against frappe-ui `1.0.2` (`apps/frappe-ui/package.json`), cross-checked
 against the `0.1.261` baseline vendored at
 `apps/crm/frontend/node_modules/frappe-ui`:
 
 - `apps/frappe-ui/src/composables/useInputLabeling.ts`, `apps/frappe-ui/spec/inputs.md` — shared labeling contract, `data-*` hooks, size/variant scales
 - `apps/frappe-ui/src/components/TextInput/TextInput.vue`, `Textarea/Textarea.vue`, `Password/Password.vue`
-- `apps/frappe-ui/src/components/Checkbox/Checkbox.vue`, `Switch/Switch.vue`, `Rating/Rating.vue`, `Slider/Slider.vue`, `Slider/types.ts`, `ErrorMessage/ErrorMessage.vue`
+- `apps/frappe-ui/src/components/Checkbox/Checkbox.vue`, `Switch/Switch.vue`, `Rating/Rating.vue`, `Slider/Slider.vue`, `Slider/types.ts`, `ErrorMessage/ErrorMessage.vue`, `Radio/Radio.api.md`, `Radio/RadioGroup.vue`, `FormLabel/FormLabel.vue`
 - `apps/frappe-ui/spec/selection.md`, `apps/frappe-ui/src/components/Select/Select.api.md`, `Combobox/Combobox.api.md`, `MultiSelect/MultiSelect.api.md`
 - `apps/frappe-ui/src/components/DatePicker/DatePicker.api.md`, `DatePicker/types.ts`, `TimePicker/TimePicker.api.md`, `apps/frappe-ui/spec/date-picker.md`
 - `apps/frappe-ui/src/components/Duration/Duration.api.md`

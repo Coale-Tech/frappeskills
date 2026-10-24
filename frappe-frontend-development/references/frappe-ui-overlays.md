@@ -8,7 +8,7 @@ Dialog, Toast, Dropdown, ContextMenu, Popover, and HoverCard — split out of
 files under the line cap. See that file for Icons/Buttons/Badges/etc., and
 [frappe-ui-components.md](frappe-ui-components.md) for the full file index.
 
-Verified against frappe-ui `1.0.0-beta.29`
+Verified against frappe-ui **`1.0.2`**
 (`src/components/**/*.api.md`, `spec/*.md`); claims that differ from the
 `0.1.261` baseline are tagged `(v1)`.
 
@@ -300,7 +300,9 @@ as-child), `default` (`{ open, close }`). Exposed: `{ open(), close() }`.
 
 ## Sources
 
-- `src/components/{Dialog,Toast,Dropdown,ContextMenu,Popover,HoverCard}/*.api.md`, `.vue`, `types.ts`.
-- `src/utils/dialog.ts`, `src/components/Toast/toast.ts`, `src/components/Toast/types.ts`.
-- `spec/{dialog,toast,dropdown,popover,hover-card,imperative-api}.md`.
+Verified against frappe-ui `1.0.2` (`apps/frappe-ui/package.json`):
+
+- `apps/frappe-ui/src/components/{Dialog,Toast,Dropdown,ContextMenu,Popover,HoverCard}/*.api.md`, `.vue`, `types.ts`.
+- `apps/frappe-ui/src/utils/dialog.ts`, `src/components/Toast/toast.ts`, `src/components/Toast/types.ts`.
+- `apps/frappe-ui/spec/{dialog,toast,dropdown,popover,hover-card,imperative-api}.md`.
 - `apps/crm/frontend/node_modules/frappe-ui/` (v0.1.261) — `src/components/{Dialog,Dropdown,Popover,Toast}/types.ts` for version-gating.

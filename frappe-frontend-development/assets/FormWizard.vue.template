@@ -1,5 +1,5 @@
 <!--
-  Multi-step form wizard dialog — targets frappe-ui 1.0.0-beta.29 (v1).
+  Multi-step form wizard dialog — targets frappe-ui 1.0.2 (v1).
   Replace {{ doctype }} and wire `sections`/`statusOptions` to the real doctype.
   0.1.x (crm/node_modules/frappe-ui 0.1.261) differences:
     - Dialog has no flat props — use `<Dialog v-model :options="{ title, size }">`
@@ -127,7 +127,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { Button, Dialog, FormControl, useDoc, useNewDoc, toast } from 'frappe-ui'
+import { Button, Dialog, FormControl, useCall, toast } from 'frappe-ui'
 
 const doctype = '{{ doctype }}'
 
@@ -144,6 +144,11 @@ const saving = ref(false)
 const submitting = ref(false)
 const lastSaved = ref(null)
 const form = ref(getDefaultForm())
+
+// useCall at setup level — composables must not be called inside event handlers.
+const createCall = useCall({ url: `/api/v2/document/${doctype}`, method: 'POST', immediate: false })
+const editUrl = computed(() => `/api/v2/document/${doctype}/${props.item?.name ?? ''}`)
+const editCall = useCall({ url: editUrl, method: 'PUT', immediate: false })
 
 const sections = [
   {
@@ -229,11 +234,9 @@ async function submitForm() {
   submitting.value = true
   try {
     if (props.mode === 'edit' && props.item?.name) {
-      const doc = useDoc({ doctype, name: props.item.name, immediate: false })
-      await doc.setValue.submit(form.value)
+      await editCall.submit(form.value)
     } else {
-      const draft = useNewDoc(doctype, form.value)
-      await draft.submit()
+      await createCall.submit(form.value)
     }
     toast.success(props.mode === 'edit' ? 'Updated' : 'Created')
     emit('saved', form.value)

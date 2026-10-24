@@ -346,31 +346,29 @@ exposes, for the popover's visibility). Set the selection from the option's
 
 ### Tabs
 
-`Tabs` takes a `tabs` prop (`Tab[]`, required) — there is no `<Tab>` child
-component. Each `Tab` is `{ label, icon?, route? }`. `v-model` is the
-**0-based index** into `tabs`, not a name string. Customize the trigger with
-`#tab-item` (scoped `{ tab, selected }`) and the panel content with
-`#tab-panel` (scoped `{ tab }`, rendered once per tab in the array).
+`Tabs` has two modes: **shorthand** (pass a `tabs: TabItem[]` prop) and **composed**
+(place `TabList`/`TabTrigger`/`TabPanel` children). In shorthand mode, each `TabItem`
+must have `value: string | number` (required); `v-model` binds the **selected `value`**,
+not a 0-based index. Customize triggers with `#tab-prefix`/`#tab-label`/`#tab-suffix`
+(scoped `{ tab, active, disabled }`) and panel content with `#tab-panel` (`{ tab }`).
 
 #### Basic tabs
 
 ```vue
 <script setup>
 import { ref } from 'vue'
-
-const activeTab = ref(0)
-const tabs = [
-  { label: 'Details' },
-  { label: 'Activity' },
-  { label: 'Notes' },
-]
+const activeTab = ref('details')
 </script>
 
 <template>
-  <Tabs v-model="activeTab" :tabs="tabs">
+  <Tabs v-model="activeTab" :tabs="[
+    { value: 'details', label: 'Details' },
+    { value: 'activity', label: 'Activity' },
+    { value: 'notes', label: 'Notes' },
+  ]">
     <template #tab-panel="{ tab }">
-      <DetailsPanel v-if="tab.label === 'Details'" :doc="doc" />
-      <ActivityFeed v-else-if="tab.label === 'Activity'" :doctype="doctype" :name="doc.name" />
+      <DetailsPanel v-if="tab.value === 'details'" :doc="doc" />
+      <ActivityFeed v-else-if="tab.value === 'activity'" :doctype="doctype" :name="doc.name" />
       <NotesList v-else :doctype="doctype" :name="doc.name" />
     </template>
   </Tabs>
@@ -380,14 +378,11 @@ const tabs = [
 #### Tabs with icons
 
 ```vue
-<Tabs
-  v-model="activeTab"
-  :tabs="[
-    { label: 'Overview', icon: 'lucide-layout-dashboard' },
-    { label: 'Activity', icon: 'lucide-activity' },
-    { label: 'Settings', icon: 'lucide-settings' },
-  ]"
->
+<Tabs v-model="activeTab" :tabs="[
+  { value: 'overview', label: 'Overview', icon: 'lucide-layout-dashboard' },
+  { value: 'activity', label: 'Activity', icon: 'lucide-activity' },
+  { value: 'settings', label: 'Settings', icon: 'lucide-settings' },
+]">
   <template #tab-panel="{ tab }">…</template>
 </Tabs>
 ```
@@ -396,9 +391,8 @@ For a segmented-control look (not a panel switcher), use `TabButtons`
 instead — `options` (`TabButton[]`: `{label?, value?, icon?, active?,
 disabled?, route?, href?, onClick?}`), `modelValue`, `type` (`'subtle' |
 'ghost' | 'underline' | 'browser-tab'`, default `'subtle'`), `size`,
-`vertical`. It renders a button group, not tab panels, and carries no
-`<Tab>`/`tabs`-panel semantics. `buttons` is a deprecated alias for
-`options`.
+`vertical`. It renders a button group, not tab panels. `buttons` is a
+deprecated alias for `options`.
 
 ### Tooltips
 
@@ -514,30 +508,18 @@ defineProps({
 
 ## Sources
 
-Verified against frappe-ui `1.0.0-beta.29` (`apps/frappe-ui/package.json`) —
-`src/components/{Button,FormControl,Combobox,ListView,Dialog,Dropdown,Menu,Avatar,Badge,Tabs,TabButtons,Tooltip,Skeleton}/*.api.md`,
+Verified against frappe-ui `1.0.2` (`apps/frappe-ui/package.json`) —
+`apps/frappe-ui/src/components/{Button,FormControl,Combobox,Dialog,Dropdown,Menu,Avatar,Badge,Tabs,TabButtons,Tooltip,Skeleton}/*.api.md`,
 `.vue`, `types.ts`:
 
-- `src/components/Button/Button.api.md` — no `ButtonGroup` export anywhere
-  in `src/components/` or `src/index.ts`; `TabButtons` (`src/components/TabButtons/TabButtons.api.md`)
-  is the only segmented-control primitive.
-- `src/components/FormControl/{FormControl.api.md,types.ts}`, `src/components/types/TextInput.ts` — `type` union
-  (no `type="link"`; `date`/`datetime` both valid).
-- `src/components/Combobox/Combobox.api.md` — `label`, `options`, `update:query` emit.
-- `src/components/ListView/{ListView.api.md,ListView.vue,ListRow.vue,utils.js}`,
-  `src/components/ListView/stories/CellSlot.vue` — `rowKey` is required; `#cell` scope is
-  `{ item, row, column, align }` (threaded via `list.slots.cell`, not declared in `ListView`'s own
-  `defineSlots` so it doesn't appear in the auto-generated `.api.md`); column `width` accepts a
-  number (`fr` fraction) or a CSS-length string.
-- `src/utils/dialog.ts` — `dialog.confirm`/`dialog.danger`/`dialog.prompt` namespace, `onConfirm`
-  resolve/throw semantics, `danger()` theme/label defaults.
-- `src/components/Dialog/Dialog.api.md` — `open`/`modelValue`, `size`, `bare`, deprecated `options`/`#body-content`.
-- `src/components/Provider/FrappeUIProvider.vue`, `src/components/Dialogs.vue`, `src/index.ts` exports.
-- `src/components/Dropdown/{Dropdown.api.md,types.ts}`, `src/components/Menu/types.ts` — no
-  `modelValue`/`v-model`; options are `MenuActionOption` rows with `onClick`/`theme`.
-- `src/components/Avatar/Avatar.api.md`, `src/components/Badge/Badge.api.md` — Badge color comes
-  from `theme`, not `variant` (`variant` is `"subtle" | "outline" | "solid" | "ghost"`).
-- `src/components/Tabs/{Tabs.api.md,Tabs.vue}` — `v-model` binds `TabsTrigger`/`TabsContent`
-  `:value="i"` (the loop index), confirming it is 0-based, not a label string.
-- `src/components/Tooltip/Tooltip.api.md`, `src/components/Skeleton/Skeleton.api.md`.
-- `src/utils/iconString.ts` — `lucide-*` vs. legacy feather-name fallback and dev warning.
+- `apps/frappe-ui/src/components/Button/Button.api.md` — no `ButtonGroup` export; `TabButtons` is the only segmented-control primitive.
+- `apps/frappe-ui/src/components/FormControl/FormControl.api.md` — `type` union (no `type="link"`; `date`/`datetime` both valid).
+- `apps/frappe-ui/src/components/Combobox/Combobox.api.md` — `label`, `options`, `update:query` emit, `rankMatch` sort order (1.0.2).
+- `apps/frappe-ui/src/utils/dialog.ts` — `dialog.confirm`/`dialog.danger`/`dialog.prompt` namespace, `onConfirm` resolve/throw semantics.
+- `apps/frappe-ui/src/components/Dialog/Dialog.api.md` — `open`/`modelValue`, `size`, `bare`, deprecated `options`/`#body-content`.
+- `apps/frappe-ui/src/components/FrappeUIProvider/FrappeUIProvider.vue`, `apps/frappe-ui/src/components/Dialogs.vue` — provider composition.
+- `apps/frappe-ui/src/components/Dropdown/Dropdown.api.md` — no `modelValue`; options carry `onClick`/`theme`.
+- `apps/frappe-ui/src/components/Badge/Badge.api.md` — Badge color comes from `theme`; `variant` is `"subtle"|"outline"|"solid"|"ghost"`.
+- `apps/frappe-ui/src/components/Tabs/{Tabs.api.md,types.ts}` — shorthand mode: each `TabItem.value` is required; `v-model` binds `value` (not a 0-based index). `as` prop removed in `1.0.0`. `#tab-item` slot renamed to `#tab-prefix`/`#tab-label`/`#tab-suffix`.
+- `apps/frappe-ui/src/components/Tooltip/Tooltip.api.md`, `apps/frappe-ui/src/components/Skeleton/Skeleton.api.md`.
+- `apps/frappe-ui/src/index.ts` — `lucide-*` convention; no `FeatherIcon` in new code.

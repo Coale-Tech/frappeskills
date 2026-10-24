@@ -1,4 +1,4 @@
-// composables/useVersion.js
+// composables/useVersion.js — targets frappe-ui 1.0.2 (v1).
 //
 // Frappe major-version detection, for apps that need to branch behavior
 // between v15/v16 (or any two major versions) at the frontend layer.

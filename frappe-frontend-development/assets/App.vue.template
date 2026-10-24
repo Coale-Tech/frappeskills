@@ -1,5 +1,5 @@
 <!--
-  Root component for a frappe-ui SPA. Verified against
+  Root component for a frappe-ui 1.0.2 SPA. Verified against
   src/components/Provider/FrappeUIProvider.vue and the `main.js`/`App.vue`
   pattern in references/frappe-ui-setup.md (§5).
 

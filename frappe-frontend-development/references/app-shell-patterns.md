@@ -46,17 +46,17 @@ gutter, background).
 <template>
   <DesktopShell>
     <template #rail>
-      <Rail>
-        <RailItem label="Home" icon="lucide-home" to="/" />
-        <RailItem label="Search" icon="lucide-search" variant="ghost" @click="openSearch" />
-      </Rail>
+      <SidebarRail>
+        <SidebarRailItem label="Home" icon="lucide-home" :route="{ name: 'Home' }" />
+        <SidebarRailItem label="Search" icon="lucide-search" variant="ghost" @click="openSearch" />
+      </SidebarRail>
     </template>
 
     <template #sidebar>
       <Sidebar v-if="showSidebar" v-model:collapsed="collapsed">
         <SidebarLabel>Sales</SidebarLabel>
-        <SidebarItem label="Leads" icon="lucide-users" to="/leads" />
-        <SidebarItem label="Deals" icon="lucide-briefcase" to="/deals" />
+        <SidebarItem label="Leads" icon="lucide-users" :route="{ name: 'Leads' }" />
+        <SidebarItem label="Deals" icon="lucide-briefcase" :route="{ name: 'Deals' }" />
       </Sidebar>
     </template>
 
@@ -82,9 +82,9 @@ a bottom tab bar. Slots: `#default`, `#nav`.
     <router-view />
     <template #nav>
       <MobileNav>
-        <MobileNavItem label="Home" icon="lucide-home" to="/" />
-        <MobileNavItem label="Leads" icon="lucide-users" to="/leads" />
-        <MobileNavItem label="You" :to="{ name: 'Profile' }" :active="onProfileRoute">
+        <MobileNavItem label="Home" icon="lucide-home" :route="{ name: 'Home' }" />
+        <MobileNavItem label="Leads" icon="lucide-users" :route="{ name: 'Leads' }" />
+        <MobileNavItem label="You" :route="{ name: 'Profile' }" :active="onProfileRoute">
           <template #default="{ active }">
             <UserAvatar :user="me" :class="{ 'ring-2 ring-outline-gray-4': active }" />
           </template>
@@ -97,32 +97,35 @@ a bottom tab bar. Slots: `#default`, `#nav`.
 
 `MobileNavItem` props: `label` (required, also the accessible name), `icon`
 (`string | Component`, e.g. `lucide-home`; ignored if the default slot is
-used), `to`, `active` (independent of the current route — omit to infer from
-`to`). Tapping an already-active tab scrolls to top instead of re-navigating.
-Emits `click`. `MobileNav`/`MobileNavItem` render plain `<a>`/`<button>`
-outside a router with no warnings.
+used), `route` (Vue Router destination), `href` (external URL, fallback when
+`route` absent), `active` (independent of the current route — omit to infer from
+`route`). Tapping an already-active tab scrolls to top instead of re-navigating.
+Emits `click`.
 
 (`src/components/MobileShell/`, `src/components/MobileNav/`)
 
-## Rail `(v1)`
+## SidebarRail `(v1)`
 
-A bare fixed-width (50px) icon column with a shared tooltip context; no
-built-in scrolling or layout slots — position children with plain flex
-(`flex-1` on the middle list to push top/bottom anchors to the edges).
+A bare fixed-width icon column with a shared tooltip context; no built-in
+scrolling or layout slots — position children with plain flex (`flex-1` on
+the middle list to push top/bottom anchors to the edges).
 
-`RailItem` props:
+`SidebarRailItem` props:
 
 | Prop | Type | Default | Notes |
-|---|---|---|---|
-| `label` | `string` | — | Required. Tooltip text and accessible-name base. |
+| --- | --- | --- | --- |
+| `label` | `string` | — | **Required.** Tooltip text and accessible-name base. |
 | `icon` | `string \| Component` | — | e.g. `lucide-search`; ignored if default slot used. |
-| `to` | route target | — | Renders a router link; omit for a `click`-emitting button. |
+| `route` | `RouteDestination` | — | Renders a router link; omit for a `click`-emitting button. |
+| `href` | `string` | — | External URL; used when `route` is absent. |
 | `active` | `boolean` | — | Current-destination indicator. |
-| `badge` | `number` | `0` | Unread count; teleports to `<body>` so it isn't clipped. |
-| `badgeStyle` | `'count' \| 'dot'` | `'count'` | Dot still surfaces the real count in the tooltip. |
-| `variant` | `'tile' \| 'ghost'` | `'tile'` | `tile`: filled cell with active indicator bar, for avatar/workspace items. `ghost`: transparent until hover/active, for icon shortcuts (Search, Notifications). |
+| `badge` | `number` | `0` | Unread count. |
+| `badgeStyle` | `'count' \| 'dot'` | `'count'` | Dot surfaces the real count in the tooltip. |
+| `variant` | `'subtle' \| 'ghost'` | `'subtle'` | `subtle`: filled cell with active-indicator bar, for image/workspace items. `ghost`: transparent until hover/active, for icon shortcuts (Search, Notifications). |
 
-(`src/components/Rail/`)
+`SidebarRailItem` emits `click`. Default slot: custom content (image, avatar, initials) overriding the `icon` prop.
+
+(`src/components/SidebarRail/`)
 
 ## Sidebar
 
@@ -132,31 +135,34 @@ wrap the middle list in your own `overflow-y-auto` container and push a
 footer with `mt-auto`.
 
 | Prop | Type | Default | Notes |
-|---|---|---|---|
-| `disableCollapse` | `boolean` | — | Pins the sidebar open; no collapse toggle. |
-| `width` | `string` | `'15rem'` | Expanded width (CSS length, applied inline). `(v1)` |
-| `collapsedWidth` | `string` | `'3rem'` | `(v1)` |
+| --- | --- | --- | --- |
+| `collapsible` | `boolean` | `true` | Set `false` to pin the sidebar open (no collapse toggle). |
+| `width` | `string` | `'15rem'` | Expanded width (CSS length, applied inline). |
+| `collapsedWidth` | `string` | `'3rem'` | — |
+| `ariaLabel` | `string` | `'Main'` | Accessible name for the `<nav>` landmark. |
 | `collapsed` | `boolean \| null` | `null` | Bind `v-model:collapsed`; unset auto-collapses below the `sm` breakpoint. |
-| `header` | `SidebarHeaderProps` | — | **Deprecated `(v1)`** — config-object header. Compose a header as a direct child instead. |
-| `sections` | `SidebarSectionProps[]` | — | **Deprecated `(v1)`** — config-object sections. Compose `SidebarLabel` + `SidebarItem` instead. |
 
-Emits `update:collapsed`. Slots: `#default`, `#header-logo`, `#footer-items`.
+Emits `update:collapsed`. Slot: `#default` only.
 
 `SidebarItem` props: `label`, `icon` (`string | Component`, ignored if
-`#prefix` used), `suffix` (text, ignored if `#suffix` used), `to`, `active`
-(inferred from `to` vs current route if omitted), `onClick`, `accessKey`. The
-trailing `#suffix` zone (an options menu, an unread count) renders as a
-**sibling** of the link, not nested inside it. `SidebarLabel` takes a
-`divider` prop (`(v1)`) that collapses it to a horizontal rule while the
-sidebar is collapsed. `SidebarHeader` takes `title` (required), `subtitle`,
-`logo`, `showLogo` (`(v1)`, default `true`), `menuItems`.
+`#prefix` used), `suffix` (text, ignored if `#suffix` used), `route`
+(`RouteDestination`), `href` (external URL), `active` (inferred from `route`
+vs current route if omitted), `onClick`, `accessKey`. The trailing `#suffix`
+zone (an options menu, an unread count) renders as a **sibling** of the
+link, not nested inside it. `SidebarLabel` takes a `divider` prop that
+collapses to a horizontal rule while the sidebar is collapsed.
+`SidebarSection` props: `label`, `collapsible`, `collapsed` (`v-model:collapsed`).
+`SidebarHeader` props: `title` (required), `subtitle`, `logo`, `showLogo`
+(default `true`), `menuItems`.
+`SidebarCard`: a tinted info card for the sidebar; props mirror `Alert`
+(`theme`, `icon`, `action`, `dismissible`). Emits `dismiss`.
 
 ```vue
 <Sidebar v-model:collapsed="collapsed">
   <SidebarHeader title="My App" logo="/logo.svg" />
   <SidebarLabel>Sales</SidebarLabel>
-  <SidebarItem label="Leads" icon="lucide-users" to="/leads" />
-  <SidebarItem label="Deals" icon="lucide-briefcase" to="/deals">
+  <SidebarItem label="Leads" icon="lucide-users" :route="{ name: 'Leads' }" />
+  <SidebarItem label="Deals" icon="lucide-briefcase" :route="{ name: 'Deals' }">
     <template #suffix>
       <Badge :label="dealCount" theme="gray" />
     </template>
@@ -204,31 +210,33 @@ interactive elements (or anything tagged `data-no-scroll-top`) are ignored.
 </template>
 ```
 
-`PageHeaderMobile` keeps its title centered regardless of `#left`/`#right`
-control widths and clamps it to two lines:
+`PageHeaderMobile` keeps its title centered regardless of `#prefix`/`#suffix`
+control widths and clamps it to two lines **(1.0.1: follows text-direction for RTL)**:
 
 ```vue
 <PageHeaderMobile>
-  <template #left>
+  <template #prefix>
     <PageHeaderBackButton />
   </template>
   <PageHeaderMobileTitle title="Lead: John Doe" />
-  <template #right>
+  <template #suffix>
     <Button variant="ghost" icon="lucide-more-horizontal" />
   </template>
 </PageHeaderMobile>
 ```
 
-`PageHeaderBackButton` props: `to` (falls back to browser history if omitted),
-`label` (default `'Back'`). `PageHeaderMobileTitle` props: `title` (overridden
-by default slot); slot `#icon`. Use bare `PageHeaderBase` directly for a
-custom strip (toolbar, second row) that shares the same teleport target.
+`PageHeaderBackButton` props: `fallbackRoute` (`RouteDestination` — used only
+when there is no in-app history; taps otherwise go back through history),
+`label` (default `'Back'`). `PageHeaderMobileTitle` props: `title`;
+slots: `#prefix` (leading glyph), `#default` (overrides `title`). Use bare
+`PageHeaderBase` directly for a custom strip (toolbar, second row) that
+shares the same teleport target.
 
 (`src/components/PageHeader/`)
 
 ## Hand-rolled 0.1.x shell fallback
 
-`DesktopShell`/`MobileShell`/`Rail`/`PageHeader` are absent from the 0.1.261
+`DesktopShell`/`MobileShell`/`SidebarRail`/`PageHeader` are absent from the 0.1.261
 baseline. Projects pinned to 0.1.x compose the same structure directly with
 Tailwind, `<router-view>`, and (0.1.x) `FeatherIcon` — the deprecated
 top-level icon component, replaced in v1 by the `lucide-<name>` CSS class
@@ -353,21 +361,13 @@ and rich-text primitives referenced above.
 
 ## Sources
 
-Verified against frappe-ui `1.0.0-beta.29` (`apps/frappe-ui/package.json`):
+Verified against frappe-ui `1.0.2` (`apps/frappe-ui/package.json`):
 
-- `src/components/{DesktopShell,MobileShell}/{DesktopShell,MobileShell}.{api.md,vue,md}` —
-  props/slots, `data-slot="desktop-shell-content"`, `registerScrollContainer`/`useScrollContainer`
-  wiring (`src/composables/useScrollContainer.ts`), PWA safe-area padding on `MobileShell`.
-- `src/components/Rail/Rail.api.md`, `src/components/MobileNav/MobileNav.api.md` — `RailItem`/
-  `MobileNavItem` props and active-tab scroll-to-top behavior.
-- `src/components/Sidebar/Sidebar.api.md` — composition props/slots and the deprecated
-  `header`/`sections` config-object props.
-- `src/components/PageHeader/PageHeader.api.md` — `PageHeader`, `PageHeaderBase`,
-  `PageHeaderMobile`, `PageHeaderMobileTitle`, `PageHeaderBackButton`.
-- `apps/crm/frontend/node_modules/frappe-ui/` (v0.1.261) — `src/components/Sidebar/Sidebar.vue`
-  confirms the config-object-only API (no composition slot, no `width`/`collapsedWidth`) on the
-  0.1.x baseline.
-- `src/utils/iconString.ts`, `src/index.ts` — `FeatherIcon` still exported but deprecated in
-  favor of the `lucide-<name>` class convention used by v1.
-- `package.json` — `@vueuse/core` is a frappe-ui dependency, supporting the `useMediaQuery`
-  desktop/mobile split shown above.
+- `apps/frappe-ui/src/components/{DesktopShell,MobileShell}/{DesktopShell,MobileShell}.api.md` — props/slots, `scroll` prop, `data-slot="desktop-shell-content"`, scroll-container registry, MobileShell iOS 26 safe-area fix (1.0.2).
+- `apps/frappe-ui/src/components/SidebarRail/SidebarRail.api.md` — `SidebarRailItem` props, `variant` (`"subtle"|"ghost"`), `route`, `href`, badge, `click` emit.
+- `apps/frappe-ui/src/components/MobileNav/MobileNav.api.md` (in MobileShell.api.md) — `MobileNavItem` `route`/`href`, active-tab scroll-to-top.
+- `apps/frappe-ui/src/components/Sidebar/Sidebar.api.md` — `collapsible` prop (not `disableCollapse`), `ariaLabel`, `#default`-only slot, `SidebarItem.route`/`href`, `SidebarSection`, `SidebarCard`.
+- `apps/frappe-ui/src/components/PageHeader/PageHeader.api.md` — `PageHeaderMobile` slots (`#prefix`/`#suffix`), `PageHeaderBackButton.fallbackRoute`, RTL fix (1.0.1).
+- `apps/frappe-ui/CHANGELOG.md` — 1.0.1 `PageHeaderMobile` RTL fix; 1.0.2 MobileShell iOS 26 safe-area.
+- `apps/crm/frontend/node_modules/frappe-ui/` (v0.1.261) — `src/components/Sidebar/Sidebar.vue` for baseline config-object-only API.
+- `apps/frappe-ui/src/index.ts` — `FeatherIcon` deprecated.

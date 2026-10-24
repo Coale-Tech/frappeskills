@@ -1,12 +1,12 @@
 <!--
-  List page template — targets frappe-ui 1.0.0-beta.29 (v1).
+  List page template — targets frappe-ui 1.0.2 (v1).
   Replace {{ placeholder }} tokens: page_title, page_description, route_base,
   doctype, app_name, plural_snake.
   0.1.x (crm/node_modules/frappe-ui 0.1.261) differences:
     - No `useList` composable — use `createResource({ url, params, auto })` or
       the legacy `list.js`/`createListResource` pattern instead.
-    - `FeatherIcon` is the only icon component; there is no `lucide-*` class
-      convention.
+    - `FeatherIcon` is the only icon component — `lucide-*` class strings and
+      the `<Icon>` component are v1-only; they don't exist in 0.1.x.
   See frappe-ui-list-and-editor.md for full ListView / frappe-ui/list APIs,
   and frappe-ui-data-fetching.md for useList's full option/return shape.
 -->
@@ -36,7 +36,7 @@
 
     <div class="bg-surface-white rounded-lg shadow-sm">
       <!-- Tabs -->
-      <Tabs v-model="activeTabIndex" :tabs="tabs">
+      <Tabs v-model="activeTab" :tabs="tabs">
         <template #tab-panel />
       </Tabs>
 
@@ -71,6 +71,7 @@
         class="min-h-[400px]"
         :columns="columns"
         :rows="list.data ?? []"
+        row-key="name"
         :options="listOptions"
       />
 
@@ -106,6 +107,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useList } from 'frappe-ui'
+import { ListView } from 'frappe-ui/experimental'
 
 // Config — replace at scaffold time
 const page_title = '{{ page_title }}'
@@ -113,15 +115,15 @@ const page_description = '{{ page_description }}'
 const route_base = '{{ route_base }}'
 const doctype = '{{ doctype }}'
 
-const activeTabIndex = ref(0)
+const activeTab = ref('all')
 const page = ref(1)
 const filters = ref({ search: '', status: '' })
 
 const tabs = [
-  { label: 'All' },
-  { label: 'Active' },
-  { label: 'Draft' },
-  { label: 'Inactive' },
+  { label: 'All', value: 'all' },
+  { label: 'Active', value: 'Active' },
+  { label: 'Draft', value: 'Draft' },
+  { label: 'Inactive', value: 'Inactive' },
 ]
 const statusOptions = ['', 'Active', 'Draft', 'Inactive']
 
@@ -131,7 +133,7 @@ const list = useList({
   filters: computed(() => ({
     status:
       filters.value.status ||
-      (activeTabIndex.value > 0 ? tabs[activeTabIndex.value].label : undefined),
+      (activeTab.value !== 'all' ? activeTab.value : undefined),
     name: filters.value.search ? ['like', filters.value.search] : undefined,
   })),
   orderBy: 'modified desc',
@@ -169,7 +171,7 @@ const stats = computed(() => {
 
 function clearFilters() {
   filters.value = { search: '', status: '' }
-  activeTabIndex.value = 0
+  activeTab.value = 'all'
   page.value = 1
 }
 

@@ -1,11 +1,11 @@
 <!--
-  Detail page template — targets frappe-ui 1.0.0-beta.29 (v1).
+  Detail page template — targets frappe-ui 1.0.2 (v1).
   Replace {{ placeholder }} tokens: doctype, app_name, snake_doctype.
   0.1.x (crm/node_modules/frappe-ui 0.1.261) differences:
     - No `useDoc` composable — use `createResource({ type: 'document', doctype, name })`
       (the legacy document resource) instead; it exposes `.doc`, `.save`, `.delete`.
-    - `PageHeaderBackButton` does not exist — use a plain Button with a
-      `FeatherIcon name="arrow-left"`.
+    - `PageHeaderBackButton` does not exist — use a plain `<Button icon="lucide-arrow-left">`.
+      (0.1.x: `<FeatherIcon name="arrow-left">` inside a `#prefix` slot; `FeatherIcon` is removed in 1.0.)
   For a doctype-specific whitelisted action (e.g. a workflow "submit"
   method), pass it through `useDoc`'s `methods` option rather than adding an
   ad-hoc resource.
@@ -42,9 +42,9 @@
     </div>
 
     <template v-else-if="doc.doc">
-      <Tabs v-model="activeTabIndex" :tabs="[{ label: 'Details' }, { label: 'Activity' }]">
+      <Tabs v-model="activeTab" :tabs="[{ label: 'Details', value: 'details' }, { label: 'Activity', value: 'activity' }]">
         <template #tab-panel="{ tab }">
-          <div v-if="tab.label === 'Details'" class="grid grid-cols-2 gap-6 p-6">
+          <div v-if="tab.value === 'details'" class="grid grid-cols-2 gap-6 p-6">
             <div>
               <h3 class="text-sm font-medium text-ink-gray-6 mb-1">Name</h3>
               <p class="text-ink-gray-9">{{ doc.doc.name }}</p>
@@ -76,7 +76,7 @@ const router = useRouter()
 const route = useRoute()
 
 const doctype = '{{ doctype }}'
-const activeTabIndex = ref(0)
+const activeTab = ref('details')
 
 const doc = useDoc({
   doctype,

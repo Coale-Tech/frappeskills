@@ -16,7 +16,7 @@ the espresso v2 token set it targets) is v1-only.
 ## CLI usage
 
 ```
-tokens-v2 [--dry-run] [--force] <dir-or-file...>
+tokens-v2 [--dry-run] [--force] [--radius-only | --ink-shift] <dir-or-file...>
 ```
 
 - Walks each target; only touches `.vue`, `.ts`, `.tsx`, `.js`, `.jsx`, `.md`,
@@ -24,13 +24,23 @@ tokens-v2 [--dry-run] [--force] <dir-or-file...>
   `cache`, `generated`, `espresso-v2-design-tokens`.
 - `--dry-run` prints `file (N)` plus each `L{line}: old -> new` / `L{line}: old => new`
   (renames use `->`, weight-class merges use `=>`) without writing.
+- `--force` re-runs full color migration even when post-v2 tokens are detected.
+- `--radius-only` runs only named-alias → numbered-scale radius renames (idempotent;
+  safe to run on already-migrated color tokens). Use this pass alone when an app is
+  already on v2 colors but still uses `rounded-md`, `rounded-lg`, etc.
+- `--ink-shift` applies the chromatic ink-scale shift: `ink-{red,blue,green,amber,violet}-2..10`
+  each shifts down by one step (`-2`→`-1`, …, `-10`→`-9`) to match the updated Figma
+  export that dropped the neutral-white `-1` step from every chromatic family. `ink-gray`
+  is NOT shifted. Guard: writes `.tokens-v2-ink-shift` marker at the target root and
+  refuses to run again (to prevent double-shifting). `ink-{family}-1` tokens are flagged
+  for manual review (old `-1` was neutral-white; new `-1` is a light tint — cannot
+  auto-rename to `white` safely). Mutually exclusive with `--radius-only`.
 - Default (no flags) writes changes in place and prints the same summary.
-- Exits `1` and prints usage if no targets are given; `--help`/`-h` prints
-  usage and exits cleanly.
+- Exits `1` and prints usage if no targets are given; `--help`/`-h` prints usage and exits.
 - Final line: `Updated N files, N token renames, N weight-class merges`
-  (`[dry-run] would update ...` when `--dry-run`), plus, if any flagged
-  tokens were found: `Tokens needing manual attention (removed in v2 or
-  unmapped):` followed by one `file:Lline  token` row per flag.
+  (`[dry-run] would update ...` when `--dry-run`), plus, if any flagged tokens were found:
+  `Tokens needing manual attention (removed in v2 or unmapped):` followed by one
+  `file:Lline  token` row per flag.
 
 ## Migration-state auto-detection
 
@@ -180,16 +190,35 @@ a class list is rewritten size-first, then merged: `text-xl font-medium` →
   keeps `px-2` and `text-ink-gray-7` untouched) and never confuses a color
   utility like `text-ink-gray-7` for a size token.
 
+## Ink-scale shift (`--ink-shift`)
+
+A separate `--ink-shift` pass handles an updated Figma export that dropped the neutral-white
+`-1` step from every **chromatic** ink family (`red`, `blue`, `green`, `amber`, `violet`).
+The shift is: old `-2`→new `-1`, …, old `-10`→new `-9` (9-step scale). `ink-gray` is unchanged.
+
+Guard: the codemod writes `.tokens-v2-ink-shift` at the target root on first run and
+refuses to run `--ink-shift` again on that tree. Check with `findInkShiftMarker()` / search for
+that file before deciding the shift is safe to apply. A run on a subtree also blocks a
+parent-level run via `findInkShiftMarkerBelow()`.
+
+`ink-{family}-1` tokens (old neutral-white) are **flagged, never rewritten** — the new `-1`
+is a light tint, not white, and rewriting them to `white` would produce a wrong value.
+Review every flagged occurrence manually.
+
+Run order: `tokens-v2` (full color migration) → `tokens-v2 --ink-shift` (after the main
+migration is committed and verified). Never run `--ink-shift` on unmigrated code.
+
 ## Sources
 
-- `tailwind/migrate-tokens-v2.js` (full file: header comment, `SURFACE_RENAMES`,
+- `apps/frappe-ui/tailwind/migrate-tokens-v2.js` — `SURFACE_RENAMES`,
   `INK_RENAMES`, `OUTLINE_RENAMES`, `SURFACE_ALPHA_RENAMES`,
-  `OUTLINE_ALPHA_RENAMES`, `UNMIGRATED_TEXT_SIZE_SHIFT`,
-  `MIGRATED_TEXT_SIZE_SHIFT`, `COLOR_TOKEN_RENAMES`, `TOKEN_RENAMES`,
-  `REMOVED_TOKENS`, `WATCH_TOKENS`, `mergeWeightClasses`,
-  `detectMigrationState`, `getMigrationMode`, `migrateTokens`, `main`)
-- `package.json` (`bin["tokens-v2"]`)
-- `espresso-v2-design-tokens/manifest.json` (v2 Figma export this codemod targets)
+  `OUTLINE_ALPHA_RENAMES`, `UNMIGRATED_TEXT_SIZE_SHIFT`, `MIGRATED_TEXT_SIZE_SHIFT`,
+  `COLOR_TOKEN_RENAMES`, `TOKEN_RENAMES`, `REMOVED_TOKENS`, `WATCH_TOKENS`,
+  `INK_SHIFT_RENAMES`, `INK_SHIFT_FLAGGED_TOKENS`, `INK_SHIFT_MARKER`,
+  `findInkShiftMarker`, `findInkShiftMarkerBelow`, `writeInkShiftMarker`,
+  `RADIUS_RENAMES`, `DEAD_SIZES`, `mergeWeightClasses`, `detectMigrationState`,
+  `getMigrationMode`, `migrateTokens`, `main`; version 1.0.2
+- `apps/frappe-ui/package.json` (`bin["tokens-v2"]`); version 1.0.2
 
 See also [frappe-ui-tailwind-tokens.md](frappe-ui-tailwind-tokens.md) for the
 current (post-migration) token/class reference, and

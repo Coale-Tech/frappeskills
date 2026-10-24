@@ -1,6 +1,6 @@
 /**
  * Tailwind CSS config for {{ app_name }}'s frappe-ui frontend.
- *
+ * Targets frappe-ui 1.0.2.
  * Verified against frappe-ui's tailwind/preset.js and the exports map in
  * package.json — see references/frappe-ui-setup.md §4 for the full
  * breakdown. Do NOT hand-roll a color palette or spacing scale here: the

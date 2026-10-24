@@ -12,10 +12,10 @@ component prop/slot/emit tables live in
 and its split files (`frappe-ui-core-components.md`, `frappe-ui-form-controls.md`,
 `frappe-ui-list-and-editor.md`) — this file does not repeat them.
 
-**Version note:** written against frappe-ui **1.0.0-beta.29** (v1). Real Frappe
-apps mostly still pin 0.1.x. Every component named below that doesn't exist in
-0.1.x is tagged `(v1)`. Before choosing an API, check the pinned version in
-`frontend/package.json`.
+**Version note:** written against frappe-ui **1.0.2**. Real Frappe apps mostly
+still pin 0.1.x. Every component named below that doesn't exist in 0.1.x is
+tagged `(v1)`. Before choosing an API, check the pinned version in
+`frontend/package.json`. APIs that changed between beta.29 and 1.0.2 are tagged `(1.0.2)`.
 
 ### When to use
 
@@ -101,10 +101,10 @@ teleport into.
   omitted.
 - Sidebar nav rows: `h-7`, `space-y-0.5`, label `flex-1 truncate text-sm`,
   count suffix `mr-1 text-xs text-ink-gray-5`.
-- `Rail` (the icon column, multi-workspace apps only) is a bare 50px frame;
-  compose it from `RailItem` (`variant="tile"` filled cells or `variant="ghost"`
-  hover-only icons). Home is usually a bespoke logo button, not a `RailItem`;
-  a user-avatar `Dropdown` pins to the bottom with `mt-auto`.
+- `SidebarRail` (the icon column, multi-workspace apps only) is a bare frame;
+  compose it from `SidebarRailItem` (`variant="subtle"` default, with a left
+  active bar, or `variant="ghost"`). Home is usually a bespoke logo button, not a
+  `SidebarRailItem`; a user-avatar `Dropdown` pins to the bottom with `mt-auto`.
 - `PageHeaderBase` (the padding-free primitive under `PageHeader`) is for a
   header that must split to align with a column border below it — two-pane
   layouts, editor toolbars.
@@ -155,10 +155,9 @@ route param, not one component with a screen-level toggle.
 | Settings | `SettingsDialog`: nav groups → header + body → `space-y-11 pt-6` sections → `divide-y divide-outline-gray-1` of setting rows |
 | Dashboard | Centered `max-w-4xl space-y-6`; KPI strip as `divide-x divide-outline-gray-2` |
 
-`List` (new, `frappe-ui/list` subpath) and the legacy top-level `ListView`
-family are covered in
-[frappe-ui-list-and-editor.md](../../frappe-frontend-development/references/frappe-ui-list-and-editor.md) —
-`ListView` is legacy but not deprecated until `List` reaches parity (P13).
+`List` (`frappe-ui/list` subpath) and `ListView` (`frappe-ui/experimental`
+`(1.0.2)`, not deprecated until `List` reaches parity, P13) are covered in
+[frappe-ui-list-and-editor.md](../../frappe-frontend-development/references/frappe-ui-list-and-editor.md).
 
 ## Hierarchy by role
 
@@ -331,25 +330,45 @@ no dark-mode-specific classes.
 | Using bare, un-namespaced icon names (`icon="edit"`) | Collides once a second icon set ships; not what frappe-ui components accept | Use the `lucide-*` namespaced class string, or a component for a custom glyph |
 | No keyboard navigation on a custom-built widget | Accessibility gap frappe-ui components don't have by default (P12) | Prefer the frappe-ui component over a hand-rolled `<div>` widget; if hand-rolling is unavoidable, follow the WAI-ARIA pattern for that role |
 
+## Composables
+
+All exported from `frappe-ui` (the root entry). Use these instead of hand-rolling the same behaviour.
+
+| Composable | What it does | Notes |
+|---|---|---|
+| `useKeyboardShortcut(config \| config[])` | Registers press or hold shortcuts on the global keydown listener; unregisters on unmount. `combo: 'Meta+k'`; `handler`/`onHold`/`onRelease`; `enabled?: MaybeRefOrGetter<boolean>`. Also exported: `KeyboardShortcut` chip component, `KeyboardShortcutsDialog`. | Active while inside editable fields is automatically suppressed (`isTargetEditable`). |
+| `useColorScheme()` | Returns `{ colorScheme, resolvedColorScheme, setColorScheme, toggleColorScheme }`. Singleton — every caller shares one `<html data-theme>`. `colorScheme`: `'light' \| 'dark' \| 'system'`. | `useResolvedColorScheme()` is the read-only observer variant: returns `Readonly<Ref<'light' \| 'dark'>>`, never triggers initialization. |
+| `useShellScrolled({ threshold })` | `ComputedRef<boolean>` — `true` when the app shell scroll container is past `threshold` px. Drive sticky header shadows. | `shellScrollContainer` is the raw `ComputedRef<HTMLElement \| null>` for imperative scrollTo. Both are stable exports. |
+| `usePortalTarget(override?)` | Resolves where frappe-ui overlays (Dialog, Popover, etc.) teleport. `providePortalTarget(target)` names the target for a subtree; `app.provide(portalTargetKey, el)` at the root covers the whole app. | Overlays default to `body` when no target is provided. This composable lets embedded apps (page-within-page) confine overlays to their own root. |
+
+**Not exported** (internal): `useSheetDrag` (`BottomSheet` only), `useAutofocusOnOpen` (Dialog internal), `useShellScrolled`'s `registerShellScrollContainer` (shell components only). Do not import from the composable file directly.
+
 ## Sources
 
-Verified against frappe-ui `1.0.0-beta.29` (`apps/frappe-ui/package.json`):
+Verified against frappe-ui `1.0.2` (`apps/frappe-ui/package.json`):
 
 - `apps/frappe-ui/PHILOSOPHY.md` — P1-P14 rule text (naming, prop design, slot design, composition, styling, quality, evolution sections)
-- `apps/frappe-ui/CONTEXT.md`, `apps/frappe-ui/skills/frappe-ui/DESIGN.md` — shared vocabulary and app-design guide this file distills (shell anatomy, hierarchy, geometry, forms, confirmations, feedback, dark-mode patterns are near-verbatim from `DESIGN.md`)
-- `apps/frappe-ui/src/components/DesktopShell/DesktopShell.vue` — `data-slot="desktop-shell-content"`, `scroll` prop (default `true`), pinned `PageHeaderTarget`, scroll-container registration
-- `apps/frappe-ui/src/components/Sidebar/Sidebar.vue`, `types.ts` — `v-model:collapsed` (`defineModel`), auto-collapse below the `sm` breakpoint (`useBreakpoints`), `width`/`collapsedWidth` defaults (`15rem`/`3rem`; recipes and `DESIGN.md` itself call `Sidebar` with `width="14rem"`)
-- `apps/frappe-ui/src/components/PageHeader/PageHeaderBase.vue` — padding-free `Teleport`-to-target primitive shared by `PageHeader`/`PageHeaderMobile`
-- `apps/frappe-ui/src/components/Rail/Rail.vue`, `RailItem.vue`, `types.ts` — bare `w-[50px]` frame, `variant: 'tile' | 'ghost'` (default `'tile'`)
-- `apps/frappe-ui/src/components/ErrorMessage/ErrorMessage.vue` — accepts `string | Error`, `DOMPurify.sanitize`/escape fallback, `role="alert"`
-- `apps/frappe-ui/src/utils/dialog.ts` — `dialog = { confirm, prompt, danger }` namespace, `DialogHandle.close`, `onConfirm` auto-close + inline `setError` on throw
-- `apps/frappe-ui/src/components/Toast/toast.ts` — `toast.success`/`toast.error`/`toast.info`
-- `apps/frappe-ui/src/components/Provider/FrappeUIProvider.vue` — renders `<Dialogs />` and `<ToastProvider />`
-- `apps/frappe-ui/src/components/FormControl/FormControl.vue` — `label`/`description`/`error`/`required` passthrough (P5)
-- `apps/frappe-ui/src/data-fetching/useCall/useCall.ts` — `immediate` default `true`, `submit(params?)`, `loading`
+- `apps/frappe-ui/CONTEXT.md`, `apps/frappe-ui/skills/frappe-ui/DESIGN.md` — shared vocabulary and app-design guide this file distills
+- `apps/frappe-ui/src/components/DesktopShell/DesktopShell.vue` — `data-slot="desktop-shell-content"`, `scroll` prop (default `true`), pinned `PageHeaderTarget`
+- `apps/frappe-ui/src/components/Sidebar/Sidebar.vue`, `types.ts` — `v-model:collapsed`, `width`/`collapsedWidth` defaults (`15rem`/`3rem`)
+- `apps/frappe-ui/src/components/PageHeader/PageHeaderBase.vue` — padding-free Teleport-to-target primitive
+- `apps/frappe-ui/src/components/SidebarRail/SidebarRail.vue`, `SidebarRailItem.vue` — `variant: 'subtle' | 'ghost'`
+- `apps/frappe-ui/src/components/ErrorMessage/ErrorMessage.vue` — `string | Error`, `DOMPurify.sanitize`, `role="alert"`
+- `apps/frappe-ui/src/utils/dialog.ts` — `dialog.confirm / prompt / danger`, `onConfirm` auto-close + inline error
+- `apps/frappe-ui/src/components/Toast/toast.ts` — `toast.success / error / info`
+- `apps/frappe-ui/src/components/Provider/FrappeUIProvider.vue` — mounts `<Dialogs />` + `<ToastProvider />`
+- `apps/frappe-ui/src/components/FormControl/FormControl.vue` — P5 labeling props
+- `apps/frappe-ui/src/data-fetching/useCall/useCall.ts` — `immediate`, `submit(params?)`, `loading`
 - `apps/frappe-ui/src/components/ScrollArea/ScrollArea.vue` — `orientation: 'vertical' | 'horizontal' | 'both'`
-- `apps/frappe-ui/spec/foundations.md`, `spec/adr/0005-focus-ring-2px.md` — focus-ring themes (`ring-outline-gray-3`/`ring-outline-red-3`/`ring-blue-400`/`ring-outline-green-3`)
-- `apps/frappe-ui/spec/adr/0006-numbered-radius-tokens.md` — numbered radius scale (`rounded-4`=8px default control, `rounded-6`=12px card, `rounded-9`=100px pill), deprecated named aliases
-- `apps/frappe-ui/spec/adr/0007-typography-style-utilities.md`, `apps/frappe-ui/tailwind/generated/typography.json` — `text-{size}-{weight}` composite utilities (`medium`/`semibold`/`bold`/`black` variants exist per size, incl. `text-base-medium` and `text-lg-semibold`)
-- `apps/frappe-ui/src/index.ts` — `ListView` "do not deprecate until `frappe-ui/list` reaches parity" comment; full `List`/`ListView` prop/slot tables live in [frappe-ui-list-and-editor.md](../../frappe-frontend-development/references/frappe-ui-list-and-editor.md)
-- Full component prop/slot/emit reference: [frappe-ui-components.md](../../frappe-frontend-development/references/frappe-ui-components.md) and its split files, cited independently in each file's own `## Sources` footer
+- `apps/frappe-ui/spec/foundations.md`, `spec/adr/0005-focus-ring-2px.md` — focus-ring tokens
+- `apps/frappe-ui/spec/adr/0006-numbered-radius-tokens.md` — numbered radius scale
+- `apps/frappe-ui/spec/adr/0007-typography-style-utilities.md`, `tailwind/generated/typography.json` — composite type utilities
+- `apps/frappe-ui/src/index.ts` — composable exports verified; `ListView` moved to `frappe-ui/experimental` (`#985`)
+- `apps/frappe-ui/src/composables/useKeyboardShortcut.ts` — combo grammar, press/hold modes, `isTargetEditable`, `getShortcutGroups` (internal)
+- `apps/frappe-ui/src/composables/useColorScheme.ts` — `ColorScheme`, `ResolvedColorScheme`, singleton state, `useResolvedColorScheme` (observer-only)
+- `apps/frappe-ui/src/composables/useShellScrolled.ts` — `shellScrollContainer`, threshold-based computed bool
+- `apps/frappe-ui/src/composables/usePortalTarget.ts` — `portalTargetKey`, `providePortalTarget`, overlay teleport resolution
+- `apps/frappe-ui/src/composables/useSheetDrag.ts` — internal-only (SHELL-Q7 comment in index.ts)
+- `apps/frappe-ui/src/composables/useAutofocusOnOpen.ts` — internal Dialog use; not in root export
+- `apps/frappe-ui/experimental/ListView/index.ts` — `ListView` family in `frappe-ui/experimental` (1.0.2)
+- Full component prop/slot/emit reference: [frappe-ui-components.md](../../frappe-frontend-development/references/frappe-ui-components.md) and split files

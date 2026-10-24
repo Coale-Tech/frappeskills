@@ -160,7 +160,7 @@ verified pattern.
 ## Sources
 
 Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`) and frappe-ui
-`1.0.0-beta.29` (`apps/frappe-ui/package.json`):
+`1.0.2` (`apps/frappe-ui/package.json`):
 
 - `frappe/website/path_resolver.py:225-239` — `website_route_rules` hook resolution.
 - `apps/frappe-ui/vite/README.md:70-79`, `apps/frappe-ui/vite/frappeProxy.js` — dev-server proxy
@@ -174,8 +174,8 @@ Verified against Frappe v16.35.0 (`frappe/__init__.py` `__version__`) and frappe
 - `frappe/api/v2.py:280` — `/method/<method>` route mounted under `/api/v2`.
 - `apps/frappe-ui/src/data-fetching/useList/{useList.ts,types.ts}` — `doctype`/`fields`/`filters`
   options, `.data`/`.reload()`.
-- `apps/frappe-ui/src/data-fetching/useDoc/useDoc.ts:34-197` — `doctype`/`name` options,
-  `.doc`, `.setValue` (a `useCall` instance, hence `.setValue.submit(...)`).
+- `apps/frappe-ui/src/data-fetching/useDoc/useDoc.ts` — `doctype`/`name` options,
+  `.doc`, `.setValue` (a `useIsolatedCall` instance — same public surface as `useCall`, hence `.setValue.submit(...)`).
 - `apps/frappe-ui/src/data-fetching/useFrappeFetch.ts:132` — reads `window.csrf_token`.
 - `apps/frappe-ui/src/utils/call.ts:3,50-51` — legacy `call()`/`createResource` CSRF path.
 - `apps/frappe-ui/frappe/session.js` (`sessionUser()`), `apps/frappe-ui/frappe/index.js`,

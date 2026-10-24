@@ -21,7 +21,7 @@ around** those components. Source-verified against two production apps:
   `src2` conventions for a TS app.
 
 Neither production app observed here has adopted frappe-ui v1
-(`1.0.0-beta.x`) yet — both are 0.1.x. For a **brand-new** app, prefer v1
+(`1.0.x`) yet — both are 0.1.x. For a **brand-new** app, prefer v1
 (canonical per this skill's version policy) and translate these 0.1.x
 snippets using [frappe-ui-components.md](frappe-ui-components.md)'s `(v1)`
 tags; for an app extending CRM or Insights, match whichever line
@@ -314,7 +314,7 @@ two architecture-specific patterns beyond a single-app default config.
 - **frappe-ui version pin:** CRM and Insights are both on the **0.1.x line**
   (`frappe-ui@0.1.261` and `frappe-ui@~0.1.25x` respectively) — not different
   major lines. A snippet from one is safe to adapt into the other. v1
-  (`1.0.0-beta.x`) is a separate, newer line with a different component API
+  (`1.0.x`) is a separate, newer line with a different component API
   and export surface (see the `(v1)` tags in
   [frappe-ui-components.md](frappe-ui-components.md)); don't mix v1 snippets
   into a 0.1.x app or vice-versa. For a brand-new v16 app, prefer v1 per this
@@ -392,6 +392,6 @@ two architecture-specific patterns beyond a single-app default config.
 - Insights frontend: `apps/insights/frontend/` — v2 `src/{main.js,router.ts,socket.js,api/{index,whitelistedMethods}.ts,global.d.ts,stores/*.ts}`;
   v3 `src2/{main.ts,router.ts,session.ts,socket.ts,globals.ts,translation.ts,helpers/resource.ts,data_source/*,workbook/*,composables/*,types/*.types.ts}`;
   `frontend/vite.config.js`, `package.json`, `tsconfig.json`. (frappe-ui ~0.1.25x, Vite ^4.4.6, TS 5.5 strict — checked in a sibling bench; this bench has no `apps/insights`.)
-- frappe-ui v1 (`1.0.0-beta.29`) source and 0.1.261 baseline cross-checked for
+- frappe-ui v1 (`1.0.2`) source and 0.1.261 baseline cross-checked for
   the `(v1)`-tagged claims and the `initSocket`/`sessionUser` gotchas above.
 - Extracted via read-only scout passes; all citations verified against the trees above.

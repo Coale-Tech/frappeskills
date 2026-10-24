@@ -7,10 +7,11 @@ readable:
 - [frappe-ui-setup.md](frappe-ui-setup.md) — project setup: install, `main.js`
   plugin registration, Tailwind config, HTML scaffold, CSRF
 - [frappe-ui-core-components.md](frappe-ui-core-components.md) — icons,
-  actions (Button), display/feedback (Badge, Alert, Avatar, Breadcrumbs,
-  Divider, Progress, Skeleton, Spinner, Tooltip, KeyboardShortcut),
-  navigation (Tabs, TabButtons), data display (Tree, Calendar, Charts,
-  GridLayout), directives, and utilities
+  actions (Button), display/feedback (Alert, Badge, Avatar, Breadcrumbs,
+  Divider, Progress, Skeleton, Spinner, Tooltip, KeyboardShortcut,
+  FrappeUIProvider/Dialogs, ScrollArea, ItemListRow, KeyboardShortcutsDialog,
+  SidebarRail), navigation (Tabs, TabButtons), data display (Tree, Calendar,
+  Charts, GridLayout), directives, and utilities
 - [frappe-ui-overlays.md](frappe-ui-overlays.md) — Dialog, imperative
   `dialog.confirm`/`dialog.danger`/`dialog.prompt`, Toast, Dropdown,
   ContextMenu, Popover, and HoverCard
@@ -39,7 +40,7 @@ readable:
 > imports into Desk client scripts or vice-versa.
 >
 > The core-components/overlays/form-controls/list-and-editor files document
-> the frappe-ui **`1.0.0-beta.29`** API surface; differences from the
+> the frappe-ui **`1.0.2`** API surface; differences from the
 > **`0.1.261`** baseline (still vendored by some apps, e.g.
 > `apps/crm/frontend/node_modules/frappe-ui`) are tagged `(v1)` inline. Check
 > `frontend/package.json` for the frappe-ui version actually pinned in your
@@ -60,6 +61,6 @@ readable:
 
 ## Sources
 
-- `apps/frappe-ui/package.json` — installed frappe-ui version (`1.0.0-beta.29`) this index and its linked files are verified against
+- `apps/frappe-ui/package.json` — installed frappe-ui version (`1.0.2`) this index and its linked files are verified against
 - `apps/crm/frontend/node_modules/frappe-ui/package.json` — vendored `0.1.261` baseline used for the `(v1)` comparisons in the linked files
 - Per-topic verification lives in each linked file's own `## Sources` footer; this page is a pure index and adds no independent API claims.

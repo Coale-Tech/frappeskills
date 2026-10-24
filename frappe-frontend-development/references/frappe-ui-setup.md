@@ -9,25 +9,25 @@ Used by
 [frontend-portal.md](frontend-portal.md).
 
 **Check `frontend/package.json` first.** This file documents the **v1**
-(`1.0.0-beta.x`) API — canonical for new apps. Real installed apps commonly
+(`1.0.x`) API — canonical for new apps. Real installed apps commonly
 pin **0.1.x** (0.1.105–0.1.269 observed) instead; differences are called out
 inline as `(0.1.x)`. When they disagree with your installed version, follow
 whichever line `frontend/package.json` actually pins.
 
 ## 1. Scaffold
 
-`npm create vite@latest` currently scaffolds **Vite 8 + Tailwind v4**, both
-incompatible with frappe-ui (its vite plugin targets Vite 5's plugin API; its
-Tailwind preset is a v3-shaped config — `darkMode`, `plugins`, `content`,
-confirmed in `tailwind/preset.js`). Scaffold plain, then fix versions:
+`npm create vite@latest` scaffolds the newest Vite + Tailwind v4. frappe-ui's
+Tailwind preset is a v3-shaped config (`darkMode`, `plugins`, `content`, in
+`tailwind/preset.js`) and its `peerDependencies` say `tailwindcss >=3.4.2 <4`,
+`vite >=5`, `node >=20.19` (`engines`). Scaffold plain, then pin Tailwind to v3:
 
 ```bash
 cd apps/<app>
 npm create vite@latest frontend -- --template vue
 cd frontend
-npm uninstall tailwindcss @tailwindcss/vite vite @vitejs/plugin-vue
-npm install -D tailwindcss@^3.4 postcss autoprefixer vite@^5 @vitejs/plugin-vue@^5 vue-router@^4.1.6
-npm install frappe-ui@beta   # or a pinned version, e.g. frappe-ui@1.0.0-beta.29
+npm uninstall tailwindcss @tailwindcss/vite
+npm install -D tailwindcss@^3.4 postcss autoprefixer vue-router@^4.1.6
+npm install frappe-ui   # or pin: frappe-ui@1.0.2
 ```
 
 There is **no `templates/` directory in the `frappe-ui` repo** — a
@@ -60,23 +60,27 @@ frappe-ui's `package.json` declares an `exports` map; anything outside it
 | Subpath | Resolves to |
 |---|---|
 | `frappe-ui` | `src/index.ts` — main component/composable barrel |
-| `frappe-ui/frappe` | `frappe/index.js` — backend-dependent components (Link, Filter, onboarding, billing banners, telemetry) |
-| `frappe-ui/editor` | `src/molecules/editor/index.ts` — `Editor`, `useEditor`, kits (v1 only; top-level `TextEditor` is deprecated) |
-| `frappe-ui/list` | `src/molecules/list/index.ts` — new list primitives (v1 only) |
-| `frappe-ui/code-editor` | `src/components/CodeEditor/index.ts` (v1 only) |
-| `frappe-ui/drive`, `frappe-ui/drive/*` | `frappe/drive/*` (v1 only) |
+| `frappe-ui/experimental` | `experimental.ts` |
+| `frappe-ui/editor` | `src/molecules/editor/index.ts` — `Editor`, `useEditor`, kits |
+| `frappe-ui/list` | `src/molecules/list/index.ts` — list primitives |
+| `frappe-ui/code-editor` | `src/molecules/code-editor/index.ts` |
+| `frappe-ui/charts` | `src/charts/index.ts` — ECharts-based Vue chart components (1.0.2) |
 | `frappe-ui/icons` | `icons/index.ts` |
-| `frappe-ui/experimental` | `experimental.ts` (v1 only) |
-| `frappe-ui/tailwind` | `tailwind/index.js` → re-exports `tailwind/preset.js` default |
-| `frappe-ui/tailwind/tokens.js` | `tailwind/tokens.js` (v1 only) |
+| `frappe-ui/tailwind` | `tailwind/index.js` → re-exports `tailwind/preset.js` default and `content` array |
+| `frappe-ui/tailwind/tokens` | `tailwind/tokens.js` — design-token data (subpath key is `./tailwind/tokens`, not `./tailwind/tokens.js`) |
 | `frappe-ui/vite` | `vite/index.js` — the `frappeui()` plugin factory |
+| `frappe-ui/vite/lucideIconsPlugin` | `vite/lucideIconsPlugin.js` — `iconPackPlugin` factory (1.0.2) |
+| `frappe-ui/vitepress` | `vitepress/index.ts` — shared VitePress docs theme (1.0.2) |
 | `frappe-ui/style.css` | `src/style.css` |
-| `frappe-ui/editor-style.css`, `frappe-ui/list-style.css`, `frappe-ui/hljs-theme.css` | companion stylesheets (v1 only) |
+| `frappe-ui/tsconfig.base.json` | `tsconfig.base.json` |
 
-0.1.261 exposes the same shape for `.`, `./frappe`, `./icons`, `./tailwind`,
-`./vite`, `./style.css`, `./tsconfig.base.json` — the `editor`/`list`/
-`code-editor`/`drive`/`experimental`/token-css subpaths are v1-only additions
-(confirmed absent from the 0.1.261 `exports` map).
+**Removed in 1.0.2** (were present in beta.29): `frappe-ui/frappe` (Frappe-specific components
+moved into the main barrel or removed), `frappe-ui/drive`, `frappe-ui/drive/*`,
+`frappe-ui/editor-style.css`, `frappe-ui/list-style.css`, `frappe-ui/hljs-theme.css`.
+
+0.1.261 exposes the same shape for `.`, `./icons`, `./tailwind`, `./vite`,
+`./style.css`, `./tsconfig.base.json` — the `editor`/`list`/`code-editor`/
+`charts`/`experimental`/`vitepress`/token subpaths are v1-only additions.
 
 ## 2. `vite.config.js` — the `frappeui()` plugin
 
@@ -93,17 +97,17 @@ export default defineConfig({
     vue(),
   ],
   optimizeDeps: {
-    // frappe-ui ships unbuilt source with `~icons/lucide/*` virtual imports
-    // esbuild's prebundler cannot resolve; the frappeui plugin resolves them
-    // at request time instead. Skip prebundling frappe-ui itself...
+    // frappeui() already merges its own optimizeDeps.include for reka-ui,
+    // vue-sonner, dompurify, highlight.js/lib/core. Only exclude frappe-ui
+    // itself so the dev server never pre-bundles it as a single chunk:
     exclude: ['frappe-ui'],
-    // ...then explicitly prebundle its CJS transitive deps so the browser gets ESM.
-    // Note: remove 'feather-icons' from include in frappe-ui 1.0 — FeatherIcon removed.
-    include: ['tippy.js', 'showdown', 'engine.io-client', 'socket.io-client', 'debug'],
+    // App-specific CJS transitive deps the plugin doesn't handle — adjust
+    // to what your own imports actually pull in:
+    // include: ['tippy.js', 'socket.io-client'],
   },
-  // When using linked packages or a vendored UI snapshot (@whatsapp/ui, @framework/ui):
-  // duplicate state-bearing singletons (reka-ui provide/inject, prosemirror model) cause
-  // silent breakage. Add resolve.dedupe to force single copies:
+  // When using linked packages or a vendored UI snapshot:
+  // duplicate state-bearing singletons (reka-ui provide/inject, TipTap)
+  // cause silent breakage. Add resolve.dedupe to force single copies:
   resolve: {
     dedupe: ['vue', 'vue-router', 'frappe-ui', 'reka-ui', '@vueuse/core',
              '@tiptap/core', '@tiptap/pm', 'prosemirror-model', 'prosemirror-state'],
@@ -121,17 +125,25 @@ per-option defaults below are read straight from the implementation, not the
 | Option | Default | Plugin file | Effect |
 |---|---|---|---|
 | `frontendRoute` | *(none)* | `index.js` | Shared route prefix (e.g. `/myapp`). Feeds the dev-server site banner, the `buildConfig` `indexHtmlPath` inference, and a `define: { __FRONTEND_ROUTE__ }` global. |
-| `lucideIcons` | `true` | `lucideIcons.js` | Wires `unplugin-auto-import` + `unplugin-vue-components` (with an `IconsResolver({ prefix: false, enabledCollections: ['lucide'] })`) so `<LucideArrowRight class="size-4" />` auto-imports, plus a custom plugin that resolves `~icons/lucide/*` / component tags straight from `lucide-static` SVGs (a placeholder circle-help icon renders for names lucide-static no longer ships, e.g. removed brand icons, with a one-time console warning). Pass `{ componentGlobs: [...] }` to restrict which files get the auto-import scan. |
+| `lucideIcons` | **`false`** (1.0.2) | `lucideIcons.js` | Wires `unplugin-auto-import` + `unplugin-vue-components` (with an `IconsResolver({ prefix: false, enabledCollections: ['lucide'] })`) so `<LucideArrowRight />` auto-imports, plus a custom plugin that resolves `~icons/lucide/*` from `lucide-static` SVGs. **Off by default** — frappe-ui itself uses CSS mask icon classes (`lucide-<name>`), so the library needs no resolver; opt in when your app writes `<LucideX />` tag components or `~icons/lucide/*` virtual imports. Pass `{ componentGlobs: [...] }` to restrict the auto-import scan. |
+| `codeLanguages` | `true` | `codeLanguages.js` | Stubs missing optional `@codemirror/lang-*` peer deps so a `frappe-ui/code-editor` build doesn't fail when only some language packages are installed. On by default; harmless to leave on. |
 | `frappeProxy` | `true` | `frappeProxy.js` | Dev-server proxy to the Frappe backend. `port` default: read `common_site_config.json`'s `webserver_port` (or `FRAPPE_WEB_SERVER_PORT` env), then `8080 + (webserver_port - 8000)` — 8000→8080, 8001→8081, etc. `source` default regex: **`'^/(desk\|app\|login\|api\|assets\|files\|private)'`** — the shipped `vite/README.md` prints this same list *without* `desk`; the source is the one Vite actually runs, so trust it over the README. |
 | `buildConfig` | `true` | `buildConfig.js` | Production build wiring — see §5. |
 | `jinjaBootData` | `true` | `jinjaBootData.js` | Injects a Jinja loop before `</body>` **only in production builds** (`context.server` is truthy in dev, so this is a no-op there) — see §6. |
-| `frappeTypes` | *(off — opt-in)* | `frappeTypes.js` + `generateTypes.js` + `doctypeInterfaceGenerator.js` | Requires `{ input: { app_name: ['doctype1', ...] } }`. In `mode === 'development'` only, spawns a Node child process that walks `frappe-bench/apps/<app_name>/**/doctype/<doctype>/<doctype>.json`, diffs against previously generated interfaces, and writes/updates TypeScript interfaces to `output` (default `src/types/doctypes.ts`) — regenerated only when the source DocType JSON changes. |
-| `barrelImports` | `true` | `barrelImports.js` | Dev-only (`apply: 'serve'`) rewrite of `import { Button } from 'frappe-ui'` to a deep import of the module that declares it, so Vite's unbundled dev server doesn't crawl the ~100-line re-export barrel (and everything it pulls in — echarts, TipTap, CodeMirror, socket.io) for one component. **Defaults to `linkedOnly: true`**, meaning it only rewrites when `frappe-ui` resolves to a working copy (the library's own source, or a symlinked/monorepo install) rather than a normal registry install — for a plain `npm install frappe-ui`, this plugin is effectively inert by default. |
+| `frappeTypes` | *(off — opt-in)* | `frappeTypes.js` + `generateTypes.js` + `doctypeInterfaceGenerator.js` | Requires `{ input: { app_name: ['doctype1', ...] } }`. In `mode === 'development'` only, spawns a Node child process that walks `frappe-bench/apps/<app_name>/**/doctype/<doctype>/<doctype>.json` and writes TypeScript interfaces to `output` (default `src/types/doctypes.ts`) — regenerated only when the source DocType JSON changes. |
+| `barrelImports` | `true` | `barrelImports.js` | Dev-only (`apply: 'serve'`) rewrite of `import { Button } from 'frappe-ui'` to a deep import of the module that declares it, so Vite's unbundled dev server doesn't crawl the re-export barrel. **Defaults to `linkedOnly: true`**, meaning it only rewrites when `frappe-ui` resolves to a working copy (the library's own source, or a symlinked install) rather than a normal registry install — for a plain `npm install frappe-ui`, this plugin is effectively inert. |
+
+`benchFiles` runs unconditionally (no option to disable): it resolves relative
+`../sites/<file>` imports to the bench's `sites/` folder when an app is linked
+into `apps/` from another directory (as done by tools like Pilot). If the bench
+is not on the path above `frontend/`, set `FRAPPE_BENCH_PATH` to the bench root
+and `benchFiles` will find it. (1.0.2)
 
 Two behaviors apply unconditionally, regardless of any option above (still
-`vite/index.js`): every build gets `optimizeDeps.include: ['highlight.js/lib/core', 'interactjs']`
-merged in, and — separately from the `siteBanner` behavior below — no option
-disables that merge.
+`vite/index.js`): every build gets `optimizeDeps.include:
+['highlight.js/lib/core', 'reka-ui', 'vue-sonner', 'dompurify']` (1.0.2) merged
+in — these back the imperative `toast()` and `dialog.*` surfaces and fail
+noisily when discovered late — and no option disables that merge.
 
 **`siteBanner`** is not an independent toggle: `siteBanner({ frontendRoute })`
 runs unconditionally, but the function itself returns `null` (adds no plugin)
@@ -197,12 +209,12 @@ export default {
 }
 ```
 
-The preset (`tailwind/preset.js`) itself sets `darkMode: ['selector',
-'[data-theme="dark"]']`, fills the integer spacing scale 1–64 at the
-0.25rem step (stock Tailwind has gaps above 12), safelists `prose`/`prose-v3`
-for the rich-text editor, and applies `@tailwindcss/forms`,
-`@tailwindcss/typography`, the design-token plugin, and a Lucide icon-class
-plugin. Design tokens and Espresso details:
+The preset (`tailwind/preset.js`) sets `darkMode: ['selector', '[data-theme="dark"]']`,
+`future.hoverOnlyWhenSupported: true` (hover styles only on pointer devices), fills
+the integer spacing scale 1–128 at 0.25rem/step plus half-steps 0.5–19.5 (stock
+Tailwind has gaps above 12), safelists `prose`/`prose-v3` for the rich-text editor,
+and applies `@tailwindcss/forms`, `@tailwindcss/typography`, the design-token plugin,
+and a Lucide icon-class plugin. Design tokens and Espresso details:
 [design-tokens.md](../../frappe-design-tokens/references/design-tokens.md).
 
 ## 5. CSS entry + app bootstrap
@@ -213,7 +225,15 @@ plugin. Design tokens and Espresso details:
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-```
+
+`frappe-ui/style.css` (1.0.2) ships two global rules beyond the Tailwind directives and
+the bundled Inter font:
+- `.no-transition * { transition: none !important }` — applied by `useColorScheme`
+  for the two animation frames around a light/dark swap, preventing a full-page cross-fade.
+- `@media (display-mode: standalone) { html { min-height: min(100lvh, ...) } }` — iOS 26
+  fix: ensures an installed PWA's viewport fills the screen past the status bar height
+  so the MobileShell tab bar reaches the bottom edge. Apps that skip `@import 'frappe-ui/style.css'`
+  lose both behaviors.
 
 ```js
 // src/main.js
@@ -370,17 +390,18 @@ tables above being skipped.
 
 ## Sources
 
-Verified against frappe-ui `1.0.0-beta.29` (coale_v16 bench `apps/frappe-ui/package.json`)
-and cross-checked against frappe-ui `1.0.0-rc.2` in 16.51.1 bench CRM frontend (`apps/crm/frontend/package.json`).
-frappe-ui is not a separate bench app in 16.51.1 bench; it is a declared dependency in the CRM frontend.
+Verified against frappe-ui **1.0.2** (`apps/frappe-ui/package.json` version field).
 
-- `apps/frappe-ui/package.json` — `exports` map, `dependencies`/`devDependencies` (icon toolchain); `tailwind/index.js` exports `content` named export in 1.0 (absent in 0.1.x)
-- `apps/frappe-ui/tailwind/preset.js` — `darkMode`, spacing scale, `@tailwindcss/forms`/`@tailwindcss/typography`, Lucide icon-class plugin
-- `apps/frappe-ui/vite/index.js` — `frappeui()` plugin array, sub-plugin defaults; unconditional `optimizeDeps.include: ['highlight.js/lib/core', 'interactjs']` (no `feather-icons` in beta.29)
-- `apps/frappe-ui/vite/frappeProxy.js`, `apps/frappe-ui/vite/README.md:85` — proxy `source` regex
-- `apps/frappe-ui/vite/buildConfig.js`, `vite/jinjaBootData.js`, `vite/lucideIcons.js`
-- `apps/frappe-ui/src/utils/plugin.ts` — `FrappeUI` plugin install (`resourcesPlugin`, `$call`, `initSocket`)
-- `apps/frappe-ui/src/components/Provider/FrappeUIProvider.vue` — renders `<Dialogs />`/`<ToastProvider />`
-- `apps/crm/frontend/vite.config.js` (16.51.1 bench, 1.0.0-rc.2) — `resolve.dedupe`, `optimizeDeps.exclude: ['frappe-ui']`, no `feather-icons` in include
-- `apps/crm/frontend/tailwind.config.js` (16.51.1 bench) — `import { content as frappeUIContent } from 'frappe-ui/tailwind'`, `...frappeUIContent`
-- `apps/crm/frontend/src/main.js` (16.51.1 bench) — `app.use(spritePlugin)` from `frappe-ui/experimental`; `telemetryPlugin` from `@framework/ui/telemetry`
+- `apps/frappe-ui/package.json` — `exports` map, `dependencies`; version 1.0.2
+- `apps/frappe-ui/CHANGELOG.md` — 1.0.1 and 1.0.2 patch notes
+- `apps/frappe-ui/tailwind/preset.js` — `darkMode`, `future.hoverOnlyWhenSupported`, spacing, plugins
+- `apps/frappe-ui/tailwind/content.js` — authoritative glob list including experimental dirs
+- `apps/frappe-ui/vite/index.js` — `frappeui()` plugin array, sub-plugin defaults; unconditional `optimizeDeps.include` (1.0.2: `reka-ui`, `vue-sonner`, `dompurify`, `highlight.js/lib/core`)
+- `apps/frappe-ui/vite/frappeProxy.js` — proxy `source` regex and port logic
+- `apps/frappe-ui/vite/benchFiles.js` — linked-app bench path resolution, FRAPPE_BENCH_PATH
+- `apps/frappe-ui/vite/codeLanguages.js` — optional codemirror peer stub plugin
+- `apps/frappe-ui/vite/lucideIcons.js`, `vite/lucideIconsPlugin.js` — lucideIcons off-by-default (1.0.2)
+- `apps/frappe-ui/vite/buildConfig.js`, `vite/jinjaBootData.js`, `vite/barrelImports.js`
+- `apps/frappe-ui/src/utils/plugin.ts` — `FrappeUI` plugin install
+- `apps/frappe-ui/src/components/Provider/FrappeUIProvider.vue` — renders dialogs/toast portals
+- `apps/frappe-ui/src/style.css` — `.no-transition` for `useColorScheme`, iOS 26 standalone min-height (1.0.2)

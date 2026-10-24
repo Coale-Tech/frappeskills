@@ -28,7 +28,7 @@ to match the Desk behavior.
 
 - [ ] All images have `alt` text (`alt=""` for decorative icons; frappe-ui icon `aria-hidden="true"` is set automatically)
 - [ ] Every form input has an associated `<label>` — Frappe Desk form fields associate labels via `for`/`id`; verify custom HTML follows the same pattern
-- [ ] Icon-only Buttons pass `aria-label` via the `ariaLabel` prop (`Button.vue` exposes it)
+- [ ] Icon-only Buttons pass `aria-label` as a native HTML attribute (Button inherits it via rest-attrs; there is **no** `ariaLabel` Vue prop)
 - [ ] Dynamic content changes (live regions, toast notifications) are announced: frappe-ui `toast` injects into a `role="status"` region
 - [ ] Tables have `<th scope="col">` headers; do not use `<div>`-based grids for tabular data
 
@@ -49,6 +49,7 @@ Rules:
 - [ ] Large text (18px+ or 14px+ bold) contrast ≥ 3:1
 - [ ] Interactive components (inputs, buttons) against background ≥ 3:1 (WCAG 1.4.11)
 - [ ] Color is never the **only** indicator of state — pair color with an icon, label, or border
+- [ ] `Progress` without a `label` prop uses the accessible name `"Progress"` (not the percentage); supply `label` for meaningful context **(frappe-ui 1.0.1)**
 
 ## Forms and Error Handling
 
@@ -106,21 +107,24 @@ npx pa11y <url>
 ## Common Anti-Patterns
 
 | Anti-Pattern | Problem | Fix |
-|---|---|---|
+| --- | --- | --- |
 | `<div @click="fn">` as a button | Not focusable, no keyboard | Use `<Button>` or `<button>` |
 | `frappe.ui.Dialog` with raw `<div>` title | No `aria-labelledby` | Always pass `title:` option |
 | Color-only error state | Invisible to color-blind users | Add icon + text beside the color |
 | `focus: outline-none` without a substitute | Users cannot see focus | Use `focus-visible:ring` tokens |
-| Icon-only Button with no `ariaLabel` | "Button" with no description | Pass `ariaLabel` prop |
+| Icon-only Button with no `aria-label` attribute | "Button" announced with no description | Pass `aria-label="…"` as a native HTML attribute (not a Vue prop) |
 | `tabindex="2"` or higher | Breaks natural order | Use `tabindex="0"` / `"-1"` only |
 | Desk custom filter bar as `<span>` elements | Not keyboard-reachable | Use `<button>` or `<input>` |
 
 ## Sources
 
+Verified against frappe-ui `1.0.2` (`apps/frappe-ui/package.json`):
+
 - `apps/frappe/frappe/public/js/frappe/ui/dialog.js` — `handle_focus`, `focus_on_first_input`, `last_focus` restore
 - `apps/frappe/frappe/public/js/frappe/form/control.js` — label association for Desk form controls
 - `apps/frappe/frappe/public/js/frappe/ui/toolbar/toolbar.js` — Desk nav `<button>` patterns
-- `node_modules/frappe-ui/src/components/Dialog/Dialog.vue` — Radix Vue `DialogRoot` / `DialogContent` (ARIA managed by `@radix-vue/dialog`)
-- `node_modules/frappe-ui/src/components/Button/Button.vue` — `ariaLabel` prop, `focus-visible:ring` classes
-- `node_modules/frappe-ui/src/components/FormControl` — label-to-input wiring in frappe-ui form controls
+- `apps/frappe-ui/src/components/Dialog/Dialog.vue` — reka-ui `DialogRoot`/`DialogContent` (ARIA managed by reka-ui)
+- `apps/frappe-ui/src/components/Button/Button.vue` — `aria-label: props.label ?? restAttrs['aria-label']` (no `ariaLabel` Vue prop), `focus-visible:ring`
+- `apps/frappe-ui/src/components/Progress/Progress.vue` — `valueLabel = props.label || 'Progress'` (1.0.1 fix, prevents double-announcement)
+- `apps/frappe-ui/src/components/FormControl/FormControl.vue` — label-to-input wiring
 - `apps/frappe/frappe/website/` — portal page rendering and `lang` utilities

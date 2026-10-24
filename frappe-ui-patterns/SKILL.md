@@ -57,8 +57,8 @@ selection, pagination or infinite scroll — not both. Rows come from
 
 Primary actions top-right, status prominent, related records in tabs or side
 panel, activity/comments last. Confirm destructive actions with
-`dialog.danger`, report outcomes with `toast` — never a hand-built confirm
-`Dialog`.
+`dialog.danger`, inform with `dialog.confirm`; report outcomes with `toast` —
+never a hand-built confirm `Dialog`. (`dialog.alert` does not exist.)
 
 ### 4) Make it responsive
 
@@ -111,7 +111,7 @@ affordances before shipping.
 - **Copy a shipped product's pattern** before designing a new one
 - **One primary action per screen**: everything else is secondary
 - **Tokens for spacing and type**: bespoke values make screens feel foreign
-- **Two color axes only**: `variant` + `theme`; no `intent`/`kind`/`severity` props
+- **Two color axes only**: `variant` + `theme`; `theme` values differ by component — Button's max is `red`, Badge adds `amber` and `violet`, no component accepts `orange`
 - **Mobile is a layout change, not a separate app**
 - **Empty, loading and error states are part of the design**, not an afterthought
 
@@ -147,3 +147,6 @@ affordances before shipping.
 | Inventing an `ActionSheet` for mobile | No such component | `BottomSheet` or `Dropdown` |
 | Ad-hoc spacing values | Visual drift | Token scale |
 | No empty state | Looks broken on day one | Explicit empty state with an action |
+| `<Tabs v-model:tab="…">` | `tab` is `SettingsDialog`'s model | Bare `v-model` on `Tabs` |
+| `Badge theme="orange"` | `orange` does not exist; renders default gray | Use `theme="amber"` |
+| `dialog.alert(...)` | Method does not exist; throws `TypeError` | `dialog.confirm` or `dialog.danger` |

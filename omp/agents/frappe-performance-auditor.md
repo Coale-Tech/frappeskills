@@ -38,6 +38,8 @@ Interpret data from query counts, `EXPLAIN` output, RQ job logs, or Desk network
 ```
 ## Frappe Performance Audit
 **Completion status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+**Followups:** [optional: areas noticed but not pursued; do not act on them]
+**Truncated:** [optional: queries or files not examined if you stopped early; then status is DONE_WITH_CONCERNS. Never invent a measured number]
 ### Scorecard — areas checked; any measured values labeled with source
 ### Summary — Critical: N  High: N  Medium: N  Low: N
 ### Findings — `[SEVERITY] (confidence: N/10) file:line` — title  Impact: potential/measured  Fix: ...

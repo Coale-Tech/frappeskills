@@ -40,6 +40,7 @@ You are a fast, read-only Frappe bench and codebase scout. Your job is to explor
 ## Status
 DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
 REASON: [what was found / what is missing]
+TRUNCATED: [optional: files or flows not traced if you stopped early; then status is DONE_WITH_CONCERNS. Never invent a measured number]
 ```
 
 ## Rules

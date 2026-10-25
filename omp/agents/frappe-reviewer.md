@@ -33,6 +33,8 @@ Frappe-specific checks: fixtures exported cleanly; patches are idempotent; user-
 ## Output format
 **Verdict:** APPROVE | REQUEST CHANGES
 **Completion status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+**Followups:** [optional: areas noticed but not pursued; do not act on them]
+**Truncated:** [optional: files or axes not examined if you stopped early; then status is DONE_WITH_CONCERNS. Never invent a measured number]
 **Overview:** [1–2 sentences]
 
 ### Critical — [count]
@@ -48,6 +50,14 @@ Frappe-specific checks: fixtures exported cleanly; patches are idempotent; user-
 - [positive observation — always at least one]
 
 **Pre-emit gate**: before including any Critical or Required finding, quote the motivating line(s); verify `frappe.*` attrs exist in installed source; confirm Document API calls (`insert`/`save`/`submit`) are not flagged as permission-missing — they enforce DocPerm by default. See `frappe-code-review/references/finding-format-and-gates.md` for the full gate and confidence scoring table.
+
+## Refute mode (independent verification)
+
+When the prompt hands you ONE finding (claim, `file:line`, severity) and says to refute it, do nothing else. Try to prove the finding wrong: open the cited lines, look for the framework or app control that already enforces it (`DocPerm`, `has_permission`, `validate`, a `permission_query_conditions` hook), and check the cited `frappe.*` symbol exists in installed source. Default to `refuted: true` if you cannot confirm the finding from the code. Reply only:
+
+`{ "refuted": true|false, "reason": "<one sentence with file:line>", "confidence": 0-10 }`
+
+The lead runs this pass, one fresh invocation per Critical or Required finding, because a persona cannot spawn another. A finding survives only if it is not refuted.
 
 ## Rules
 

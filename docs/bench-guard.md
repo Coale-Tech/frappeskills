@@ -34,6 +34,10 @@ determined adversary.
 | ASK  | `git clean -fd`, `git clean -fdx` | confirm |
 | ASK  | `mariadb`/`mysql` with DROP/TRUNCATE/DELETE in command | confirm |
 | ASK  | Any `--site NAME` where NAME matches `FRAPPE_GUARD_PROD_SITES` regex | confirm |
+| ASK  | Remote code piped into a shell (`curl \| sh`, `sh <(curl …)`, `base64 -d \| sh`) | confirm |
+| ASK  | `site_config.json` together with a network tool (`curl`, `wget`, `nc`, `scp`, `sftp`) | confirm |
+| ASK  | `pip install` from a URL or alternate index | confirm |
+| ASK  | `bench get-app <url>` from a source outside `FRAPPE_GUARD_TRUSTED_ORGS` | confirm |
 | ALLOW| `bench list-apps`, `bench version`, `bench doctor`, `bench backup` | pass |
 
 ### File tier (Edit / Write tools)
@@ -45,7 +49,10 @@ determined adversary.
 | ASK  | `sites/*/site_config.json` | confirm |
 | ASK  | `common_site_config.json` | confirm |
 | ASK  | `apps.txt`, `sites/apps.txt` | confirm |
+| ASK  | Content being written holds a private-key header, AWS key id, GitHub/Slack token, live Stripe key, `sk-ant-` key, or a URL with an embedded password (any path except `site_config.json`, which already asks) | confirm |
 | ALLOW| Everything else | pass |
+
+Credential-shaped content is judged by token shape only. Obvious placeholders (`example`, `your`, `changeme`, `password`, `xxxx`, `<…>`, `${…}`, `{{…}}`) are exempt. It is a tripwire for accidental commits of keys into app code or fixtures, not a secret scanner: a secret with no known shape is not caught.
 
 ---
 
@@ -66,6 +73,10 @@ determined adversary.
 | `git push --force` / `+refspec` / `--force-with-lease` | Rewrites remote history (or may after lease failure); other contributors lose commits |
 | `git reset --hard` | Discards all uncommitted changes permanently |
 | `git clean -fd/-fdx` | Removes untracked files from the working tree; often includes generated assets |
+| `curl \| sh`, `wget \| sh`, `sh <(curl …)`, `eval "$(curl …)"`, `base64 -d \| sh` | Runs code nobody read; download, read, then run |
+| `site_config.json` named in a command that also uses `curl`/`wget`/`nc`/`scp`/`sftp` | The file holds `db_password` and `encryption_key` |
+| `pip install` from `git+`, `http(s)://` or `--index-url` | Bypasses the default package index |
+| `bench get-app <url>` outside `FRAPPE_GUARD_TRUSTED_ORGS` (or any non-GitHub URL) | The app's hooks and patches run on `migrate` |
 
 ---
 
@@ -80,6 +91,10 @@ export FRAPPE_GUARD_PROD_SITES='^(prod|production|live)'
 # Colon-separated extra app names whose files are denied for Edit/Write.
 # In addition to the built-in frappe/erpnext/hrms block.
 export FRAPPE_GUARD_PROTECTED_APPS='payments:lending'
+
+# Comma-separated GitHub orgs whose `bench get-app <url>` is not questioned.
+# Default: frappe. Bare names (`bench get-app erpnext`) are never questioned.
+export FRAPPE_GUARD_TRUSTED_ORGS='frappe,my-org'
 ```
 
 Set these in your shell profile or in the `env` block of `settings.json`.
@@ -197,12 +212,12 @@ default-path commands, not to enforce a security policy.
 ## Running tests
 
 ```bash
-node scripts/test-bench-guard.js   # 111 cases, zero deps
+node scripts/test-bench-guard.js   # 141 cases, zero deps
 ```
 
-Expected output: `bench-guard tests PASSED  (111 ok, 0 failed)`
+Expected output: `bench-guard tests PASSED  (141 ok, 0 failed)`
 
-Requires python3 (for the bench invocation parser) and bash 3.2+.
+Requires python3 (for the bench invocation parser) and bash 3.2+. Each case spawns the guard (~1s cold); on a loaded machine set `GUARD_TEST_TIMEOUT_MS=60000` to avoid false timeouts.
 
 ---
 

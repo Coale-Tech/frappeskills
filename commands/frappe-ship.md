@@ -25,7 +25,7 @@ Personas do not call each other. The main agent merges in Phase B.
 
 ## Phase B — Merge
 
-1. Aggregate Critical/Required findings; promote any Critical security findings to blockers
+1. Aggregate Critical/Required findings; promote any Critical security findings to blockers. **Refutation pass:** for each Critical or Required finding, start one fresh `frappe-reviewer` invocation in Refute mode (hand it only that finding) and run them in a single turn. Drop findings it refutes with confidence >= 7; keep and flag the rest as `unverified`
 2. Verify: `bench --site <site> migrate` clean; all tests pass; backup confirmed
 3. Check deprecation/migration: removed fields still referenced? Patches idempotent and tested on a restored backup?
 4. Infrastructure: `site_config.json` secrets correct, worker counts sized, `maintenance_mode` plan ready, post-deploy smoke test defined

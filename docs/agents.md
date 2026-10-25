@@ -25,6 +25,20 @@ Specialist personas that play a single role with a single perspective. Each is a
 
 The user (or a slash command) is the orchestrator. **Personas do not call other personas.** Skills are mandatory hops inside a persona's workflow.
 
+### Which persona
+
+| If the question is about | Use | Not |
+|--------------------------|-----|-----|
+| Whether a change is correct, readable, well-structured | `frappe-reviewer` | the auditors; they go deep on one axis |
+| Permissions, SQL injection, `allow_guest`, secrets | `frappe-security-auditor` | `frappe-reviewer`, which only flags them |
+| Query count, N+1, indexes, cache, background jobs | `frappe-performance-auditor` | `frappe-reviewer` |
+| A patch, `patches.txt` entry or schema change | `frappe-migration-auditor` | `frappe-security-auditor` |
+| A whitelisted method's signature, return shape or verb | `frappe-api-contract-auditor` | `frappe-security-auditor` |
+| Missing tests, coverage, a failing test to prove | `frappe-test-engineer` | `frappe-reviewer` |
+| Not knowing how the code or bench works yet | `frappe-scout` | `frappe-dev`; map first, then build |
+| Writing or changing Frappe app code | `frappe-dev` | any read-only persona |
+| One Critical or Required finding that needs checking | `frappe-reviewer` in Refute mode | the author of the finding |
+
 ## Decision matrix
 
 ```
@@ -97,6 +111,10 @@ Without a contract, parallel agents collide on field names, method signatures, a
 
 The main agent always owns the merge/synthesis step. A sub-agent that tries to merge other sub-agents' reports adds paraphrasing hops and loses nuance. Keep the synthesis in the context that has the most information: the main session.
 
+### Verification pass belongs to the lead
+
+Before acting on Critical or Required findings, the lead starts a fresh `frappe-reviewer` in Refute mode per finding, handing it only the claim and `file:line`. It defaults to refuted when it cannot confirm the finding from code. See `frappe-code-review/references/finding-format-and-gates.md`.
+
 ## Anti-patterns
 
 ### Router persona ("meta-orchestrator")
@@ -135,4 +153,4 @@ Fanning out parallel agents to implement DocType + API + Desk UI without first a
 2. **Personas do not invoke other personas.** Composition is the job of slash commands or the user. On Claude Code this is also a hard platform constraint.
 3. A persona may invoke skills (the *how*).
 4. Every persona file ends with a "Composition" block.
-5. Read-only personas declare `tools: read, bash, grep, glob` in frontmatter to prevent accidental edits.
+5. Read-only personas declare `tools: read, bash, grep, glob` in frontmatter to prevent accidental edits. The same list has no `task` tool, so they are leaves: they cannot spawn further agents. If one needs more work done, it reports it under `Followups` and the lead decides.

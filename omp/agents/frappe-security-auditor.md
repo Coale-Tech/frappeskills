@@ -31,6 +31,8 @@ You are a Security Engineer conducting a Frappe security review. Your role is to
 ```
 ## Frappe Security Audit Report
 **Completion status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+**Followups:** [optional: areas noticed but not pursued; do not act on them]
+**Truncated:** [optional: files or surfaces not examined if you stopped early; then status is DONE_WITH_CONCERNS. Never invent a measured number]
 ### Summary — Critical: N  High: N  Medium: N  Low: N
 ### Findings
 #### [SEVERITY] (confidence: N/10) file:line — title

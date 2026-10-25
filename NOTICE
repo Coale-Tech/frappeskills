@@ -60,6 +60,14 @@ ios-design-review, ios-qa). All text is rewritten for Frappe/ERPNext; no
 gstack prose or code is vendored, and none of its Apache-2.0-derived design
 material is used.
 
+The bench safety hook's pipe-to-shell, secret-exfiltration, untrusted-install and
+credential-in-write checks, the independent refutation pass for review findings,
+the followups/truncated fields of the completion status, and the test-first
+repair guardrails are adapted from ruflo (npm claude-flow) by ruvnet at
+https://github.com/ruvnet/claude-flow, licensed MIT (full text in
+LICENSES/ruflo-ruvnet-MIT.txt). Adapted 2026-10-25. The text and regexes are
+rewritten for Frappe/bench; no ruflo code is vendored.
+
 Code examples cite Frappe Framework, ERPNext, HRMS, Frappe CRM and Frappe
 Insights source, all published by Frappe Technologies under the GNU General
 Public License v3 / MIT depending on the project. Those citations are

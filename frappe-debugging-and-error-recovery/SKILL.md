@@ -178,6 +178,8 @@ Run it: `bench --site <site> run-tests --module <app>.tests.test_my_doc`
 - **Use `frappe.log_error`** not bare `print()`; `print()` output goes to worker stdout, not logs
 - **Claimed limitations need evidence**: a statement like "Frappe doesn't support X" or "this hook can't do Y" requires a `file:line` from the installed source or a live probe — not pattern-matched memory. Run `grep -rn` on the installed apps before declaring a limitation.
 - **Confusion protocol**: when genuinely blocked by high-stakes ambiguity — the data model is unclear (which table is authoritative?), the fix scope is destructive (will this alter live records?), or the hook affects all sites — **stop and ask**. State the ambiguity in one sentence and name 2–3 interpretations with their implications. Do not ask for routine debugging decisions.
+- **Run the failing test first, and stop if it already passes.** A green test means the report is stale or the command is wrong; fixing it is a no-op that still edits code.
+- **Never edit the failing test to make it pass.** The test is the specification of the fix; change it only when you can show the test itself is wrong. When delegating the repair to an unattended headless run (`claude -p --allowedTools Read,Edit,Bash`), cap attempts and spend, start from a clean git tree, and show the plan before running. Restricting tools narrows the run but is not a sandbox: Bash can still reach the filesystem and network.
 
 ## Common Rationalizations
 

@@ -20,12 +20,14 @@ set -euo pipefail
 
 INPUT=$(cat)
 
+SECRET_RE='-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(AKIA|ASIA)[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{30,}|\bgithub_pat_[A-Za-z0-9_]{40,}|\bxox[abprs]-[A-Za-z0-9-]{10,}|\b[rs]k_live_[A-Za-z0-9]{16,}|\bsk-ant-[A-Za-z0-9_-]{20,}|\b[a-z][a-z0-9+.-]{1,20}://[^[:space:]:@/"\\]+:[^[:space:]@/"\\]{3,}@'
+SECRET_PLACEHOLDER='example|your|changeme|dummy|redacted|placeholder|xxxx|\*\*\*|password|passwd|:pass@|<|\$\{|\{\{'
 # Fast path: no JSON parser spawn (~1s cold python/node start) unless the payload
 # mentions something a rule could match. Keep this list a superset of the rules below.
-PRE='bench|rm|git|sql|mariadb|mysql|drop|truncate|delete|apps|sites|site_config|restore|reinstall'
+PRE='bench|rm|git|sql|mariadb|mysql|drop|truncate|delete|apps|sites|site_config|restore|reinstall|curl|wget|pip|base64'
 [ -n "${FRAPPE_GUARD_PROTECTED_APPS:-}" ] && PRE="$PRE|${FRAPPE_GUARD_PROTECTED_APPS//:/|}"
 [ -n "${FRAPPE_GUARD_PROD_SITES:-}" ] && PRE="$PRE|${FRAPPE_GUARD_PROD_SITES}"
-if ! printf '%s' "$INPUT" | grep -qiE "$PRE"; then echo '{}'; exit 0; fi
+if ! printf '%s' "$INPUT" | grep -qiE "$PRE" && ! printf '%s' "$INPUT" | grep -qE -e "$SECRET_RE"; then echo '{}'; exit 0; fi
 
 # ── JSON helpers ──────────────────────────────────────────────────────────────
 # Extract tool_input.FIELD as a plain string. Returns 1 if no parser available.
@@ -62,6 +64,12 @@ _bg_decision() {
     "$1" "$(_bg_json_str "$2")"
 }
 
+# True when the payload holds a secret-shaped token that is not an obvious placeholder.
+# Token shapes paraphrased from ruflo-protector (MIT); see NOTICE.
+_bg_has_secret() {
+  printf '%s' "$INPUT" | grep -oE -e "$SECRET_RE" 2>/dev/null | grep -viE "$SECRET_PLACEHOLDER" | grep -q .
+}
+
 # ── File tier ─────────────────────────────────────────────────────────────────
 _guard_file() {
   local fpath="$1"
@@ -77,6 +85,17 @@ _guard_file() {
       return 0
     fi
   done
+
+  # Ask when the content being written holds a live-looking credential.
+  # site_config.json legitimately holds secrets and already asks below.
+  case "$fpath" in
+    */site_config.json|*/common_site_config.json|site_config.json|common_site_config.json) ;;
+    *)
+      if _bg_has_secret; then
+        _bg_decision ask "[bench-guard] The content being written looks like a live credential (private key, cloud/API token, or a URL with a password). Keep secrets in site_config.json or the environment, never in app code or fixtures."
+        return 0
+      fi ;;
+  esac
 
   # Ask on sensitive bench config files.
   case "$fpath" in
@@ -129,6 +148,24 @@ _guard_bash() {
     _ask "[bench-guard] SQL DROP/TRUNCATE/DELETE detected in direct database client command."
   fi
 
+  # ── Remote code piped into a shell (ASK) ─────────────────────────────────
+  # curl|sh, base64 -d|sh, sh <(curl ...), eval "$(curl ...)"
+  if printf '%s' "$cmd" | grep -qE '(curl|wget)\b[^|;&]*\|\s*(sudo\s+)?(ba|z|da)?sh\b|base64\s+(-d|--decode)\b[^|;&]*\|\s*(sudo\s+)?(ba|z)?sh\b|\b(ba|z)?sh\s+<\(\s*(curl|wget)\b|\beval\s+["'"'"']?\$\(\s*(curl|wget)\b' 2>/dev/null; then
+    _ask "[bench-guard] Remote code is piped into a shell. Download it, read it, then run it."
+  fi
+
+  # ── Site config contents sent over the network (ASK) ─────────────────────
+  # site_config.json holds db_password and encryption_key.
+  if printf '%s' "$cmd" | grep -qE 'site_config\.json' 2>/dev/null \
+  && printf '%s' "$cmd" | grep -qE '\b(curl|wget|nc|ncat|netcat|socat|scp|sftp|ftp)\b' 2>/dev/null; then
+    _ask "[bench-guard] site_config.json holds db_password and encryption_key; this command also reaches the network."
+  fi
+
+  # ── pip install from a URL or alternate index (ASK) ──────────────────────
+  if printf '%s' "$cmd" | grep -qE 'pip3?\s+install\b[^|;&]*(git\+|https?://|--(extra-)?index-url)' 2>/dev/null; then
+    _ask "[bench-guard] pip install from a URL or alternate index bypasses the default package index. Verify the source."
+  fi
+
   # ── Bench invocation checks ───────────────────────────────────────────────
   # Use python3 to parse bench command segments properly — this correctly handles
   # `echo bench drop-site x` (no invocation) vs `bench drop-site x` (invocation).
@@ -141,6 +178,7 @@ import os, re
 
 cmd      = os.environ.get("FRAPPE_GUARD_CMD", "")
 prod_re  = os.environ.get("FRAPPE_GUARD_PROD_SITES", "")
+trusted   = {o.strip().lower() for o in os.environ.get("FRAPPE_GUARD_TRUSTED_ORGS", "frappe").split(",") if o.strip()}
 
 DENY_SUBCMDS  = {"drop-site", "reinstall"}
 ASK_SUBCMDS   = {"migrate", "update", "remove-app", "uninstall-app",
@@ -210,6 +248,14 @@ for seg in re.split(r'&&|\|\||`|\$\(|[;|\n]', cmd):
         combined = " ".join(rest[1:]).lower()
         if "frappe.db.sql" in combined and re.search(r'\b(delete|truncate)\b', combined):
             ask("[bench-guard] 'bench execute' contains frappe.db.sql with DELETE/TRUNCATE.")
+    elif subcmd == "get-app":
+        # Installing an app runs its hooks/patches on migrate: ask unless the source is a bare name or a trusted GitHub org.
+        for a in rest[1:]:
+            if re.match(r'^(https?://|git@|ssh://|git\+)', a):
+                m = re.search(r'github\.com[/:]([^/]+)/', a)
+                if not (m and m.group(1).lower() in trusted):
+                    ask("[bench-guard] 'bench get-app' from an untrusted source: its hooks and patches run on migrate. Review the code first (FRAPPE_GUARD_TRUSTED_ORGS lists trusted GitHub orgs).")
+                break
     elif subcmd in ASK_SUBCMDS:
         ask("[bench-guard] 'bench " + subcmd + "' — confirm it is intended on the target site.")
 

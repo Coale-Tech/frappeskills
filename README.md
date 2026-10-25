@@ -95,6 +95,8 @@ ends with a `## Sources` section naming the files it was checked against.
 
 **Provenance**: plan-review, design-review, QA/ship and guard ideas are adapted from gstack (MIT). Per-skill verdicts, including what was skipped and why: [docs/gstack-adoption.md](docs/gstack-adoption.md).
 
+Guard rules, the refutation pass and the status-protocol fields are adapted from ruflo (MIT): [docs/ruflo-adoption.md](docs/ruflo-adoption.md).
+
 ## Installation
 
 ```bash

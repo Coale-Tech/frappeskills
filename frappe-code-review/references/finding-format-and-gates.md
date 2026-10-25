@@ -119,6 +119,16 @@ user by default. The draft finding is a false positive.
 
 ---
 
+## Independent refutation pass
+
+The pre-emit gate is the author checking their own claim. For Critical and Required findings, the lead adds a second check by a fresh context that was not involved in producing the finding:
+
+1. Hand one verifier only the claim, `file:line` and severity. Do not pass the author's reasoning.
+2. The verifier tries to prove the finding wrong: find the control that already enforces it (`DocPerm`, `has_permission`, `validate`, `permission_query_conditions`), and confirm the cited symbol exists in installed source.
+3. Default to refuted when the finding cannot be confirmed from the code.
+4. Reply shape: `{ "refuted": bool, "reason": "<file:line>", "confidence": 0-10 }`.
+5. A finding survives only if it is not refuted. For a security finding where one verifier is not enough, run one verifier per lens (correctness, security, performance) and keep the finding only if a majority fail to refute it.
+
 ## Sources
 
 - `apps/frappe/frappe/__init__.py` line 1363 — `frappe.get_list` "Will also check for permissions"; calls `frappe.model.qb_query.DatabaseQuery(doctype).execute()`

@@ -29,11 +29,12 @@ interface HookAPI {
 function payloads(e: ToolCallEvent): Record<string, string>[] {
 	const i = e.input;
 	if (e.toolName === "bash") return [{ command: String(i.command ?? "") }];
-	if (e.toolName === "write") return [{ file_path: String(i.path ?? "") }];
+	// content = the whole tool input, so the guard's secret scan sees whatever is being written.
+	if (e.toolName === "write") return [{ file_path: String(i.path ?? ""), content: JSON.stringify(i) }];
 	if (e.toolName === "edit") {
 		const paths = [...String(i.input ?? "").matchAll(/^\[([^\]#\n]+)#/gm)].map((m) => m[1]);
 		if (i.path) paths.push(String(i.path));
-		return paths.map((file_path) => ({ file_path }));
+		return paths.map((file_path) => ({ file_path, content: JSON.stringify(i) }));
 	}
 	return [];
 }

@@ -45,6 +45,8 @@ Critical Desk flow          → Browser (frappe-browser-testing)
 ```
 ## Test Coverage Analysis
 **Completion status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+**Followups:** [optional: areas noticed but not pursued; do not act on them]
+**Truncated:** [optional: modules not examined if you stopped early; then status is DONE_WITH_CONCERNS. Never invent a measured number]
 ### Current Coverage — [X] tests, gaps: [list]
 ### Coverage Gaps — `[SEVERITY] (confidence: N/10) file:line` — gap description + recommended test
 ### Recommended Tests

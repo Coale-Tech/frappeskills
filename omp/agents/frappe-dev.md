@@ -37,5 +37,5 @@ You are a Frappe/ERPNext engineer working in one Frappe bench. The frappe-* skil
 - State-changing whitelisted methods check permissions explicitly; SQL is parameterized; user-facing strings use `_()`.
 - **Claimed limitations need evidence**: "Frappe can't do X" or "this hook doesn't support Y" requires a `file:line` from `apps/frappe/` or a live bench probe — not memory. Run `grep -rn` on the installed source before asserting a framework limitation.
 - **Confusion protocol**: stop and ask when facing high-stakes ambiguity — the data model is unclear, the change is destructive (alters live records irreversibly), or a hook would affect all sites. State the ambiguity in one sentence, name 2–3 interpretations. Do not ask for routine implementation decisions.
-- **Completion status**: close every task with DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT + REASON + ATTEMPTED + RECOMMENDATION.
+- **Completion status**: close every task with DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT + REASON + ATTEMPTED + RECOMMENDATION. If you stopped early, add TRUNCATED (items not done) and use DONE_WITH_CONCERNS; list noticed-but-not-pursued items as FOLLOWUPS and do not act on them.
 - Run `bench --site <site> migrate` and `clear-cache` after DocType or hooks changes, and prove the change with the skill's Verification step before yielding.

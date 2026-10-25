@@ -141,23 +141,20 @@ omp's `bash` / `write` / `edit` calls to the guard payload, turns `deny` into
 there is no UI). The `tool_call` return type is `{ block: true; reason: string } | undefined`
 (per omp extension docs).
 
-**omp edit tool input fields:** omp's `tool_call` event for the `edit` tool includes derived
-`path` and `paths` fields for policy inspection (per `omp://extensions.md`). The adapter uses
-these first; if absent it falls back to parsing hashline headers (`[path#TAG]`) from the
-`input` string, which is the format Claude Code's `edit` tool uses. The exact field shape for
-omp's built-in `edit` tool is not fully specified in the docs — if file-tier checks are not
-firing on edits in an omp session, confirm that `event.input.path` or `event.input.paths` is
-populated and adjust the adapter if the format differs.
+**omp edit tool input:** the default `edit` tool passes a hashline `input` string with `[path#TAG]`
+headers; the adapter extracts every header path (and a plain `path` if present) and runs the
+file-tier rules on each. The `tool_call` event input shape is not specified in the omp docs;
+this was taken from the live tool schema and covered by the adapter smoke test, so re-check it
+after an omp upgrade.
 
 ```sh
-ln -s "$PWD/scripts/bench-guard.omp.ts" ~/.omp/agent/hooks/pre/bench-guard.ts
+ln -s "$PWD/scripts/bench-guard.omp.ts" ~/.omp/agent/hooks/pre/bench-guard.omp.ts
 ln -s "$PWD/scripts/bench-guard.sh"     ~/.omp/agent/hooks/pre/bench-guard.sh
 ```
 
 The adapter resolves `bench-guard.sh` next to itself, so keep both links in the
 same directory. Subagent tool calls pass through the same handler. Handlers fail
-closed on error or timeout (10 s default in the adapter). Whether omp also reads
-Claude Code `settings.json` hooks is not verified; do not rely on it.
+closed on error or timeout (20 s in the adapter, 30 s omp default). omp discovers hook factories only from `hooks/pre|post/*.{ts,js}` under its own config roots (`omp://hooks.md`). Its docs do not mention Claude Code `settings.json` `hooks.PreToolUse` entries, so the shell-hook config above does not protect omp sessions; use the adapter.
 
 ---
 

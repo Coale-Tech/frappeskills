@@ -190,6 +190,7 @@ fix is in frappe-ui 1.0.2+. Full checklist and verified source refs:
 
 | Mistake | Why It Fails | Fix |
 |---|---|---|
+| No browser or running site in the session | Inventing screenshots, or refusing to score | Accept user-reported observations: `evidence: "user-reported"`, confidence <= 6, list every unverified matrix cell, finish `DONE_WITH_CONCERNS` |
 | Filing a visual finding with no screenshot | Unverifiable; will be rejected | Attach screenshot filename as `evidence` |
 | Using `.btn-primary` in a test for dialog button | Selector changed to `.btn-modal-primary` in 16.51 | Use `dialog.get_primary_btn()` instead |
 | Asserting dark mode is "not applicable" | All Desk users can toggle dark mode | Screenshot with `data-theme="dark"` on `<html>` |

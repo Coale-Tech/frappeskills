@@ -49,7 +49,7 @@
         "Notes the two roles (HR Manager vs Employee) and that they see different buttons (HR Manager sees Approve/Reject, Employee sees their own allocations only)",
         "Specifies mobile-specific constraint: HR Manager approval action must be reachable in ≤2 taps at 375px",
         "Lists all required states: empty (no allocations), loading (skeleton rows), error (toast), permission-denied, and docstatus states if Leave Allocation is a submittable Doctype",
-        "Mentions checking whether Leave Allocation uses docstatus and what the grey/blue/red badge convention means for it"
+        "Mentions checking whether Leave Allocation is submittable (docstatus) and, if so, maps Draft/Submitted/Cancelled to the Desk convention (Draft red, Submitted blue, Cancelled red) or documents the chosen mapping"
       ]
     },
     {
@@ -60,7 +60,7 @@
       "expectations": [
         "Flags over-cards (D2/density): card grid for invoice records where dense list rows are correct for OPERATE mode; expected 44px list rows, not 80-100px cards",
         "Flags docstatus wrong colour (D13): Submitted must be blue, Cancelled must not be orange — yellow/green/grey borders are incorrect; Desk shows Draft=red, Submitted=blue, Cancelled=red; the design must document its mapping",
-        "Flags AI slop (D3/consistency): icon-in-coloured-circle matches the gstack AI slop pattern for icon tiles / decorative icon circles",
+        "Flags the icon-in-coloured-circle as an AI-slop / decorative pattern (D3/consistency), not as a stock frappe-ui element",
         "Flags gradient hero in a form (D4/tokens): gradient accents likely involve hardcoded colour values, not semantic tokens",
         "Gives low scores on D2 (density) and D13 (docstatus) — both are likely ≤4 which blocks the hand-off spec",
         "Recommends replacing cards with frappe-ui list rows and documenting a valid docstatus badge mapping"
@@ -86,10 +86,10 @@
       "prompt": "The hand-off spec for our new customer portal screen includes: Button(intent='warning'), dialog.alert('Saved'), and Badge(theme='orange'). Are there any problems with this spec before we send it to the frontend developer?",
       "expected_output": "Identification of all three invalid frappe-ui API usages with correct replacements",
       "expectations": [
-        "Flags intent='warning': not a valid frappe-ui prop; correct is theme='amber' with appropriate variant",
-        "Flags dialog.alert(): method does not exist in frappe-ui 1.0; correct is dialog.confirm() for informational confirmations",
+        "Flags intent='warning': not a valid frappe-ui Button prop; the Button theme axis is gray|blue|green|red (no amber), so warning emphasis uses variant + theme='red', or an amber Badge",
+        "Flags dialog.alert(): method does not exist in frappe-ui 1.0; correct is toast for a save outcome, or dialog.confirm() when a decision is needed",
         "Flags Badge(theme='orange'): 'orange' is not a valid Badge theme; correct is 'amber' (orange does not exist for Button or Badge)",
-        "Provides the corrected spec: Button(variant='subtle', theme='amber'), dialog.confirm({...}), Badge(theme='amber')"
+        "Provides a corrected spec: a Button with a valid theme (gray|blue|green|red), a toast or dialog.confirm({...}) instead of dialog.alert, and Badge(theme='amber')"
       ]
     }
   ]

@@ -37,7 +37,8 @@ on a live component (→ `frappe-design-tokens`); shell/pattern selection only
 ## Procedure
 
 **Step 1 — Brief and constraints.** Confirm surface type, roles, device mix,
-and the nearest reference product (CRM, Helpdesk, HRMS). Surface determines
+the nearest reference product (CRM, Helpdesk, HRMS), and a tap budget per role
+for the primary action at 375px (default: reachable in 2 taps or fewer). Surface determines
 token layer:
 
 | Surface | Colour tokens | Shell |
@@ -50,7 +51,7 @@ token layer:
 **Step 2 — Generate mockups.** Run the zero-dependency generator:
 
 ```bash
-python3 frappe-design-mockup-review/scripts/generate-mockup.py \
+node frappe-design-mockup-review/scripts/generate-mockup.js \
   --frappe-ui /path/to/frappe-ui \   # or: export FRAPPE_UI=...
   --out /tmp/my-feature-mockup --title "My Feature"
 cd /tmp/my-feature-mockup && python3 -m http.server 8765
@@ -129,7 +130,7 @@ ACCEPTANCE: re-run frappe-design-review POST checklist on live code
 
 - [references/rubric.md](references/rubric.md) — full 0-10 rubric with "what a 10 looks like" per dimension
 - [references/frappe-slop-list.md](references/frappe-slop-list.md) — 15 Frappe-specific anti-patterns
-- [scripts/generate-mockup.py](scripts/generate-mockup.py) — zero-dependency mockup generator (Python 3.9+)
+- [scripts/generate-mockup.js](scripts/generate-mockup.js) — zero-dependency mockup generator (Node >= 18)
 
 ## Guardrails
 
@@ -170,5 +171,6 @@ ACCEPTANCE: re-run frappe-design-review POST checklist on live code
 | Submitted docstatus shown as green badge | Submitted must never be green or teal — use blue on every surface | `Badge(theme="blue")` |
 | `dialog.alert('Saved')` in the spec | Method doesn't exist — throws TypeError | `dialog.confirm(...)` for info; `toast` for outcomes |
 | Uniform `rounded-full` on inputs and dialogs | Clashes with frappe-ui's contextual radius scale | `rounded-5` inputs, `rounded-6` dialogs |
+| `Button(theme="amber")` or `intent="warning"` | Button themes are `gray`, `blue`, `green`, `red` only (`Button/types.ts`); `intent` is not a prop | `Button(variant="subtle", theme="red")` for destructive emphasis; amber exists for `Badge` only |
 | `Badge(theme="orange")` | `orange` is not a valid Badge theme — renders default gray | Use `theme="amber"` |
 | Horizontal-scroll table on mobile | Unusable; broken UX in frappe-ui-patterns guidance | Stacked cards below 768px breakpoint |

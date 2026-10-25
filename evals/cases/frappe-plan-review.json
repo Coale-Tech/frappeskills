@@ -43,7 +43,7 @@
       "expectations": [
         "The agent checks standard ERPNext capabilities before evaluating the DocType design",
         "The agent identifies that a Frappe Workflow DocType covers the approval step without custom controller logic",
-        "The agent identifies that the Notification DocType covers the email-on-approval requirement",
+        "The agent identifies that the email-on-approval requirement is covered by stock configuration (the Notification DocType or the app's built-in approval notification) without custom code",
         "The agent identifies that an Assignment Rule covers auto-assignment to the reporting manager",
         "The agent produces a scope verdict (Reduce scope) with an explicit trade-off: what the custom approach costs vs what stock configuration cannot do",
         "The agent scores Standard Coverage, Configure Ratio, and Upgrade Risk before moving to architecture review"

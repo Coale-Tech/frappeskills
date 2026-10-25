@@ -20,7 +20,7 @@ What was taken from [gstack](https://github.com/garrytan/gstack) (Garry Tan, MIT
 | `plan-devex-review` | ADAPT | `frappe-plan-review` Mode C | Whitelisted-API time-to-first-success, error clarity |
 | `autoplan` | ADAPT | `/frappe-plan-review` | Chain with auto-decision principles; stops at an approval gate |
 | `plan-design-review` | ADAPT | `frappe-design-mockup-review` | 0-10 per dimension with "what a 10 looks like", Frappe slop list written fresh |
-| `design-shotgun`, `design-html` | ADAPT | `frappe-design-mockup-review/scripts/generate-mockup.py` | Variants + comparison board, built from real frappe-ui tokens instead of gstack's image tooling |
+| `design-shotgun`, `design-html` | ADAPT | `frappe-design-mockup-review/scripts/generate-mockup.js` | Variants + comparison board, built from real frappe-ui tokens instead of gstack's image tooling |
 | `design-review` | ADAPT | `frappe-design-review` | Post-build audit: lint, viewport/theme/state matrix, scored findings, fix loop |
 | `ios-design-review`, `ios-qa`, `ios-fix` | ADAPT (method only) | `frappe-design-review`, `frappe-ui-patterns/references/mobile-patterns.md` | Evidence-first loop and state matrix port to PWA/iOS Safari review. SwiftUI/DebugBridge/xcodebuild mechanics do not |
 | `ios-clean`, `ios-sync` | SKIP | — | Swift/SPM artefact cleanup and accessor regeneration; no Frappe equivalent |
@@ -34,4 +34,5 @@ What was taken from [gstack](https://github.com/garrytan/gstack) (Garry Tan, MIT
 
 - `bench-guard` is advisory. A shell can always route around it; see `docs/bench-guard.md`.
 - `frappe-design-mockup-review` renders CSS approximations of frappe-ui tokens, not the real components. Fidelity limits are stated in the skill.
-- Eval coverage is Tier 2 (trigger ranking). The new skills' dialogue evals have not been graded.
+- iOS/PWA notes cite WebKit and Apple sources; the two WebKit bugs referenced (301108, 316008) are still open. Nothing here was run on a physical iPhone.
+- The five new skills' dialogue evals (Tier 3) pass. They are graded without a browser or live site, so the scenarios supply observations or logs in the prompt; real browser and curl runs are not exercised by the evals.

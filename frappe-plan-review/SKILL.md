@@ -83,6 +83,8 @@ Finding format: `[SEVERITY] (confidence: N/10) section:element — description` 
 Running `/frappe-plan-review` executes all modes in strict order:
 `Mode A → Mode B (if UI) → Mode C (if API) → Mode D (always last)`
 
+A Reduce or Defer verdict in Mode A does not end the chain: run B–D against the plan as it would stand after the reduction, and mark which findings disappear if the user accepts it.
+
 Auto-decision principles (non-interactive runs):
 
 1. **Delete first** — standard Frappe capability covers it → Reduce scope; no exceptions
@@ -167,4 +169,5 @@ User approval gate: after Mode D, present a findings table with scores and unres
 | Giving a single combined DX score | Masks which specific dimension is failing (TTHW vs error clarity vs auth) | Score all four DX dimensions separately |
 | Skipping row-scope review | Owner- or company-scoped access gaps are data-leak bugs on multi-company installs | List `if_owner`, User Permission and query-condition rules for every DocType in the permission matrix |
 | Using `pre_model_sync` for a backfill | Backfills run before the new column exists, causing column-not-found errors | Use `post_model_sync` for backfills; `pre_model_sync` only for destructive ops |
+| User says "skip the review, go straight to breakdown" | Breakdown on an unreviewed plan bakes in custom code stock Frappe covers and permission gaps | Do not start the breakdown. Name one concrete risk (e.g. a stock Workflow already covers the approval chain; permission matrix gap), offer a Mode A scope check only (completes in one turn), and offer the breakdown after the user approves that verdict |
 | Architecture review without scope verdict | Reviewing controller design before confirming custom code is necessary wastes review time | Always issue a scope verdict in Mode A before Mode D |

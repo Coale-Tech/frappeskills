@@ -75,6 +75,8 @@ Patches the semantic layer that all frappe-ui components already read; no compon
 
 Place the override block **after** all CSS imports so the specificity wins over `plugin.js`'s `:root` block.
 
+Always provide both blocks. A dark-only brand palette still needs `:root` values (the light theme) or an explicit instruction to set `data-theme="dark"` on `<html>` permanently; a `[data-theme="dark"]` block alone leaves the default theme unbranded.
+
 ### Option B — Tailwind config extension (build-time; utility classes only)
 
 ```js

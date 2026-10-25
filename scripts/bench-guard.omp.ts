@@ -1,5 +1,5 @@
 // omp hook adapter for bench-guard.sh. Install: copy or symlink to
-// ~/.omp/agent/hooks/pre/bench-guard.ts (see docs/bench-guard.md).
+// ~/.omp/agent/hooks/pre/bench-guard.omp.ts (see docs/bench-guard.md).
 // Re-uses the shell guard's rules: translates omp tool calls to the Claude Code
 // PreToolUse payload, maps deny -> block, ask -> ctx.ui.confirm (block when no UI).
 // Advisory guard, not a security boundary.
@@ -24,21 +24,15 @@ interface HookAPI {
 	): void;
 }
 
-// omp tools -> guard payloads.
-// omp's tool_call event for `edit` includes derived `path`/`paths` fields (per omp extensions.md)
-// for policy inspection. Fall back to parsing hashline headers (`[path#TAG]`) from `input` for
-// environments that forward Claude Code's edit payload format instead.
+// omp tools -> guard payloads. omp's default `edit` tool takes a hashline `input` string whose
+// `[path#TAG]` headers name the target files; other edit modes pass a plain `path`.
 function payloads(e: ToolCallEvent): Record<string, string>[] {
 	const i = e.input;
 	if (e.toolName === "bash") return [{ command: String(i.command ?? "") }];
 	if (e.toolName === "write") return [{ file_path: String(i.path ?? "") }];
 	if (e.toolName === "edit") {
-		// Use omp-native derived fields when available.
-		if (Array.isArray(i.paths) && i.paths.length > 0)
-			return (i.paths as unknown[]).map((p) => ({ file_path: String(p) }));
-		if (i.path) return [{ file_path: String(i.path) }];
-		// Fallback: parse hashline headers from the raw `input` string (Claude Code edit format).
 		const paths = [...String(i.input ?? "").matchAll(/^\[([^\]#\n]+)#/gm)].map((m) => m[1]);
+		if (i.path) paths.push(String(i.path));
 		return paths.map((file_path) => ({ file_path }));
 	}
 	return [];
@@ -48,7 +42,7 @@ function decide(tool_input: Record<string, string>): { decision?: string; reason
 	const r = spawnSync("bash", [GUARD], {
 		input: JSON.stringify({ tool_name: "omp", tool_input }),
 		encoding: "utf8",
-		timeout: 10_000,
+		timeout: 20_000,
 	});
 	// Guard failure -> ask, same fail-safe as the shell script.
 	if (r.status !== 0) return { decision: "ask", reason: "[bench-guard] guard script failed" };

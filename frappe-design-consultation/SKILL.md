@@ -82,7 +82,7 @@ Adjust any failing pair before proceeding.
 Hand off to `frappe-design-mockup-review` for a rendered mockup:
 
 ```bash
-python3 frappe-design-mockup-review/scripts/generate-mockup.py \
+node frappe-design-mockup-review/scripts/generate-mockup.js \
   --frappe-ui <bench>/apps/frappe-ui \
   --out /tmp/<feature>-mockup --title "<Feature>"
 cd /tmp/<feature>-mockup && python3 -m http.server 8765

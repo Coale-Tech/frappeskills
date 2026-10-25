@@ -91,7 +91,7 @@ Status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
 Persona: <who>  TTFS actual: <Xm Ys>  (target ≤10 min)
 Scores: Getting-started N/10 | Ergonomics N/10 | Error-clarity N/10
         Docs-accuracy N/10 | Upgrade-safety N/10 | Observability N/10
-Overall: <average>/10
+Overall: <average of scored dimensions>/10   (a dimension with no evidence is `N/A`, never guessed)
 
 Findings:
 [SEVERITY] (confidence: N/10) endpoint:step — description
@@ -100,16 +100,18 @@ Evidence log:
 $ <command>  →  <trimmed response>  [<elapsed>]
 ```
 
+The evidence log is mandatory. When the user supplies the run output instead of you executing it, reproduce every supplied command and response in the log, labelled `supplied`.
+
 ### 8. Fix loop (only on explicit request)
 
-One `git commit` per finding: `devex: fix <id> — <description>`. Never batch two findings. Default is read-only.
+Needs the findings report and a clean `git status --porcelain`; missing either → `NEEDS_CONTEXT`, invent nothing. Fix in severity order, one `git commit` per finding: `devex: fix <id> — <description>`. Never batch two findings. Default is read-only.
 
 ## Verification
 
 - [ ] Site confirmed non-production before any mutating call
 - [ ] Token auth used; no session cookies or Administrator password in logs
 - [ ] Every documented step executed and timed
-- [ ] All six dimensions scored (0–10) with curl evidence
+- [ ] Every dimension with curl evidence scored (0–10); dimensions without evidence marked `N/A`
 - [ ] At least three error types triggered and response shapes verified against source
 - [ ] Each finding follows `[SEVERITY] (confidence: N/10) endpoint:step — description`
 - [ ] Status line (DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT) present in report

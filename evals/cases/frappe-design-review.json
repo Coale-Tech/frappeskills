@@ -42,27 +42,26 @@
     {
       "id": 1,
       "kind": "dialogue",
-      "prompt": "I've finished implementing the Project Tracker list page in a frappe-ui SPA. The site is at http://localhost:8000/project-tracker. Run a post-build design review: screenshot the viewport matrix (1440, 1280, 768, 390), check light and dark themes, check the empty-state and loading-state, and produce a findings JSON with a score.",
-      "expected_output": "Screenshots at four viewports in both themes, at least empty+loaded states, findings JSON with id/dimension/severity/confidence/evidence fields, and a numeric score with letter grade",
+      "prompt": "I've finished the Project Tracker list page in a frappe-ui SPA, but this session has no browser or running site. Here are my manual observations instead of screenshots. 1440px light: fine. 390px light: the table scrolls horizontally and the 'New' button is clipped. 390px dark: page background stays white. Empty state: blank white area, no message. Loaded state: fine. Use the design-review skill to turn these into scored findings.",
+      "expected_output": "Findings JSON built from the supplied observations with severity, confidence and evidence, a computed score and grade, and no invented screenshots",
       "expectations": [
-        "Screenshots are captured at all four viewport widths: 1440, 1280, 768, 390",
-        "Both light and dark themes are covered in screenshots",
-        "Empty state and at least one loaded state are included",
+        "Does not claim to have captured screenshots it did not take; states the observations are user-supplied",
+        "Produces a finding for each supplied problem: mobile horizontal scroll/clipped button, dark-mode white background, missing empty state",
         "Each finding has: id, dimension, severity (P0-P3), confidence (1-10), page, viewport, theme, evidence, fix",
-        "A numeric score (0-100) and letter grade (A-F) are computed from the findings",
-        "design-lint.js is run on the frontend source if the path is available"
+        "A numeric score (0-100) and letter grade (A-F) are computed from the findings using the P0=25/P1=15/P2=8/P3=3 deductions",
+        "Lists the matrix cells it could not verify (e.g. 768px, 1280px, dark at 1440px) rather than scoring them as passing"
       ]
     },
     {
       "id": 2,
       "kind": "dialogue",
-      "prompt": "Run design-lint.js on apps/my_app/frontend/src and show me the output JSON plus the score.",
-      "expected_output": "JSON output from design-lint.js with violations array, counts per check type, total, score, and grade",
+      "prompt": "design-lint.js printed this for our SPA source, summarise it and score it. {\"total\":6,\"counts\":{\"hex-color\":3,\"icon-aria-label\":2,\"important-abuse\":1,\"rgb-color\":0},\"violations\":[{\"id\":\"hex-color\",\"severity\":\"P2\",\"file\":\"src/Card.vue\",\"line\":12,\"match\":\"#ff0000\"},{\"id\":\"icon-aria-label\",\"severity\":\"P2\",\"file\":\"src/Nav.vue\",\"line\":8,\"match\":\"<Button icon=\\\"menu\\\">\"}]}",
+      "expected_output": "Interpretation of the lint JSON with a deduction-based score and grade and prioritised fixes",
       "expectations": [
-        "design-lint.js is invoked on the specified directory",
-        "Output includes a violations array where each item has: id, severity, desc, file, line, match",
-        "counts object shows the tally per check id",
-        "score (0-100) and grade (A-F) are present in the output"
+        "Reads the counts object correctly: 3 hex-color, 2 icon-aria-label, 1 important-abuse",
+        "Computes a score from the deductions in the skill (P0=25, P1=15, P2=8, P3=3) and states the letter grade; the severity of the 1 important-abuse finding is looked up from the skill rather than guessed",
+        "Maps hex-color to a semantic token fix and icon-aria-label to adding an aria-label",
+        "Notes the static lint covers source only and does not replace the browser viewport/theme/state review"
       ]
     }
   ]

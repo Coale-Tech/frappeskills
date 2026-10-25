@@ -127,6 +127,66 @@ page.on('console', msg => {
 
 **Toast**: `frappe.show_alert({ message, indicator })` still works (it is now an alias for `frappe.ui.toast()`), but DOM assertions must target `.es-toast-container` in 16.51+. (16.51)
 
+## iOS / WebKit emulation
+
+### What Playwright Chromium device emulation covers
+
+Using `devices['iPhone 13']` (or any iPhone preset) in Playwright runs
+**Chromium** with an iPhone-sized context — not Safari or WebKit. It provides:
+
+- Viewport size (e.g. 390 × 844 px) and device pixel ratio
+- iPhone user-agent string (so UA-sniffing code sees iOS)
+- `isMobile: true` (viewport meta tag respected, touch events enabled)
+- `hasTouch: true`
+- Locale, timezone, geolocation, color-scheme (via `page.emulateMedia`)
+
+These are sufficient for layout regression tests, breakpoint checks, and
+Frappe-specific responsive behavior (e.g. `MobileShell` rendering at 390 px).
+
+### What Chromium device emulation cannot reproduce
+
+The following behaviors are Safari/WebKit-only or hardware-only and **cannot be
+reproduced by Playwright Chromium device emulation**:
+
+- **WebKit rendering engine**: Chromium runs underneath; CSS quirks unique to
+  WebKit (e.g. `-webkit-overflow-scrolling`, WebKit-only prefixes) are absent.
+- **`env(safe-area-inset-*)`**: Chromium returns `0` for all safe-area insets;
+  only the iOS OS + real Safari hardware geometry supplies non-zero values.
+- **`display-mode: standalone`**: there is no way to install a PWA in Playwright
+  Chromium; `@media (display-mode: standalone)` always evaluates `false`.
+- **Dynamic viewport (toolbar show/hide)**: Chromium has no collapsing address
+  bar; `100svh` / `100dvh` / `100lvh` all equal the fixed viewport height.
+- **iOS Safari toolbar chrome**: the translucent address bar, swipe-back
+  gesture, and home indicator are OS-level UI, not reproduced by emulation.
+- **Momentum / rubber-band scrolling**: `-webkit-overflow-scrolling:touch` and
+  iOS overscroll physics are WebKit-native and absent in Chromium.
+
+### Playwright WebKit project
+
+Adding `project: { name: 'webkit', use: { browserName: 'webkit' } }` runs
+Playwright's own WebKit build. This **does** exercise the WebKit rendering
+engine and catches many WebKit-only CSS bugs. It still **does not**:
+- Provide non-zero `env(safe-area-inset-*)` values (no hardware insets)
+- Emulate `display-mode: standalone` (no PWA installation)
+- Reproduce iOS Safari's navigation chrome or toolbar behavior
+- Run on iOS/iPadOS hardware (desktop WebKit only)
+
+Source: Playwright emulation docs — <https://playwright.dev/docs/emulation>
+
+### Verifying safe-area and standalone behavior
+
+Safe-area insets, PWA standalone mode, and iOS-specific viewport sizing
+(including the iOS 26 `MobileShell` fix) **require a real iPhone or Xcode
+Simulator** running actual Safari:
+
+1. Open the app in Safari on iOS and tap **Share → Add to Home Screen**.
+2. Launch from the home screen icon to enter standalone mode.
+3. Check `env(safe-area-inset-top/bottom)` values via Safari Web Inspector.
+4. Verify `MobileShell` header clears the notch and `MobileNav` clears the
+   home indicator — these cannot be verified in Playwright.
+
+See also: [`frappe-ui-patterns/references/mobile-patterns.md`](../../frappe-ui-patterns/references/mobile-patterns.md) — iOS PWA checklist and safe-area requirements.
+
 
 ## Sources
 
@@ -142,6 +202,8 @@ Verified against Frappe v16.35.0 and v16.51.1:
 - `apps/frappe/frappe/public/js/frappe/ui/dialog.js` line 196 (16.51.1) — `get_primary_btn()` returns `.btn-modal-primary`; was `.btn-primary` in ≤16.35
 - `apps/frappe/frappe/public/js/frappe/ui/components/toast.js` (16.51.1) — `frappe.ui.toast()`; container `.es-toast-container`
 - `apps/frappe/frappe/public/js/frappe/ui/messages.js` (16.51.1) — `frappe.show_alert` aliased to `frappe.ui.toast`
+- Playwright emulation docs — device emulation capabilities and limitations — <https://playwright.dev/docs/emulation>
+- web.dev Learn PWA — standalone-mode detection — <https://web.dev/learn/pwa/detection>
 
 ## Design review integration
 

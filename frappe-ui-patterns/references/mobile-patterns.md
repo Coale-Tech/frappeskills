@@ -276,6 +276,21 @@ When a frappe-ui SPA is added to the iOS home screen (installed PWA,
 `display-mode: standalone`), the browser chrome disappears and two physical
 hardware features require explicit layout handling.
 
+**Prerequisite — `viewport-fit=cover`:** `env(safe-area-inset-*)` values
+return `0` unless the viewport meta tag includes `viewport-fit=cover`. Without
+it the browser automatically insets page content and the env() calls are
+no-ops. Set this once in `index.html`:
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+```
+
+**Standalone-mode detection:** use the `@media (display-mode: standalone)` CSS
+media query (W3C standard, all browsers) or `navigator.standalone` in JavaScript
+(non-standard; iOS/iPadOS WebKit only — returns `true` when installed, `undefined`
+in non-WebKit browsers). Prefer the media query for CSS; for JS scripts that must
+also run in non-WebKit contexts use `matchMedia('(display-mode: standalone)').matches`.
+
 ### Safe-area insets
 
 `frappe-ui` handles safe-area insets automatically for its own components:
@@ -284,7 +299,6 @@ hardware features require explicit layout handling.
   `pt-[env(safe-area-inset-top)]` under the `@media(display-mode:standalone)`
   query so page headers clear the notch/Dynamic Island.
   Source: `apps/frappe-ui/src/components/MobileShell/MobileShell.vue`
-  (iOS 26 full-screen viewport fix for the shell itself — in 1.0.2, see CHANGELOG.)
 
 - **`MobileNav` bottom bar** adds
   `pb-[max(1rem,env(safe-area-inset-bottom))]` under the same query so the
@@ -302,15 +316,15 @@ own safe-area padding:**
 
 ### Viewport height in standalone mode
 
-`frappe-ui/style.css` sets `html` `min-height` to
-`min(100lvh, calc(100% + env(safe-area-inset-top)))` under the standalone
-media query. **Use `100lvh` (large viewport height), not `100dvh` or `100vh`:**
+`frappe-ui/style.css` sets `html { min-height: min(100lvh, calc(100% + env(safe-area-inset-top))); }` in
+standalone media query (see "Translucent status bar" below for why). **Use `100lvh`, not `100dvh` or `100vh`:**
 
-| Unit | Behaviour in Safari standalone |
+| Unit | Behaviour in iOS Safari |
 |---|---|
-| `100vh` | Correct in standalone, but wrong in normal Safari (toolbar area ignored) |
-| `100dvh` | Dynamic — shrinks when Safari toolbar is visible; unnecessary overhead in standalone |
-| `100lvh` | Assumes toolbar hidden — correct and stable in standalone |
+| `100vh` | Equals `100lvh` in iOS Safari; extends under the browser toolbar in browser mode; same as `100lvh` in standalone |
+| `100svh` | Small viewport (toolbar-showing height); equals `100lvh` in standalone (no toolbar) |
+| `100dvh` | Dynamic — shrinks when toolbar appears, expands when it hides; equals `100lvh` in standalone |
+| `100lvh` | Large viewport (toolbar-hidden height); stable in standalone; preferred — what `frappe-ui/style.css` uses |
 
 Source: `apps/frappe-ui/src/style.css` (verified 1.0.2)
 
@@ -325,9 +339,21 @@ Source: `apps/frappe-ui/src/style.css` (verified 1.0.2)
 
 ### Translucent status bar (iOS 26+)
 
-iOS 26 introduced a translucent status bar that overlaps web content in
-standalone PWAs. `frappe-ui 1.0.2` added a fix for this in `MobileShell`.
-If the app uses a custom shell, add:
+iOS 26 gave installed standalone PWAs a translucent (glass) status bar that
+overlays page content from above. Two separate WebKit regressions affected
+viewport sizing in this mode:
+
+- **WebKit bug 301108** (title: "REGRESSION (iOS 26): `<meta name=viewport>` does not work correctly for
+  `viewport-fit=cover` or `height=device-height`"; status NEW, community-reported): frappe-ui's
+  `style.css` cites it for the installed-app viewport being sized short by the status bar height
+  while the page is shorter than the screen, so fixed elements (the `MobileShell` and its tab
+  bar) stop short of the screen edge. The mapping from that symptom to this bug is frappe-ui's;
+  the bug report itself describes the `viewport-fit` / `device-height` regression.
+- **WebKit bug 316008** (status NEW, community-reported with a test case): standalone apps installed without
+  `apple-mobile-web-app-status-bar-style` in the HTML at install time reported
+  incorrect `100vh` / `100lvh` values.
+
+`frappe-ui 1.0.2` fixes both via `frappe-ui/style.css` (CHANGELOG entry for PR #1289):
 
 ```css
 /* frappe-ui/style.css pattern — targets html, not a component class */
@@ -338,21 +364,48 @@ If the app uses a custom shell, add:
 }
 ```
 
-And ensure the top padding uses `env(safe-area-inset-top)`, not a hardcoded
+The `calc(100% + env(safe-area-inset-top))` term ensures the page is at least
+as tall as the screen (restoring the full-screen viewport). The `min(100lvh, …)`
+cap prevents the page from overflowing in apps with an opaque status bar, where
+`env(safe-area-inset-top)` is `0` and `100lvh` alone is the right height.
+
+If the app uses a custom shell (not `MobileShell`), add the same rule to its
+CSS. Ensure the top padding uses `env(safe-area-inset-top)`, not a hardcoded
 value — the inset height varies by device model.
+
+**`apple-mobile-web-app-capable` / `apple-mobile-web-app-status-bar-style`:**
+`<meta name="apple-mobile-web-app-capable" content="yes">` is the legacy
+(iOS 2.1+) way to enable standalone mode; the modern equivalent is a Web App
+Manifest with `"display": "standalone"`. In iOS 26 every site added to the home
+screen opens as a web app regardless of either tag.
+`apple-mobile-web-app-status-bar-style` controls the status bar appearance:
+`"default"` / `"white"` / `"black"` give an opaque bar (page renders below it);
+`"black-translucent"` makes the bar translucent (page extends under it, must
+pad with `env(safe-area-inset-top)`). Presence of this tag **at install time**
+also determines whether `100vh` / `100lvh` compute correctly in iOS 26 standalone
+mode (WebKit bug 316008). Source: Apple developer archive (see Sources).
 
 ## Sources
 
 Verified against frappe-ui `1.0.2` (`apps/frappe-ui/package.json`):
 
 - `apps/frappe-ui/src/composables/useScreenSize.ts` — `useScreenSize`/`useIsMobile`, `1024×768` SSR fallback, `640` default breakpoint
-- `apps/frappe-ui/src/components/MobileShell/MobileShell.vue`, `MobileShell.api.md` — `#default`/`#nav` slots, no props, iOS 26 safe-area fix (1.0.2)
+- `apps/frappe-ui/src/components/MobileShell/MobileShell.vue`, `MobileShell.api.md` — `#default`/`#nav` slots, no props, standalone `pt-[env(safe-area-inset-top)]` on PageHeaderTarget
 - `apps/frappe-ui/src/composables/useScrollContainer.ts` — scroll-container registry
 - `apps/frappe-ui/src/components/PageHeader/PageHeaderMobile.vue`, `PageHeader.api.md` — slots `#prefix`/`#suffix` (RTL fix 1.0.1), `fallbackRoute` prop on `PageHeaderBackButton`
 - `apps/frappe-ui/src/components/PageHeader/PageHeaderMobileTitle.vue` — `#prefix`/`#default` slots
-- `apps/frappe-ui/src/components/MobileNav/MobileNav.vue`, `MobileShell.api.md` — `MobileNavItem` `route`/`href`/`active` props
+- `apps/frappe-ui/src/components/MobileNav/MobileNav.vue`, `MobileShell.api.md` — `MobileNavItem` `route`/`href`/`active` props; `pb-[max(1rem,env(safe-area-inset-bottom))]` in standalone
 - `apps/frappe-ui/src/components/BottomSheet/BottomSheet.vue`, `BottomSheet.api.md` — `dismissible` (default `true`), `update:open`/`after-leave` emits, swipe gesture
-- `apps/frappe-ui/CHANGELOG.md` — 1.0.1 PageHeaderMobile RTL fix; 1.0.2 MobileShell iOS 26 safe-area
+- `apps/frappe-ui/src/style.css` — `html { min-height: min(100lvh, …) }` in standalone media query; WebKit 301108 / 316008 inline comments
+- `apps/frappe-ui/CHANGELOG.md` — 1.0.1 PageHeaderMobile RTL fix; 1.0.2 MobileShell iOS 26 safe-area (PR #1284, #1289)
 - No `ActionSheet` component anywhere in the package (repo-wide search)
 - `apps/frappe-ui/skills/frappe-ui/DESIGN.md` — desktop→mobile translation rules
 - `apps/frappe-ui/src/index.ts` — `ListView`/`MobileShell` export comments
+- `apps/frappe-ui/apps/crm/frontend/index.html` and `apps/hrms/frontend/index.html` — `viewport-fit=cover`, `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style` in real app HTML
+- WebKit blog — "Designing Websites for iPhone X" (2017): `viewport-fit=cover` required for `env(safe-area-inset-*)` to return non-zero values — <https://webkit.org/blog/7929/designing-websites-for-iphone-x/>
+- WebKit blog — "New WebKit Features in Safari 15.4" (2022): `100svh` / `100lvh` / `100dvh` viewport unit definitions — <https://webkit.org/blog/12445/new-webkit-features-in-safari-15-4/>
+- WebKit Bugzilla 301108 — iOS 26 `viewport-fit=cover` / `height=device-height` regression (cited by frappe-ui `style.css`) — <https://bugs.webkit.org/show_bug.cgi?id=301108>
+- WebKit Bugzilla 316008 — `100vh`/`100lvh` wrong in standalone apps without `apple-mobile-web-app-status-bar-style` at install — <https://bugs.webkit.org/show_bug.cgi?id=316008>
+- Apple developer archive — `apple-mobile-web-app-capable` / `apple-mobile-web-app-status-bar-style` — <https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariHTMLRef/Articles/MetaTags.html>
+- WebKit blog — "News from WWDC25: WebKit in Safari 26 beta" (2025): every site on iOS 26 home screen opens as web app — <https://webkit.org/blog/16993/news-from-wwdc25-web-technology-coming-this-fall-in-safari-26-beta/>
+- web.dev Learn PWA — standalone-mode detection (`navigator.standalone`, display-mode media query) — <https://web.dev/learn/pwa/detection>

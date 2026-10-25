@@ -1,115 +1,120 @@
-#!/usr/bin/env python3
-"""
-generate-mockup.py — Frappe-UI 1.0 mockup generator (zero Python deps beyond stdlib).
+#!/usr/bin/env node
+'use strict';
+/**
+ * generate-mockup.js — Frappe-UI 1.0 mockup generator (zero Node deps beyond stdlib).
+ * Node >= 18
+ *
+ * Reads frappe-ui tailwind/tokens/*.js source files and emits:
+ *   tokens.css   — CSS custom properties for all semantic color/type/radius/shadow families
+ *   mockup.html  — self-contained comparison board (3 variants) with .fui-* component kit
+ *
+ * Usage:
+ *   node generate-mockup.js [--frappe-ui PATH] [--out DIR] [--title TITLE] [--selftest]
+ *
+ *   --frappe-ui PATH   frappe-ui root dir (default: $FRAPPE_UI, or auto-searched)
+ *   --out DIR          output directory, created if absent (default: ./mockup-out)
+ *   --title TITLE      page / app title shown in the mockup (default: "Frappe Mockup")
+ *   --selftest         generate into a temp dir from a minimal fixture; exit 0 on pass, 1 on fail
+ *
+ * Fidelity limits (honest disclosure):
+ *   - Colors use oklch() from real token files; requires Chrome 111+, Firefox 113+, Safari 15.4+
+ *   - Font: Inter loaded from Google Fonts CDN; bundled apps use local @font-face
+ *   - .fui-* classes approximate frappe-ui components visually — NOT real Vue components
+ *   - Icons are inline SVG stubs; real apps use lucide-* (e.g. icon="lucide-plus")
+ *   - Scroll behaviour, focus management, animations are minimal stubs
+ *   - Tailwind utility classes (bg-surface-base etc.) are NOT generated; use .fui-* only
+ */
 
-Reads frappe-ui tailwind/tokens/*.js source files and emits:
-  tokens.css   — CSS custom properties for all semantic color/type/radius/shadow families
-  mockup.html  — self-contained comparison board (3 variants) with .fui-* component kit
+const fs   = require('fs');
+const path = require('path');
+const os   = require('os');
 
-Usage:
-  python3 generate-mockup.py [--frappe-ui PATH] [--out DIR] [--title TITLE]
+// ── token file parsing ───────────────────────────────────────────────────────
 
-  --frappe-ui PATH   frappe-ui root dir (default: $FRAPPE_UI, or auto-searched)
-  --out DIR          output directory, created if absent (default: ./mockup-out)
-  --title TITLE      page / app title shown in the mockup (default: "Frappe Mockup")
+function loadJs(filePath) {
+  let text = fs.readFileSync(filePath, 'utf8');
+  text = text.replace(/\/\/[^\n]*/g, '');                 // strip line comments
+  text = text.replace(/^\s*export\s+default\s*/m, '');    // strip `export default` (first only)
+  text = text.replace(/,(\s*[}\]])/g, '$1');              // strip trailing commas
+  return JSON.parse(text.trim());
+}
 
-Fidelity limits (honest disclosure):
-  - Colors use oklch() from real token files; requires Chrome 111+, Firefox 113+, Safari 15.4+
-  - Font: Inter loaded from Google Fonts CDN; bundled apps use local @font-face
-  - .fui-* classes approximate frappe-ui components visually — NOT real Vue components
-  - Icons are inline SVG stubs; real apps use lucide-* (e.g. icon="lucide-plus")
-  - Scroll behaviour, focus management, animations are minimal stubs
-  - Tailwind utility classes (bg-surface-base etc.) are NOT generated; use .fui-* only
-"""
+function resolveRef(ref, colors) {
+  if (!ref.includes('/')) return ref;
+  const parts = ref.split('/');
+  let node = colors;
+  for (const p of parts) {
+    if (typeof node !== 'object' || node === null) return '';
+    node = Object.prototype.hasOwnProperty.call(node, p) ? node[p] : '';
+  }
+  return typeof node === 'string' ? node : '';
+}
 
-import argparse, json, os, re, sys
-from pathlib import Path
+function semanticVars(colors) {
+  const themed = colors.themedVariables || {};
+  const light = {}, dark = {};
+  for (const [mode, target] of [['light', light], ['dark', dark]]) {
+    for (const [family, keys] of Object.entries(themed[mode] || {})) {
+      if (typeof keys === 'object' && keys !== null) {
+        for (const [key, ref] of Object.entries(keys)) {
+          const val = resolveRef(ref, colors);
+          if (val) target[`--${family}-${key}`] = val;
+        }
+      }
+    }
+  }
+  return [light, dark];
+}
 
-# ── token file parsing ───────────────────────────────────────────────────────
+function typeVars(typo) {
+  const v = {};
+  const ff = (typo.fontFamily && typo.fontFamily.text) || 'Inter Variable';
+  v['--font-family'] = `"${ff}", system-ui, sans-serif`;
+  for (const [n, w] of Object.entries(typo.fontWeight || {})) {
+    v[`--font-weight-${n}`] = String(w);
+  }
+  for (const [name, data] of Object.entries(typo.fontSize || {})) {
+    if (Array.isArray(data) && data.length > 0) {
+      v[`--font-size-${name}`] = data[0];
+      const props = data[1] || {};
+      if ('lineHeight'    in props) v[`--line-height-${name}`]    = String(props.lineHeight);
+      if ('letterSpacing' in props) v[`--letter-spacing-${name}`] = props.letterSpacing;
+    }
+  }
+  return v;
+}
 
-_EXPORT_RE          = re.compile(r'^\s*export\s+default\s*', re.MULTILINE)
-_TRAILING_COMMA_RE  = re.compile(r',(\s*[}\]])')
-_LINE_COMMENT_RE    = re.compile(r'//[^\n]*')
+function radiusVars(radius) {
+  const v = {};
+  for (const [k, val] of Object.entries(radius)) v[`--rounded-${k}`] = val;
+  return v;
+}
 
+function shadowVars(effects) {
+  const v = {};
+  for (const mode of ['light', 'dark']) {
+    for (const [name, val] of Object.entries((effects.elevation && effects.elevation[mode]) || {})) {
+      v[`--shadow-${name}-${mode}`] = val;
+    }
+  }
+  for (const mode of ['light', 'dark']) {
+    for (const [name, val] of Object.entries((effects.focus && effects.focus[mode]) || {})) {
+      v[`--focus-ring-${name}-${mode}`] = val;
+    }
+  }
+  return v;
+}
 
-def load_js(path: Path) -> dict:
-    """Load a `export default { ... }` JS token file as a Python dict."""
-    text = path.read_text('utf-8')
-    text = _LINE_COMMENT_RE.sub('', text)
-    text = _EXPORT_RE.sub('', text, count=1).strip()
-    text = _TRAILING_COMMA_RE.sub(r'\1', text)
-    return json.loads(text)
+function asCssBlock(selector, vars) {
+  const lines = [`${selector} {`];
+  for (const [k, val] of Object.entries(vars)) lines.push(`  ${k}: ${val};`);
+  lines.push('}');
+  return lines.join('\n');
+}
 
+// ── component class kit ──────────────────────────────────────────────────────
 
-def resolve_ref(ref: str, colors: dict) -> str:
-    """'lightMode/gray/50' → actual color string; literal passthrough."""
-    if '/' not in ref:
-        return ref
-    parts = ref.split('/')
-    node = colors
-    for p in parts:
-        if not isinstance(node, dict):
-            return ''
-        node = node.get(p, '')
-    return node if isinstance(node, str) else ''
-
-
-def semantic_vars(colors: dict) -> tuple:
-    """Return (light_vars, dark_vars) CSS-variable dicts from themedVariables."""
-    themed = colors.get('themedVariables', {})
-    light, dark = {}, {}
-    for mode, target in (('light', light), ('dark', dark)):
-        for family, keys in themed.get(mode, {}).items():
-            if isinstance(keys, dict):
-                for key, ref in keys.items():
-                    val = resolve_ref(ref, colors)
-                    if val:
-                        target[f'--{family}-{key}'] = val
-    return light, dark
-
-
-def type_vars(typo: dict) -> dict:
-    v = {}
-    ff = typo.get('fontFamily', {}).get('text', 'Inter Variable')
-    v['--font-family'] = f'"{ff}", system-ui, sans-serif'
-    for n, w in typo.get('fontWeight', {}).items():
-        v[f'--font-weight-{n}'] = str(w)
-    for name, data in typo.get('fontSize', {}).items():
-        if isinstance(data, list) and data:
-            v[f'--font-size-{name}'] = data[0]
-            props = data[1] if len(data) > 1 else {}
-            if 'lineHeight'    in props: v[f'--line-height-{name}']    = str(props['lineHeight'])
-            if 'letterSpacing' in props: v[f'--letter-spacing-{name}'] = props['letterSpacing']
-    return v
-
-
-def radius_vars(radius: dict) -> dict:
-    return {f'--rounded-{k}': v for k, v in radius.items()}
-
-
-def shadow_vars(effects: dict) -> dict:
-    v = {}
-    for mode in ('light', 'dark'):
-        for name, val in effects.get('elevation', {}).get(mode, {}).items():
-            v[f'--shadow-{name}-{mode}'] = val
-    for mode in ('light', 'dark'):
-        for name, val in effects.get('focus', {}).get(mode, {}).items():
-            v[f'--focus-ring-{name}-{mode}'] = val
-    return v
-
-
-def as_css_block(selector: str, vars_: dict) -> str:
-    lines = [f'{selector} {{']
-    for k, val in vars_.items():
-        lines.append(f'  {k}: {val};')
-    lines.append('}')
-    return '\n'.join(lines)
-
-
-# ── component class kit ──────────────────────────────────────────────────────
-
-COMPONENT_CSS = """\
-/* ── Frappe-UI 1.0 component approximation kit (.fui-*) ─────────────────── */
+const COMPONENT_CSS = `/* ── Frappe-UI 1.0 component approximation kit (.fui-*) ─────────────────── */
 /* These classes use real Espresso CSS vars but are CSS-only approximations.  */
 /* Real apps use frappe-ui Vue components, not these classes.                 */
 
@@ -369,27 +374,26 @@ body {
   .fui-detail-panel { display: none; }
   .fui-rail         { display: none; }
 }
-"""
+`;
 
+// ── HTML mockup template ─────────────────────────────────────────────────────
 
-# ── HTML mockup template ─────────────────────────────────────────────────────
-
-MOCKUP_HTML = """\
-<!DOCTYPE html>
+function buildMockupHtml(title, componentCss) {
+  return `<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{title}</title>
+<title>${title}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="tokens.css">
 <style>
-{component_css}
+${componentCss}
 
 /* Demo page chrome */
-body {{ padding: 16px; }}
-.variant-label {{
+body { padding: 16px; }
+.variant-label {
   padding: 6px 12px;
   background: var(--surface-gray-2);
   font-size: var(--font-size-xs);
@@ -400,16 +404,16 @@ body {{ padding: 16px; }}
   border-radius: var(--rounded-4) var(--rounded-4) 0 0;
   border: 1px solid var(--outline-gray-2);
   border-bottom: none;
-}}
-.variant-frame {{
+}
+.variant-frame {
   border: 1px solid var(--outline-gray-2);
   border-radius: 0 0 var(--rounded-5) var(--rounded-5);
   overflow: hidden;
   margin-bottom: 32px;
-}}
-.theme-toggle {{
+}
+.theme-toggle {
   position: fixed; top: 12px; right: 16px; z-index: 200;
-}}
+}
 </style>
 </head>
 <body>
@@ -479,11 +483,11 @@ body {{ padding: 16px; }}
       <div class="fui-filter-bar">
         <div style="position:relative;flex:1;max-width:260px;">
           <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--ink-gray-4);" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input class="fui-input" style="padding-left:28px;" type="search" placeholder="Search invoices…" aria-label="Search invoices">
+          <input class="fui-input" style="padding-left:28px;" type="search" placeholder="Search invoices\u2026" aria-label="Search invoices">
         </div>
-        <button class="fui-btn fui-btn-subtle fui-btn-sm">Status ▾</button>
-        <button class="fui-btn fui-btn-subtle fui-btn-sm">Supplier ▾</button>
-        <button class="fui-btn fui-btn-subtle fui-btn-sm">Date ▾</button>
+        <button class="fui-btn fui-btn-subtle fui-btn-sm">Status \u25be</button>
+        <button class="fui-btn fui-btn-subtle fui-btn-sm">Supplier \u25be</button>
+        <button class="fui-btn fui-btn-subtle fui-btn-sm">Date \u25be</button>
         <div class="fui-spacer"></div>
         <span class="fui-muted" style="font-size:var(--font-size-xs);">3 filters active</span>
       </div>
@@ -491,7 +495,7 @@ body {{ padding: 16px; }}
       <div style="display:flex;flex:1;overflow:hidden;">
         <!-- List -->
         <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
-          <div class="fui-list-count">Showing 1–5 of 24</div>
+          <div class="fui-list-count">Showing 1\u20135 of 24</div>
           <div class="fui-list-header" style="grid-template-columns:1fr 110px 100px 90px;">
             <span>Invoice / Supplier</span><span>Date</span><span style="text-align:right;">Amount</span><span>Status</span>
           </div>
@@ -499,31 +503,31 @@ body {{ padding: 16px; }}
             <div class="fui-list-row selected" style="grid-template-columns:1fr 110px 100px 90px;" tabindex="0">
               <div><div style="font-weight:500;color:var(--ink-gray-9);">ACC-PINV-2024-00098</div><div style="font-size:var(--font-size-xs);color:var(--ink-gray-5);">Acme Supplies Ltd</div></div>
               <span style="color:var(--ink-gray-6);font-size:var(--font-size-xs);">24 Oct 2024</span>
-              <span style="text-align:right;font-weight:500;">₹ 1,24,800</span>
+              <span style="text-align:right;font-weight:500;">\u20b9 1,24,800</span>
               <span><span class="fui-badge fui-badge-gray">Draft</span></span>
             </div>
             <div class="fui-list-row" style="grid-template-columns:1fr 110px 100px 90px;" tabindex="0">
               <div><div style="font-weight:500;color:var(--ink-gray-9);">ACC-PINV-2024-00097</div><div style="font-size:var(--font-size-xs);color:var(--ink-gray-5);">Beta Industrial Co.</div></div>
               <span style="color:var(--ink-gray-6);font-size:var(--font-size-xs);">22 Oct 2024</span>
-              <span style="text-align:right;font-weight:500;">₹ 56,200</span>
+              <span style="text-align:right;font-weight:500;">\u20b9 56,200</span>
               <span><span class="fui-badge fui-badge-blue">Submitted</span></span>
             </div>
             <div class="fui-list-row" style="grid-template-columns:1fr 110px 100px 90px;" tabindex="0">
               <div><div style="font-weight:500;color:var(--ink-gray-9);">ACC-PINV-2024-00096</div><div style="font-size:var(--font-size-xs);color:var(--ink-gray-5);">Gamma Trading LLC</div></div>
               <span style="color:var(--ink-gray-6);font-size:var(--font-size-xs);">21 Oct 2024</span>
-              <span style="text-align:right;font-weight:500;">₹ 8,400</span>
+              <span style="text-align:right;font-weight:500;">\u20b9 8,400</span>
               <span><span class="fui-badge fui-badge-red">Cancelled</span></span>
             </div>
             <div class="fui-list-row" style="grid-template-columns:1fr 110px 100px 90px;" tabindex="0">
               <div><div style="font-weight:500;color:var(--ink-gray-9);">ACC-PINV-2024-00095</div><div style="font-size:var(--font-size-xs);color:var(--ink-gray-5);">Delta Logistics</div></div>
               <span style="color:var(--ink-gray-6);font-size:var(--font-size-xs);">19 Oct 2024</span>
-              <span style="text-align:right;font-weight:500;">₹ 2,35,000</span>
+              <span style="text-align:right;font-weight:500;">\u20b9 2,35,000</span>
               <span><span class="fui-badge fui-badge-blue">Submitted</span></span>
             </div>
             <div class="fui-list-row" style="grid-template-columns:1fr 110px 100px 90px;" tabindex="0">
               <div><div style="font-weight:500;color:var(--ink-gray-9);">ACC-PINV-2024-00094</div><div style="font-size:var(--font-size-xs);color:var(--ink-gray-5);">Epsilon Parts</div></div>
               <span style="color:var(--ink-gray-6);font-size:var(--font-size-xs);">18 Oct 2024</span>
-              <span style="text-align:right;font-weight:500;">₹ 44,100</span>
+              <span style="text-align:right;font-weight:500;">\u20b9 44,100</span>
               <span><span class="fui-badge fui-badge-amber">On Hold</span></span>
             </div>
           </div>
@@ -543,7 +547,7 @@ body {{ padding: 16px; }}
           <div class="fui-detail-row"><span class="fui-detail-label">Supplier</span><span class="fui-detail-value">Acme Supplies Ltd</span></div>
           <div class="fui-detail-row"><span class="fui-detail-label">Invoice Date</span><span class="fui-detail-value">24 Oct 2024</span></div>
           <div class="fui-detail-row"><span class="fui-detail-label">Due Date</span><span class="fui-detail-value">23 Nov 2024</span></div>
-          <div class="fui-detail-row"><span class="fui-detail-label">Total</span><span class="fui-detail-value" style="font-weight:600;color:var(--ink-gray-9);">₹ 1,24,800</span></div>
+          <div class="fui-detail-row"><span class="fui-detail-label">Total</span><span class="fui-detail-value" style="font-weight:600;color:var(--ink-gray-9);">\u20b9 1,24,800</span></div>
           <div class="fui-detail-row"><span class="fui-detail-label">Company</span><span class="fui-detail-value">Acme Corp</span></div>
           <div style="padding:12px 16px;display:flex;gap:8px;">
             <button class="fui-btn fui-btn-solid" style="flex:1;">Submit</button>
@@ -563,7 +567,7 @@ body {{ padding: 16px; }}
 <div class="variant-frame">
   <div class="fui-workflow-banner">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-    Pending Accounts Manager approval — assigned to Priya S.
+    Pending Accounts Manager approval \u2014 assigned to Priya S.
     <div class="fui-spacer"></div>
     <button class="fui-btn fui-btn-subtle fui-btn-sm">View Workflow</button>
   </div>
@@ -588,9 +592,9 @@ body {{ padding: 16px; }}
   </div>
   <div style="padding:0 20px 20px;display:flex;justify-content:flex-end;max-width:880px;">
     <div style="min-width:240px;border:1px solid var(--outline-gray-2);border-radius:var(--rounded-5);overflow:hidden;">
-      <div class="fui-detail-row" style="padding:8px 14px;"><span class="fui-detail-label">Net Total</span><span class="fui-detail-value">₹ 47,627</span></div>
-      <div class="fui-detail-row" style="padding:8px 14px;"><span class="fui-detail-label">GST 18%</span><span class="fui-detail-value">₹ 8,573</span></div>
-      <div class="fui-detail-row" style="padding:8px 14px;background:var(--surface-gray-1);"><span class="fui-detail-label" style="font-weight:600;color:var(--ink-gray-8);">Grand Total</span><span class="fui-detail-value" style="font-weight:700;color:var(--ink-gray-9);">₹ 56,200</span></div>
+      <div class="fui-detail-row" style="padding:8px 14px;"><span class="fui-detail-label">Net Total</span><span class="fui-detail-value">\u20b9 47,627</span></div>
+      <div class="fui-detail-row" style="padding:8px 14px;"><span class="fui-detail-label">GST 18%</span><span class="fui-detail-value">\u20b9 8,573</span></div>
+      <div class="fui-detail-row" style="padding:8px 14px;background:var(--surface-gray-1);"><span class="fui-detail-label" style="font-weight:600;color:var(--ink-gray-8);">Grand Total</span><span class="fui-detail-value" style="font-weight:700;color:var(--ink-gray-9);">\u20b9 56,200</span></div>
     </div>
   </div>
 </div>
@@ -613,7 +617,7 @@ body {{ padding: 16px; }}
 
   <div>
     <div class="fui-label" style="margin-bottom:10px;">
-      Badges — Desk docstatus: 0=Draft(red) 1=Submitted(blue) 2=Cancelled(red) + custom states
+      Badges \u2014 Desk docstatus: 0=Draft(red) 1=Submitted(blue) 2=Cancelled(red) + custom states
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       <span class="fui-badge fui-badge-gray">Draft</span>
@@ -628,7 +632,7 @@ body {{ padding: 16px; }}
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:660px;">
     <div class="fui-field">
       <label class="fui-label" for="c-inp1">Text input</label>
-      <input class="fui-input" id="c-inp1" type="text" placeholder="Enter value…">
+      <input class="fui-input" id="c-inp1" type="text" placeholder="Enter value\u2026">
     </div>
     <div class="fui-field">
       <label class="fui-label" for="c-inp2">With error</label>
@@ -645,7 +649,7 @@ body {{ padding: 16px; }}
     <div class="fui-label" style="margin-bottom:10px;">Empty state (.fui-empty)</div>
     <div style="border:1px solid var(--outline-gray-2);border-radius:var(--rounded-5);max-width:380px;">
       <div class="fui-empty">
-        <div class="fui-empty-icon">📄</div>
+        <div class="fui-empty-icon">\ud83d\udcc4</div>
         <div class="fui-empty-title">No invoices yet</div>
         <div class="fui-empty-sub">Create your first Purchase Invoice to start tracking payables.</div>
         <button class="fui-btn fui-btn-solid fui-btn-sm">New Invoice</button>
@@ -679,83 +683,221 @@ body {{ padding: 16px; }}
 </div>
 
 <script>
-function toggleTheme() {{
+function toggleTheme() {
   const html = document.documentElement;
   const dark = html.getAttribute('data-theme') === 'dark';
   html.setAttribute('data-theme', dark ? 'light' : 'dark');
-  document.getElementById('theme-icon').textContent = dark ? '\U0001F319' : '\u2600\uFE0F';
-}}
+  document.getElementById('theme-icon').textContent = dark ? '\ud83c\udf19' : '\u2600\ufe0f';
+}
 </script>
 </body>
 </html>
-"""
+`;
+}
 
+// ── auto-search ──────────────────────────────────────────────────────────────
 
-# ── main ─────────────────────────────────────────────────────────────────────
+function hasTokens(dir) {
+  try {
+    fs.accessSync(path.join(dir, 'tailwind', 'tokens', 'colors.js'));
+    return true;
+  } catch { return false; }
+}
 
-def find_frappe_ui(hint):
-    candidates = [hint] if hint else []
-    candidates += [
-        os.environ.get('FRAPPE_UI', ''),
-        str(Path.home() / 'frappe-bench/apps/frappe-ui'),
-        './frappe-ui',
-    ]
-    for c in candidates:
-        if c and (Path(c) / 'tailwind' / 'tokens' / 'colors.js').exists():
-            return Path(c)
-    return None
+function findFrappeUi(hint) {
+  const candidates = [];
+  if (hint) candidates.push(hint);
+  const envVal = process.env.FRAPPE_UI || '';
+  if (envVal) candidates.push(envVal);
+  candidates.push(path.join(os.homedir(), 'frappe-bench', 'apps', 'frappe-ui'));
+  candidates.push('./frappe-ui');
 
+  // walk up from cwd looking for node_modules/frappe-ui and apps/frappe-ui
+  let dir = process.cwd();
+  const root = path.parse(dir).root;
+  while (true) {
+    candidates.push(path.join(dir, 'node_modules', 'frappe-ui'));
+    candidates.push(path.join(dir, 'apps', 'frappe-ui'));
+    if (dir === root) break;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
 
-def main():
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--frappe-ui', default='', help='frappe-ui root dir (default: $FRAPPE_UI or auto-searched)')
-    p.add_argument('--out',       default='./mockup-out', help='output directory (default: ./mockup-out)')
-    p.add_argument('--title',     default='Frappe Mockup', help='page title in HTML (default: Frappe Mockup)')
-    args = p.parse_args()
+  for (const c of candidates) {
+    if (c && hasTokens(c)) return c;
+  }
+  return null;
+}
 
-    fui = find_frappe_ui(args.frappe_ui)
-    if not fui:
-        print('ERROR: frappe-ui not found. Use --frappe-ui PATH or set $FRAPPE_UI', file=sys.stderr)
-        sys.exit(1)
+// ── generate ─────────────────────────────────────────────────────────────────
 
-    tokens_dir = fui / 'tailwind' / 'tokens'
-    print(f'Reading tokens from: {tokens_dir}', file=sys.stderr)
+function generate(opts) {
+  const { frappUi, out, title } = opts;
+  const tokensDir = path.join(frappUi, 'tailwind', 'tokens');
+  process.stderr.write(`Reading tokens from: ${tokensDir}\n`);
 
-    colors  = load_js(tokens_dir / 'colors.js')
-    typo    = load_js(tokens_dir / 'typography.js')
-    radius  = load_js(tokens_dir / 'radius.js')
-    effects = load_js(tokens_dir / 'effects.js')
+  const colors  = loadJs(path.join(tokensDir, 'colors.js'));
+  const typo    = loadJs(path.join(tokensDir, 'typography.js'));
+  const radius  = loadJs(path.join(tokensDir, 'radius.js'));
+  const effects = loadJs(path.join(tokensDir, 'effects.js'));
 
-    light_vars, dark_vars = semantic_vars(colors)
-    all_light = {**light_vars, **type_vars(typo), **radius_vars(radius), **shadow_vars(effects)}
+  const [lightVars, darkVars] = semanticVars(colors);
+  const allLight = Object.assign({}, lightVars, typeVars(typo), radiusVars(radius), shadowVars(effects));
 
-    css_lines = [
-        '/* Frappe-UI v1 tokens — generated by generate-mockup.py from tailwind/tokens/*',
-        '   Source: frappe/frappe-ui (MIT). Do not edit; regenerate from token files.  */',
-        '/* Fidelity: colors exact (oklch); shadows exact; font-size/weight/radius exact.',
-        '   .fui-* classes approximate component look — not real Vue components.        */',
-        '',
-        as_css_block(':root', all_light),
-        '',
-        as_css_block('[data-theme="dark"]', dark_vars),
-        '',
-    ]
-    tokens_css = '\n'.join(css_lines)
+  const cssLines = [
+    '/* Frappe-UI v1 tokens — generated by generate-mockup.js from tailwind/tokens/*',
+    '   Source: frappe/frappe-ui (MIT). Do not edit; regenerate from token files.  */',
+    '/* Fidelity: colors exact (oklch); shadows exact; font-size/weight/radius exact.',
+    '   .fui-* classes approximate component look — not real Vue components.        */',
+    '',
+    asCssBlock(':root', allLight),
+    '',
+    asCssBlock('[data-theme="dark"]', darkVars),
+    '',
+  ];
+  const tokensCss = cssLines.join('\n');
 
-    out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
+  fs.mkdirSync(out, { recursive: true });
 
-    (out / 'tokens.css').write_text(tokens_css, encoding='utf-8')
-    print(f'  ✓ tokens.css ({len(tokens_css):,} bytes)', file=sys.stderr)
+  fs.writeFileSync(path.join(out, 'tokens.css'), tokensCss, 'utf8');
+  process.stderr.write(`  ✓ tokens.css (${tokensCss.length.toLocaleString()} bytes)\n`);
 
-    html = MOCKUP_HTML.format(title=args.title, component_css=COMPONENT_CSS)
-    (out / 'mockup.html').write_text(html, encoding='utf-8')
-    print(f'  ✓ mockup.html ({len(html):,} bytes)', file=sys.stderr)
+  const html = buildMockupHtml(title, COMPONENT_CSS);
+  fs.writeFileSync(path.join(out, 'mockup.html'), html, 'utf8');
+  process.stderr.write(`  ✓ mockup.html (${html.length.toLocaleString()} bytes)\n`);
 
-    print(f'\nDone → {out.resolve()}', file=sys.stderr)
-    print(f'Serve: cd "{out.resolve()}" && python3 -m http.server 8765', file=sys.stderr)
-    print(f'Open:  http://localhost:8765/mockup.html', file=sys.stderr)
+  const absOut = path.resolve(out);
+  process.stderr.write(`\nDone → ${absOut}\n`);
+  process.stderr.write(`Serve: cd "${absOut}" && python3 -m http.server 8765\n`);
+  process.stderr.write(`Open:  http://localhost:8765/mockup.html\n`);
+}
 
+// ── selftest ─────────────────────────────────────────────────────────────────
 
-if __name__ == '__main__':
-    main()
+function selfTest() {
+  const tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), 'fui-selftest-'));
+  const fuiDir  = path.join(tmpBase, 'frappe-ui');
+  const tokDir  = path.join(fuiDir, 'tailwind', 'tokens');
+  const outDir  = path.join(tmpBase, 'out');
+  fs.mkdirSync(tokDir, { recursive: true });
+
+  // Minimal fixture token files — must match real frappe-ui quoted-key JSON format
+  fs.writeFileSync(path.join(tokDir, 'colors.js'), `export default {
+  "lightMode": { "gray": { "50": "oklch(0.99 0 0)", "900": "oklch(0.13 0 0)" } },
+  "darkMode":  { "gray": { "50": "oklch(0.99 0 0)", "900": "oklch(0.13 0 0)" } },
+  "themedVariables": {
+    "light": { "surface": { "base": "lightMode/gray/50" }, "ink": { "gray-9": "lightMode/gray/900" } },
+    "dark":  { "surface": { "base": "lightMode/gray/900" }, "ink": { "gray-9": "lightMode/gray/50" } }
+  }
+}`);
+  fs.writeFileSync(path.join(tokDir, 'typography.js'), `export default {
+  "fontFamily": { "text": "Inter Variable" },
+  "fontWeight": { "regular": 400, "medium": 500, "semibold": 600 },
+  "fontSize": {
+    "base": ["1rem", { "lineHeight": "1.5", "letterSpacing": "0em" }],
+    "sm":   ["0.875rem", { "lineHeight": "1.35" }],
+    "xs":   ["0.75rem"]
+  }
+}`);
+  fs.writeFileSync(path.join(tokDir, 'radius.js'), `export default {
+  "4": "6px", "5": "8px", "6": "10px", "full": "9999px"
+}`);
+  fs.writeFileSync(path.join(tokDir, 'effects.js'), `export default {
+  "elevation": {
+    "light": { "xl": "0 4px 24px 0 oklch(0.13 0 0 / 0.12)" },
+    "dark":  { "xl": "0 4px 24px 0 oklch(0 0 0 / 0.5)" }
+  },
+  "focus": {
+    "light": { "default": "0 0 0 2px oklch(0.6 0.2 270)" },
+    "dark":  { "default": "0 0 0 2px oklch(0.7 0.2 270)" }
+  }
+}`);
+
+  let failed = false;
+  const fail = (msg) => { process.stderr.write(`SELFTEST FAIL: ${msg}\n`); failed = true; };
+
+  try {
+    generate({ frappUi: fuiDir, out: outDir, title: 'Selftest Mockup' });
+  } catch (e) {
+    fail(`generate() threw: ${e.message}`);
+    process.exit(1);
+  }
+
+  // Assert output files exist
+  const tokensCssPath  = path.join(outDir, 'tokens.css');
+  const mockupHtmlPath = path.join(outDir, 'mockup.html');
+  if (!fs.existsSync(tokensCssPath))  fail('tokens.css missing');
+  if (!fs.existsSync(mockupHtmlPath)) fail('mockup.html missing');
+
+  if (!failed) {
+    const css  = fs.readFileSync(tokensCssPath,  'utf8');
+    const html = fs.readFileSync(mockupHtmlPath, 'utf8');
+
+    // Expected token CSS vars from fixture
+    if (!css.includes('--surface-base: oklch(0.99 0 0);'))  fail('--surface-base light missing from tokens.css');
+    if (!css.includes('--ink-gray-9: oklch(0.13 0 0);'))    fail('--ink-gray-9 light missing from tokens.css');
+    if (!css.includes('--rounded-4: 6px;'))                 fail('--rounded-4 missing from tokens.css');
+    if (!css.includes('--font-family:'))                    fail('--font-family missing from tokens.css');
+    if (!css.includes('[data-theme="dark"]'))                fail('dark theme block missing from tokens.css');
+    if (!css.includes('--shadow-xl-light:'))                fail('--shadow-xl-light missing from tokens.css');
+
+    // Confirm dark vars present
+    if (!css.includes('--surface-base: oklch(0.13 0 0);'))  fail('--surface-base dark missing from tokens.css');
+
+    // HTML sanity
+    if (!html.includes('<link rel="stylesheet" href="tokens.css">')) fail('tokens.css link missing from mockup.html');
+    if (!html.includes('fui-btn'))                                   fail('.fui-btn class missing from mockup.html');
+    if (!html.includes('Selftest Mockup'))                           fail('title missing from mockup.html');
+    if (!html.includes('toggleTheme'))                               fail('toggleTheme missing from mockup.html');
+  }
+
+  // Cleanup
+  fs.rmSync(tmpBase, { recursive: true, force: true });
+
+  if (failed) {
+    process.exit(1);
+  } else {
+    process.stderr.write('SELFTEST PASS\n');
+    process.exit(0);
+  }
+}
+
+// ── main ─────────────────────────────────────────────────────────────────────
+
+function parseArgs(argv) {
+  const args = { frappUi: '', out: './mockup-out', title: 'Frappe Mockup', selftest: false };
+  const a = argv.slice(2);
+  for (let i = 0; i < a.length; i++) {
+    if      (a[i] === '--frappe-ui' && a[i + 1]) { args.frappUi = a[++i]; }
+    else if (a[i] === '--out'       && a[i + 1]) { args.out     = a[++i]; }
+    else if (a[i] === '--title'     && a[i + 1]) { args.title   = a[++i]; }
+    else if (a[i] === '--selftest')               { args.selftest = true; }
+    else if (a[i] === '--help' || a[i] === '-h') {
+      process.stdout.write(
+        'Usage: node generate-mockup.js [--frappe-ui PATH] [--out DIR] [--title TITLE] [--selftest]\n'
+      );
+      process.exit(0);
+    }
+  }
+  return args;
+}
+
+function main() {
+  const args = parseArgs(process.argv);
+
+  if (args.selftest) {
+    selfTest();
+    return;
+  }
+
+  const fuiPath = findFrappeUi(args.frappUi);
+  if (!fuiPath) {
+    process.stderr.write('ERROR: frappe-ui not found. Use --frappe-ui PATH or set $FRAPPE_UI\n');
+    process.exit(1);
+  }
+
+  generate({ frappUi: fuiPath, out: args.out, title: args.title });
+}
+
+main();

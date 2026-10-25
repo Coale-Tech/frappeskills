@@ -179,3 +179,6 @@ Verified against:
 - frappe-ui 1.0.2 (`apps/frappe-ui/src/style.css` — `html` min-height `min(100lvh, ...)` in standalone PWA)
 - frappe-ui 1.0.2 (`apps/frappe-ui/src/utils/iconString.ts` — FeatherIcon removed note, ADR-0008)
 - frappe-design-tokens skill — deprecated 16.51 CSS variable list
+- WebKit blog — "Designing Websites for iPhone X": `viewport-fit=cover` + `env(safe-area-inset-*)` — <https://webkit.org/blog/7929/designing-websites-for-iphone-x/>
+- WebKit Bugzilla 301108 — iOS 26 `viewport-fit=cover` / `height=device-height` regression (cited by frappe-ui `style.css`) — <https://bugs.webkit.org/show_bug.cgi?id=301108>
+- Playwright emulation docs — Chromium device emulation coverage — <https://playwright.dev/docs/emulation>

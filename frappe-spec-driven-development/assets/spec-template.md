@@ -129,6 +129,14 @@ Use `@frappe.whitelist()`. Never skip the permission check. See `frappe-api-deve
 Print format name:  
 Template type (Jinja / Web Page):
 
+### UI surface
+
+| Screen | Surface (Desk script / portal page / Vue SPA) | Roles | Journey step it serves |
+|--------|-----------------------------------------------|-------|------------------------|
+| Salary Advance form | Desk form script | HR Manager | Approve a pending advance |
+
+Omit this subsection when the feature has no screen of its own.
+
 ---
 
 ## Patches & fixtures
@@ -161,6 +169,7 @@ Every patch must be idempotent (safe to run twice) and tested on a restored back
 | `TestSalaryAdvance` | Salary Advance | Validation: amount ≤ 0 raises ValidationError | Integration |
 | `TestSalaryAdvance` | Salary Advance | Rejection: HR Manager rejects pending advance | Integration |
 | `TestGetPendingAdvances` | API | Returns only the requesting employee's records | Integration |
+| Journey: advance request | Salary Advance | Employee submits, HR Manager approves in the browser; list shows Approved | E2E (browser) |
 
 Run: `bench --site <site> run-tests --app <app> --doctype "Salary Advance"`
 

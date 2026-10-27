@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/badge/skills-45-1467B1" alt="45 skills" />
     <img src="https://img.shields.io/badge/references-139-555" alt="139 references" />
     <img src="https://img.shields.io/badge/commands-11-555" alt="11 commands" />
-    <img src="https://img.shields.io/badge/agents-8-555" alt="8 agents" />
+    <img src="https://img.shields.io/badge/agents-9-555" alt="9 agents" />
   </p>
 </div>
 
@@ -87,9 +87,9 @@ ends with a `## Sources` section naming the files it was checked against.
 |  | [frappe-observability](frappe-observability/SKILL.md) | Logs, Error Log, Sentry, monitoring, alerts, runbooks | 1 |
 |  | [frappe-shipping-and-launch](frappe-shipping-and-launch/SKILL.md) | Go/no-go checklist, backup, rollback, staged rollout | 1 |
 
-**Commands** (`commands/`): `/frappe-spec` · `/frappe-plan` · `/frappe-plan-review` · `/frappe-build` (`auto` for unattended slices) · `/frappe-test` · `/frappe-constraints` · `/frappe-review` · `/frappe-simplify` · `/frappe-perf` · `/frappe-ship`, plus `/frappe` (router).
+**Commands** (`commands/`): `/frappe-spec` · `/frappe-plan` · `/frappe-plan-review` · `/frappe-build` (`auto` for unattended slices) · `/frappe-test` · `/frappe-constraints` · `/frappe-review` · `/frappe-simplify` · `/frappe-perf` · `/frappe-ship`, plus `/frappe` (omp: runs the whole spec-driven lifecycle for a feature — spec, plan review, plan, build, review — with approval gates after the spec and the plan; routes everything else).
 
-**Agents** (`omp/agents/`): `frappe-dev`, `frappe-reviewer`, `frappe-security-auditor`, `frappe-test-engineer`, `frappe-performance-auditor`, `frappe-migration-auditor`, `frappe-api-contract-auditor`, `frappe-scout`. See [docs/agents.md](docs/agents.md).
+**Agents** (`omp/agents/`): `frappe-dev`, `frappe-reviewer`, `frappe-security-auditor`, `frappe-test-engineer`, `frappe-performance-auditor`, `frappe-migration-auditor`, `frappe-api-contract-auditor`, `frappe-scout`, `frappe-advisor` (checks the skill ledger of a `/frappe` run). See [docs/agents.md](docs/agents.md).
 
 **Safety hook** (optional): `scripts/bench-guard.sh` plus an omp adapter blocks `bench drop-site`, core-app edits and similar. Advisory only; setup in [docs/bench-guard.md](docs/bench-guard.md).
 

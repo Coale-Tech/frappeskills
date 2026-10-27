@@ -14,6 +14,7 @@ Specialist personas that play a single role with a single perspective. Each is a
 | [frappe-migration-auditor](../omp/agents/frappe-migration-auditor.md) | Migration Engineer (read-only) | Patches, `patches.txt`, schema changes, data-loss and idempotency risk |
 | [frappe-api-contract-auditor](../omp/agents/frappe-api-contract-auditor.md) | API Contract Reviewer (read-only) | Whitelisted method signature, return shape, verb and `allow_guest` changes |
 | [frappe-scout](../omp/agents/frappe-scout.md) | Bench/code explorer (read-only) | Map an unknown bench or trace a flow before implementation |
+| [frappe-advisor](../omp/agents/frappe-advisor.md) | Skill-call monitor (read-only) | After each `/frappe` stage: were the required skills called, with evidence, in order |
 
 ## How personas relate to skills and commands
 
@@ -35,6 +36,7 @@ The user (or a slash command) is the orchestrator. **Personas do not call other 
 | A patch, `patches.txt` entry or schema change | `frappe-migration-auditor` | `frappe-security-auditor` |
 | A whitelisted method's signature, return shape or verb | `frappe-api-contract-auditor` | `frappe-security-auditor` |
 | Missing tests, coverage, a failing test to prove | `frappe-test-engineer` | `frappe-reviewer` |
+| Whether a lifecycle run called every skill it needed | `frappe-advisor` | `frappe-reviewer`; it judges code, not coverage |
 | Not knowing how the code or bench works yet | `frappe-scout` | `frappe-dev`; map first, then build |
 | Writing or changing Frappe app code | `frappe-dev` | any read-only persona |
 | One Critical or Required finding that needs checking | `frappe-reviewer` in Refute mode | the author of the finding |

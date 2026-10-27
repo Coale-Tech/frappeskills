@@ -49,9 +49,9 @@ Fill all sections:
 - **Workflow** — states, transitions, role allowed per transition, `workflow_state` field, `is_active`; note v16: `workflow_state` is auto-added by the framework only when a Workflow DocType is saved for that document
 - **Controller / hook behaviour** — validate, on_submit, on_cancel, on_trash; `doc_events` hooks in `hooks.py`; no `frappe.db.sql` — use `frappe.qb` or `frappe.get_all`
 - **API surface** — whitelisted methods, `@frappe.whitelist(allow_guest=…)`, request/response shape; link to `frappe-api-development` for full contract design
-- **Reports / prints** — Report DocType type (Query/Script/Report Builder), filter fields, print format name
+- **Reports / prints / UI** — Report DocType type (Query/Script/Report Builder), filter fields, print format name; every screen with its surface (Desk script, portal page, Vue SPA), roles and the journey step it serves
 - **Patches / fixtures** — fixture DocTypes exported via `bench --site <site> export-fixtures`; patches in `<app>/patches.txt` (idempotent, no bare SQL)
-- **Test plan** — which behaviours get `IntegrationTestCase` tests, which get `UnitTestCase`; happy path + at least one error/rejection path per DocType
+- **Test plan** — which behaviours get `IntegrationTestCase` tests, which get `UnitTestCase`; happy path + at least one error/rejection path per DocType; one browser journey per user story and role when the spec has a UI
 - **Boundaries** — Always / Ask first / Never (see template)
 - **Success criteria** — reframe every requirement as a testable statement
 - **Open questions** — anything unresolved that blocks implementation

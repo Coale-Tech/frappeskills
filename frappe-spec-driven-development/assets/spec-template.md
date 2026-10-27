@@ -10,7 +10,8 @@
 **What we're building:** (one sentence)  
 **Why now:** (trigger or business driver)  
 **Primary users:** (roles and their goal)  
-**Success looks like:** (observable outcome, not "it works")
+**Success looks like:** (observable outcome, not "it works")  
+**Alternatives considered:** (each rejected option, including the stock Frappe feature, and why it lost)
 
 ---
 

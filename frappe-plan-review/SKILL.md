@@ -45,6 +45,8 @@ Read [`references/frappe-standard-capabilities.md`](references/frappe-standard-c
 - Portal data entry → Web Form
 - Extra fields on core DocTypes → Custom Field
 
+For every new helper, util or DocType the plan adds, grep the installed apps (`apps/*/`) for an existing equivalent before approving it. Reuse beats new code; a match is a Reduce-scope finding.
+
 Issue one of four scope verdicts: **Hold scope** (minimum required, proceed), **Reduce scope** (custom code where stock config suffices — cut those parts), **Expand scope** (addressing a symptom; standard-first delivers more for less maintenance), **Defer** (missing information; list what is needed).
 
 State the trade-off: what the custom approach costs through 16.x upgrades vs what stock configuration cannot do.

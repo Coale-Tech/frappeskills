@@ -68,6 +68,15 @@ https://github.com/ruvnet/claude-flow, licensed MIT (full text in
 LICENSES/ruflo-ruvnet-MIT.txt). Adapted 2026-10-25. The text and regexes are
 rewritten for Frappe/bench; no ruflo code is vendored.
 
+The spec comprehension check, the plan readiness check, the alternatives-considered
+rule, the reuse search, and the spec-drift script (frappe-spec-driven-development,
+frappe-planning-and-task-breakdown, frappe-plan-review) are adapted from the
+Elephant-Goldfish Model by Google at
+https://github.com/google/elephant-goldfish-model, licensed Apache-2.0 (full text in
+LICENSES/egm-google-Apache-2.0.txt). Adapted 2026-10-27. The ideas are rewritten for
+Frappe in our own words and the script is original code; no EGM text or code is
+copied. This is not a Google product and Google does not endorse it.
+
 Code examples cite Frappe Framework, ERPNext, HRMS, Frappe CRM and Frappe
 Insights source, all published by Frappe Technologies under the GNU General
 Public License v3 / MIT depending on the project. Those citations are

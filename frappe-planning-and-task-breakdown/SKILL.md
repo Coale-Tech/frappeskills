@@ -102,6 +102,10 @@ After every 2-3 tasks:
 - [ ] Human review before proceeding
 ```
 
+### 6) Readiness check — zero decisions left to the implementer
+
+Before handing a task to `frappe-dev`, read it as the person who must write the code. The task fails if they would have to choose any of: a field's type, options or link target; the naming rule; whether a data change belongs in `pre_model_sync` or `post_model_sync`; a hook name or event; an API method path or signature; how to handle an edge case. Each choice must already be written in the task or the spec it cites. Check that every task lists its files, has a test for the happy path and one rejection path, and leaves `migrate` and the tests passing. For tasks that carry real risk, have a fresh read-only subagent try to list exactly what to change from the task text alone; whatever it cannot list is a gap.
+
 ## Verification
 
 - [ ] Every task has acceptance criteria with at least one runnable verification command
@@ -110,6 +114,7 @@ After every 2-3 tasks:
 - [ ] L-sized tasks decomposed; no XL tasks remain
 - [ ] Parallel-safe tasks identified; file-conflict tasks serialized
 - [ ] Checkpoints every 2-3 tasks
+- [ ] Every task passes the readiness check (step 6): no field type, patch phase, hook or signature left for the implementer to choose
 - [ ] No pre-existing `tasks/plan.md` overwritten without user confirmation
 - [ ] Human has reviewed and approved the plan before implementation starts
 

@@ -43,7 +43,7 @@ ASSUMPTIONS:
 ### 1) Write the spec using `assets/spec-template.md`
 
 Fill all sections:
-- **Objective** — outcome, users, why now
+- **Objective** — outcome, users, why now, and alternatives considered (including the stock Frappe feature) with why each was rejected; a spec with one path and no rejected options is not ready
 - **DocType model** — each DocType: key fields, field types, link targets, child tables, naming series, `autoname`, submit/amend/cancel flags
 - **Permission matrix** — role × (read / write / create / submit / cancel / amend) per DocType; `match` conditions for owner-scoped access
 - **Workflow** — states, transitions, role allowed per transition, `workflow_state` field, `is_active`; note v16: `workflow_state` is auto-added by the framework only when a Workflow DocType is saved for that document
@@ -67,16 +67,20 @@ REFRAMED:
 → Correct these targets?
 ```
 
-### 3) Stop — get explicit approval before any code
+### 3) Comprehension check — can a cold reader restate it?
+
+Spawn a fresh read-only subagent (for example `frappe-scout`) with no conversation history and hand it only the spec path. Ask it to restate, from the spec alone: each DocType and its links, who can do what (permission matrix), the workflow transitions, the API signatures, and what each patch changes. Compare its answer with your intent. Any item it cannot restate, or restates differently, is an ambiguity in the spec: fix the spec and rerun once. Do not pass your reasoning along. No subagent tool available: say so; re-reading in the same context is not this check.
+
+### 4) Stop — get explicit approval before any code
 
 After saving `SPEC-<feature>.md` at the repo root (or `<app>/docs/`):
 1. Summarise the spec and list Open Questions.
 2. Ask for approval or changes.
 3. **Stop.** Do not create DocType JSON, write Python, or invoke `frappe-doctype-development` in this turn. Planning and implementation start only after an explicit yes in a later turn.
 
-### 4) Keep the spec alive
+### 5) Keep the spec alive
 
-Update it when decisions change. Commit it alongside the code. Reference the spec section in PRs.
+Update it when decisions change. Commit it alongside the code. Reference the spec section in PRs. Once code exists, `node scripts/spec-drift.js <spec> <app-dir>` lists where DocType fields, `is_submittable` and permission roles in the code differ from the spec.
 
 ## Verification
 
@@ -84,6 +88,7 @@ Update it when decisions change. Commit it alongside the code. Reference the spe
 - [ ] Assumptions surfaced and confirmed before spec was written
 - [ ] Every requirement rewritten as a testable success criterion
 - [ ] Boundaries (Always / Ask first / Never) defined
+- [ ] A fresh reader restated the spec correctly (step 3), or each gap was fixed in the spec
 - [ ] Turn stopped after spec was saved; approval came in a later turn
 - [ ] `SPEC-<feature>.md` committed to the repository
 
@@ -106,6 +111,7 @@ Update it when decisions change. Commit it alongside the code. Reference the spe
 ## References
 
 - [assets/spec-template.md](assets/spec-template.md) — Frappe spec template with all 12 sections
+- [scripts/spec-drift.js](scripts/spec-drift.js) — spec-to-code drift report (DocType fields, submittable flag, permission roles)
 
 ## Guardrails
 

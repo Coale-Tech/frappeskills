@@ -97,6 +97,8 @@ ends with a `## Sources` section naming the files it was checked against.
 
 Guard rules, the refutation pass and the status-protocol fields are adapted from ruflo (MIT): [docs/ruflo-adoption.md](docs/ruflo-adoption.md).
 
+The spec comprehension check, plan readiness check and spec-drift script are adapted from the Elephant-Goldfish Model (Apache-2.0): [docs/egm-adoption.md](docs/egm-adoption.md).
+
 ## Installation
 
 ```bash

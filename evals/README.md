@@ -23,6 +23,8 @@ node scripts/run-evals.js --min-rank1 95     # enforce a routing quality floor
 # Tier 3 — dialogue behavioral, spends tokens
 node scripts/run-evals.js --behavioral frappe-testing
 node scripts/run-evals.js --behavioral frappe-testing --dry-run  # print plan only
+node scripts/run-evals.js --behavioral frappe-testing --runner omp      # omp instead of claude; no claude login needed
+node scripts/run-evals.js --behavioral frappe-testing --runner omp --paired  # with skill vs no skill, prints the delta
 ```
 
 Results are written to `evals/results/` (gitignored).
@@ -89,3 +91,13 @@ When you add a new `frappe-*/`, also add `evals/cases/<skill-name>.json` with at
 ## Metrics to watch
 
 Tier 2 prints a **trigger rank-1 rate** (share of positive prompts that rank their skill first). Run with `--min-rank1 95` in CI. Raise the floor as routing improves; never lower it to paper over a regression. A falling rate means descriptions are drifting toward each other — fix the descriptions.
+
+## Improving a skill
+
+Skills are not edited from impressions or by a model unattended; curated skills help, self-written ones barely do ([SkillsBench](https://www.skillsbench.ai/blogs/introducing-skillsbench)). The loop:
+
+1. A real run leaves a row in `tasks/retro.md` (advisor `BLOCK`, gate breach, or a skill read that changed nothing).
+2. Turn the row into a dialogue eval in `evals/cases/<skill>.json` and confirm it fails: `--behavioral <skill> --runner omp --paired` should show the skill failing it.
+3. Make the smallest addition that fixes it (a table row or a sentence); never rewrite a section. Keep `SKILL.md` within the line limits.
+4. Re-run `--paired`: the skill must pass the new case, the old cases must still pass, and the no-skill column shows what the skill adds.
+5. Run `validate-skills`, `run-evals.js` and `selftest.js`, then review the diff before committing.

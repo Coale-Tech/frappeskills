@@ -18,6 +18,8 @@ Resume at the first stage whose artifact is missing or unapproved: `SPEC.md` (or
 
 **Advisor.** After every stage, spawn `frappe-advisor` (omp: `agent: frappe-advisor`) with the stage id, the `SPEC.md` path and the ledger path. A stage is not done while it answers `BLOCK`: call the missing skill or log a valid `N/A`, then ask again. Act on each `[STEER]` or record why not. The advisor reads the ledger and artifacts; it cannot see your tool calls.
 
+**Retro.** Keep `tasks/retro.md` with the header `| Date | Stage | What happened | Fix |`. Append a row for every advisor `BLOCK`, every gate breach, and at S7 every skill you read that changed nothing. Rows are the raw material for new eval cases; they are never edited into a skill without a failing case first.
+
 | Stage | Do | Primary skills |
 |-------|----|----------------|
 | S0 Triage | Versions, installed apps, site | `frappe-router`, `frappe-project-triage` |

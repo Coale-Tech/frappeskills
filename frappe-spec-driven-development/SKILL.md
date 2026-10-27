@@ -134,6 +134,7 @@ Update it when decisions change. Commit it alongside the code. Reference the spe
 | "The permission matrix is obvious" | A missing `match` condition on a multi-company install is a data-leak bug, not an edge case |
 | "I'll figure out patches during implementation" | Patches that touch existing data must be idempotent and tested on a restored backup; commit them to the spec now |
 | "v15 and v16 behave the same here" | `on_submit` cascade, `workflow_state` auto-add, and `frappe.db.count` differ; note the version in the spec |
+| "The deadline is tomorrow, skip the spec" | A deadline is when a wrong naming series or permission row costs most. Offer a one-page minimal spec instead: Objective with alternatives, DocType model (fields, links, naming), permission matrix, Always/Ask first/Never. Write it now, wait for the yes, then build |
 
 ## Red Flags
 
